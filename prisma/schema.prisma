@@ -32,3 +32,15 @@ model BankrollSnapshot {
   amount    Float
   createdAt DateTime @default(now())
 }
+
+model RaceCard {
+  id        Int      @id @default(autoincrement())
+  track     String
+  raceDate  String
+  numRaces  Int      @default(10)
+  label     String
+  data      String
+  savedAt   DateTime @default(now())
+
+  @@unique([track, raceDate])
+}
