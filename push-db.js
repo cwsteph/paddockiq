@@ -1,0 +1,1 @@
+const {execSync}=require("child_process");execSync("cp .env.local .env",{stdio:"inherit"});execSync("npx prisma db push",{stdio:"inherit"});
