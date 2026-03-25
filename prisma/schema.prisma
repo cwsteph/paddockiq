@@ -1,0 +1,34 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Bankroll {
+  id        Int      @id @default(autoincrement())
+  amount    Float
+  updatedAt DateTime @updatedAt
+}
+
+model Bet {
+  id        Int      @id @default(autoincrement())
+  track     String
+  raceDate  String
+  race      Int
+  betType   String
+  horses    String
+  amount    Float
+  toWin     Float?
+  result    String?
+  payout    Float?
+  createdAt DateTime @default(now())
+}
+
+model BankrollSnapshot {
+  id        Int      @id @default(autoincrement())
+  amount    Float
+  createdAt DateTime @default(now())
+}
