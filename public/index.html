@@ -3613,7 +3613,7 @@ function clearTodayState(){
 // PP PARSER TAB
 // ═══════════════════════════════════════════════════════════
 // ── Proxy URL — update this after deploying your Cloudflare Worker ──
-var PROXY_URL = '/api/parse-pp';
+var PROXY_URL = 'https://paddockiq-proxy.charles-stephens-w.workers.dev';
 // API key — stored in localStorage, set once in Settings tab
 var ppApiKey = (function(){try{var s=JSON.parse(localStorage.getItem('paddockiq_state')||'{}');return s.apiKey||'';}catch(e){return '';}})();
 var cardInfo = {
