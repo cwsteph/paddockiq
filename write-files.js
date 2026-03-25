@@ -1,4 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+const fs = require("fs");
+const p = (f,c) => { fs.mkdirSync(require("path").dirname(f),{recursive:true}); fs.writeFileSync(f,c); console.log("wrote",f); };
+
+p("app/page.tsx", `import { redirect } from "next/navigation";
+export default function Home() {
+  redirect("/index.html");
+}
+`);
+
+p("app/api/parse-pp/route.ts", `import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,3 +30,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: { message: msg } }, { status: 500 });
   }
 }
+`);
+
+console.log("done");

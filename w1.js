@@ -1,4 +1,8 @@
-@tailwind base;
+const fs = require("fs");
+const path = require("path");
+const p = (f, c) => { fs.mkdirSync(path.dirname(f), {recursive:true}); fs.writeFileSync(f, c); console.log("wrote", f); };
+
+p("app/globals.css", `@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -50,3 +54,6 @@ body {
   .font-mono   { font-family: var(--font-mono), monospace; }
   .font-bebas  { font-family: "Bebas Neue", sans-serif; letter-spacing: 2px; }
 }
+`);
+
+console.log("globals.css written");
