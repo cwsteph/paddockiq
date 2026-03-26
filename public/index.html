@@ -3625,7 +3625,19 @@ var ppParseState={loading:false,result:null,error:null,mode:'pdf',fileName:null,
 var resMode='pdf'; // 'pdf' or 'text' for results lookup
 var resPdfBase64=null; var resPdfFileName=null;
 
-function renderPPParser(){
+function renderPPParser(){ setTimeout(function(){
+  if(!document.getElementById("save-card-btn")){
+    var cards=document.querySelectorAll(".card");
+    var rc=null;
+    cards.forEach(function(c){if(c.innerHTML.indexOf("Race Results Lookup")>-1)rc=c;});
+    if(rc){
+      var d=document.createElement("div");
+      d.innerHTML='<div style="margin-top:14px;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px"><div style="font-size:11px;color:var(--gold);text-transform:uppercase;font-weight:700;margin-bottom:8px">Multi-Day Cards</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><button id="save-card-btn" onclick="saveCardToServer()" style="background:#0a1f12;border:1px solid var(--green);color:var(--green);border-radius:7px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:600">Save Card</button><select id="saved-cards-sel" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-size:12px;flex:1;min-width:160px"><option value="">Select a saved card</option></select><button onclick="loadSelectedCard()" style="background:var(--bg);border:1px solid var(--gold);color:var(--gold);border-radius:7px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:600">Load</button></div><div id="save-card-status" style="font-size:11px;color:var(--muted);min-height:16px"></div></div>';
+      rc.before(d.firstChild);
+      if(typeof loadSavedCardList!=="undefined") loadSavedCardList().catch(function(){});
+    }
+  }
+},150);
   var el=document.getElementById('tab-ppparser');
   var s=ppParseState;
   var mode=ppParseState.mode||'pdf';
