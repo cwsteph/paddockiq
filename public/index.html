@@ -3454,141 +3454,14 @@ async function loadSelectedCard(){
   await loadCardById(parseInt(sel.value));
 }
 
-function renderCSVImport(){
-  var el=document.getElementById('tab-csvimport');
-  if(!el) return;
-  // Build Multi-Day Cards section
-  var multiDay='<div style="margin-bottom:16px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px">'+
-    '<div style="font-size:11px;color:var(--gold);text-transform:uppercase;font-weight:700;margin-bottom:10px">Multi-Day Cards</div>'+
-    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">'+
-    '<button id="save-card-btn" onclick="saveCardToServer()" style="background:#0a1f12;border:1px solid var(--green);color:var(--green);border-radius:7px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:600">Save Card</button>'+
-    '<select id="saved-cards-sel" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-size:12px;flex:1;min-width:160px"><option value="">Select a saved card</option></select>'+
-    '<button onclick="loadSelectedCard()" style="background:var(--bg);border:1px solid var(--gold);color:var(--gold);border-radius:7px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:600">Load</button>'+
-    '</div><div id="save-card-status" style="font-size:11px;color:var(--muted);min-height:16px"></div></div>';
-  el.innerHTML=
-    '<div style="padding:16px;max-width:680px;margin:0 auto">'+
-    // CSV Upload card
-    '<div style="padding:18px;background:linear-gradient(135deg,#0d1f2d,#081420);border:1px solid #2a5a8c;border-radius:12px;margin-bottom:16px">'+
-      '<div style="font-size:12px;color:#7ecfff;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">📂 DRF Selections CSV</div>'+
-      '<div style="font-size:12px;color:#5588aa;margin-bottom:14px;line-height:1.5">Upload the <code style="color:#aaccee;background:#0a1a28;padding:1px 5px;border-radius:3px">_sf.csv</code> file from DRF to load a full race card with Beyers, pace calls, workouts &amp; trainer stats. Auto-saves to Multi-Day Cards.</div>'+
-      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
-      '<button id="csv-upload-btn" onclick="document.getElementById('csv-file-input').click()" style="background:linear-gradient(135deg,#1a3a5c,#0d2035);color:#7ecfff;border:1px solid #2a5a8c;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.4)">📂 Load DRF CSV</button>'+
-      '<input type="file" id="csv-file-input" accept=".csv,.txt" style="display:none" onchange="handleCSVUpload(event)">'+
-      '<div id="csv-upload-status" style="font-size:12px;color:var(--muted);flex:1"></div>'+
-      '</div>'+
-    '</div>'+
-    // Scoring weights info card
-    '<div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;margin-bottom:16px">'+
-      '<div style="font-size:11px;color:var(--gold);text-transform:uppercase;font-weight:700;margin-bottom:10px">Scoring Weights (SF CSV)</div>'+
-      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:11px">'+
-        ['Beyer 18%','Pace 13%','Class 20%','Form 20%','Speed 10%','Jockey 6%','Trainer 5%','Workouts 4%','Mkt Odds 4%'].map(function(w){
-          var parts=w.split(' ');
-          return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 8px">'+
-            '<span style="color:var(--text);font-weight:600">'+parts[0]+'</span> <span style="color:var(--gold)">'+parts[1]+'</span></div>';
-        }).join('')+
-      '</div>'+
-    '</div>'+
-    // Multi-Day Cards
-    multiDay+
-    '</div>';
-  // Populate saved cards dropdown
-  if(typeof loadSavedCardList!=="undefined") loadSavedCardList().catch(function(){});
-}
-
-async function handleCSVUpload(evt){
-  var file=evt.target.files[0]; if(!file) return;
-  var btn=document.getElementById('csv-upload-btn');
-  var status=document.getElementById('csv-upload-status');
-  btn.textContent='⏳ Parsing…'; btn.disabled=true;
-  try{
-    var text=await new Promise(function(res,rej){
-      var r=new FileReader(); r.onload=function(e){res(e.target.result);}; r.onerror=rej; r.readAsText(file);
-    });
-    var cardState=parseSFCSV(text);
-    if(!cardState||!cardState.races.length) throw new Error('No races found. Make sure this is a DRF _sf.csv Selections File.');
-    loadCSVCard(cardState);
-    var totalHorses=cardState.races.reduce(function(a,r){return a+r.horses.length;},0);
-    status.innerHTML='<span style="color:var(--green)">⏳ Saving '+cardState.races.length+' races, '+totalHorses+' horses…</span>';
-    var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    var d=new Date(cardState.date+'T12:00:00'); // noon to avoid tz issues
-    var label=cardState.trackName+' - '+months[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();
-    var resp=await fetch('/api/cards',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({track:cardState.track,raceDate:cardState.date,numRaces:cardState.races.length,label:label,data:cardState})});
-    var result=await resp.json();
-    if(result.ok){
-      status.innerHTML='<span style="color:var(--green)">✅ '+label+' saved (id:'+result.id+')</span>';
-      await loadSavedCardList();
-    } else {
-      status.innerHTML='<span style="color:var(--gold)">⚠️ Card loaded but save failed</span>';
-    }
-    btn.textContent='✅ '+label.split(' - ')[1];
-    setTimeout(function(){btn.textContent='📂 Load DRF CSV';btn.disabled=false;},5000);
-  }catch(err){
-    console.error('[CSV Import]',err);
-    status.innerHTML='<span style="color:#e05555">❌ '+err.message+'</span>';
-    btn.textContent='📂 Load DRF CSV'; btn.disabled=false;
-  }
-  evt.target.value='';
-}
 
 
-async function saveCardToServer(){
-  var btn=document.getElementById("save-card-btn"),st=document.getElementById("save-card-status");
-  if(!R.some(function(r){return r.horses.length>0;})){if(st)st.textContent="No parsed card.";return;}
-  if(btn){btn.disabled=true;btn.textContent="Saving...";}
-  try{
-    var raceDate=(cardInfo&&cardInfo.date)?cardInfo.date:new Date().toLocaleDateString("en-CA",{timeZone:"America/Chicago"});
-    var track=(cardInfo&&cardInfo.code)?cardInfo.code:"OP";
-    var trackName=(cardInfo&&cardInfo.track)?cardInfo.track:"Oaklawn Park";
-    var p=raceDate.split("-"),months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    var label=trackName+" - "+months[parseInt(p[1])-1]+" "+parseInt(p[2]);
-    var resp=await fetch("/api/cards",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({track:track,raceDate:raceDate,numRaces:R.filter(function(r){return r.horses.length>0;}).length,label:label,data:JSON.stringify({cardInfo:cardInfo,races:R,scratches:scratches})})});
-    var data=await resp.json();
-    if(data.ok){if(st)st.innerHTML='<span style="color:var(--green)">Saved: '+label+'</span>';await loadSavedCardList();}
-  }catch(e){if(st)st.innerHTML='<span style="color:var(--red)">Error: '+e.message+'</span>';}
-  if(btn){btn.disabled=false;btn.textContent="Save Card";}
-}
-async function loadSavedCardList(){
-  try{
-    var resp=await fetch("/api/cards"),cards=await resp.json();
-    var sel=document.getElementById("saved-cards-sel");
-    if(!sel||!Array.isArray(cards))return;
-    var today=new Date().toLocaleDateString("en-CA",{timeZone:"America/Chicago"});
-    sel.innerHTML='<option value="">Select a saved card</option>'+cards.map(function(c){
-      var flag=c.raceDate===today?" TODAY":c.raceDate>today?" UPCOMING":" past";
-      return '<option value="'+c.id+'">'+c.label+flag+'</option>';
-    }).join("");
-    var auto=cards.find(function(c){return c.raceDate===today;})||cards.find(function(c){return c.raceDate>=today;});
-    if(auto&&!R.some(function(r){return r.horses.length>0;}))await loadCardById(auto.id);
-  }catch(e){console.warn(e);}
-}
-async function loadCardById(id){
-  try{
-    var resp=await fetch("/api/cards?id="+id),card=await resp.json();
-    if(!card||!card.data)return;
-    var saved=JSON.parse(card.data);
-    if(saved.cardInfo){if(!cardInfo)cardInfo={};Object.assign(cardInfo,saved.cardInfo);}
-    if(saved.races&&saved.races.length)R=saved.races;
-    if(saved.scratches)scratches=saved.scratches;
-    updateCardHeader();renderRaceTabs();goRace(0);render();
-    var st=document.getElementById("save-card-status");
-    if(st)st.innerHTML='<span style="color:var(--green)">Loaded: '+card.label+'</span>';
-    document.querySelectorAll(".ntab").forEach(function(b){if(b.textContent.indexOf("Rankings")>-1)b.click();});
-  }catch(e){console.warn(e);}
-}
-async function loadSelectedCard(){
-  var sel=document.getElementById("saved-cards-sel");
-  if(!sel||!sel.value)return;
-  await loadCardById(parseInt(sel.value));
-}
 </script>
 
 <script>
-
-// ── Public API for CSV tab ──────────────────────────────────────────────────
-// parseSFCSV and loadCSVCard are called from handleCSVUpload above
-// They are defined inside initCSVImport() but exposed as window globals
+// ── Public aliases for CSV import tab ────────────────────────────────────
+// parseSFCSV and loadCSVCard are called from handleCSVUpload (defined above)
+// They are exposed by initCSVImport() as window._csv* globals
 
 // ============================================================
 // PaddockIQ CSV Import Patch
@@ -4108,7 +3981,8 @@ async function loadSelectedCard(){
 
 })();
 
-// Public aliases called from renderCSVImport / handleCSVUpload
+
+// Public aliases
 window.parseSFCSV  = window._csvParseSF;
 window.loadCSVCard = window._csvLoadCard;
 
