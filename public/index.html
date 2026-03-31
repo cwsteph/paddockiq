@@ -169,7 +169,7 @@ input{font-family:'DM Sans',sans-serif}
     <button class="ntab" onclick="goTab('multirace')">🎯 Pick 3/4/5</button>
     <button class="ntab" onclick="goTab('odds')">📡 Odds</button>
     <button class="ntab" onclick="goTab('bankroll')">💰 Bankroll</button>
-    <button class="ntab" onclick="goTab('pnl')">📊 P    <button class="ntab" onclick="goTab('pnl')">📊 P&L</button>L</button>
+    <button class="ntab" onclick="goTab('pnl')">📊 P&L</button>
     <button class="ntab" onclick="goTab('csvimport')" style="color:#7ecfff;border-bottom-color:transparent">📥 Card Import</button>
 
     <button class="ntab" onclick="goTab('settings')" style="color:var(--dim);border-bottom-color:transparent">⚙️ Settings</button>
@@ -4107,6 +4107,10 @@ async function loadSelectedCard(){
   }
 
 })();
+
+// Public aliases called from renderCSVImport / handleCSVUpload
+window.parseSFCSV  = window._csvParseSF;
+window.loadCSVCard = window._csvLoadCard;
 
 </script>
 </body>
