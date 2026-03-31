@@ -169,8 +169,9 @@ input{font-family:'DM Sans',sans-serif}
     <button class="ntab" onclick="goTab('multirace')">🎯 Pick 3/4/5</button>
     <button class="ntab" onclick="goTab('odds')">📡 Odds</button>
     <button class="ntab" onclick="goTab('bankroll')">💰 Bankroll</button>
-    <button class="ntab" onclick="goTab('pnl')">📊 P&L</button>
-    <button class="ntab" onclick="goTab('ppparser')" style="color:#b48cf8;border-bottom-color:transparent">⚡ PP Parser</button>
+    <button class="ntab" onclick="goTab('pnl')">📊 P    <button class="ntab" onclick="goTab('pnl')">📊 P&L</button>L</button>
+    <button class="ntab" onclick="goTab('csvimport')" style="color:#7ecfff;border-bottom-color:transparent">📥 Card Import</button>
+
     <button class="ntab" onclick="goTab('settings')" style="color:var(--dim);border-bottom-color:transparent">⚙️ Settings</button>
   </div>
   <div id="tab-rankings"></div>
@@ -179,7 +180,7 @@ input{font-family:'DM Sans',sans-serif}
   <div id="tab-odds" style="display:none"></div>
   <div id="tab-bankroll" style="display:none"></div>
   <div id="tab-pnl" style="display:none"></div>
-  <div id="tab-ppparser" style="display:none"></div>
+  <div id="tab-csvimport" style="display:none"></div>
   <div id="tab-settings" style="display:none"></div>
 </div>
 
@@ -631,10 +632,10 @@ function goTab(t){
   TAB=t;
   document.querySelectorAll('.ntab').forEach(function(b){b.classList.remove('on');});
   event.target.classList.add('on');
-  ['rankings','pace','multirace','odds','bankroll','pnl','ppparser','settings'].forEach(function(id){
+  ['rankings','pace','multirace','odds','bankroll','pnl','csvimport','settings'].forEach(function(id){
     document.getElementById('tab-'+id).style.display=(id===t?'':'none');
   });
-  if(t==='ppparser') renderPPParser();
+  if(t==='csvimport') renderCSVImport();
   else if(t==='settings') renderSettings();
   else render();
 }
@@ -2400,266 +2401,6 @@ async function fetchEquibaseData(){
   }
 }
 
-function parseEquibaseRosters(text){
-  // Extract the official horse list per race from Equibase entry page
-  // Returns {raceN: [{name, pp, ml, scratched}]}
-  var rosters = {};
-  var raceRe = /Race\s+(\d+)\s+POST\s+Time\s*[-–]\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/gi;
-  var raceMatches = [];
-  var m;
-  while((m=raceRe.exec(text))!==null){
-    raceMatches.push({n:parseInt(m[1]), time:m[2].trim(), pos:m.index});
-  }
-
-  for(var i=0; i<raceMatches.length; i++){
-    var rn    = raceMatches[i].n;
-    var start = raceMatches[i].pos;
-    var end   = i+1 < raceMatches.length ? raceMatches[i+1].pos : text.length;
-    var section = text.slice(start, end);
-
-    rosters[rn] = [];
-    var lines = section.split(' ');
-    var currentPP = null;
-
-    // Parse horse entries: look for PP# then horse name then odds
-    // Equibase format: "1 HorseName (Jockey) Trainer M/L"
-    var lineText = section;
-    // Find patterns: number followed by capitalized horse name
-    var horseRe = /(\d{1,2})\s+([A-Z][a-zA-Z\s']{2,30}?)\s+(?:[A-Z]\.\s+)?[A-Z][a-z]/g;
-    var hm;
-    while((hm=horseRe.exec(lineText))!==null){
-      var pp = parseInt(hm[1]);
-      var name = hm[2].trim();
-      if(pp >= 1 && pp <= 20 && name.length > 2){
-        // Check if scratched
-        var nearText = lineText.slice(Math.max(0,hm.index-10), hm.index+name.length+50);
-        var scratched = /SCR/.test(nearText);
-        // Get ML odds
-        var oddsM = lineText.slice(hm.index, hm.index+100).match(/(\d+)\/(\d+)/);
-        var ml = oddsM ? oddsM[1]+'-'+oddsM[2] : '5-1';
-        rosters[rn].push({name:name, pp:pp, ml:ml, scratched:scratched});
-      }
-    }
-  }
-  return rosters;
-}
-
-function parseEquibasePage(text){
-  var result = {
-    postTimes: {},  // {raceN: "12:30 PM"}
-    odds:      {},  // {raceN: {horseName: "5-2"}}
-    scratched: {},  // {raceN: ["Horse Name", ...]}
-    races:     []   // [{n, time, dist, ty}] — full card structure
-  };
-
-  // Split into race sections — Equibase uses "RACE N POST TIME - H:MM AM/PM TZ"
-  var raceRe = /Race\s+(\d+)\s+POST\s+Time\s*[-–]\s*(\d{1,2}:\d{2}\s*(?:AM|PM))\s*([A-Z]{2,3})?/gi;
-  var raceMatches = [];
-  var m;
-  while((m = raceRe.exec(text)) !== null){
-    raceMatches.push({n:parseInt(m[1]), time:m[2].trim(), tz:m[3]||'', pos:m.index});
-  }
-
-  raceMatches.forEach(function(r){ result.postTimes[r.n] = r.time; });
-
-  for(var i=0; i<raceMatches.length; i++){
-    var rn    = raceMatches[i].n;
-    var start = raceMatches[i].pos;
-    var end   = i+1 < raceMatches.length ? raceMatches[i+1].pos : text.length;
-    var section = text.slice(start, end);
-
-    result.odds[rn]     = {};
-    result.scratched[rn] = [];
-
-    // Extract race type and distance
-    var distM = section.match(/(\d+(?:\s+\d+\/\d+)?)\s*(Furlongs?|Miles?|Yards?)/i);
-    var dist  = distM ? distM[1]+' '+distM[2] : '';
-    // Race type
-    var ty = '';
-    if(/maiden\s+special\s+weight|MSW/i.test(section))         ty='Mdn Sp Wt';
-    else if(/maiden\s+claiming|MCL/i.test(section))            ty='Mdn Clm';
-    else if(/maiden/i.test(section))                           ty='Mdn';
-    else if(/optional\s+claiming|OC/i.test(section))           ty='OC';
-    else if(/allowance.*optional|AOC/i.test(section))          ty='AOC';
-    else if(/allowance/i.test(section))                        ty='Alw';
-    else if(/claiming/i.test(section))                         ty='Clm';
-    else if(/stakes|handicap/i.test(section))                  ty='Stakes';
-    // Purse
-    var purseM = section.match(/Purse\s+\$([\d,]+)/i);
-    var purse  = purseM ? '$'+purseM[1] : '';
-    // Grade
-    // Grade: must have explicit "Grade N" keyword AND a proper race name
-    var gradeM = section.match(/\bGrade\s+([123])\b/i);
-    var grade  = gradeM ? parseInt(gradeM[1]) : 0;
-    // Stakes name: only extract if grade is confirmed
-    var stakeName = '';
-    if(grade > 0){
-      var stakeM = section.match(/Grade\s+[123]\s+([A-Z][a-zA-Z\s']{3,50}?(?:Handicap|Stakes|Derby|Cup|Classic|Oaks|Futurity))/i);
-      stakeName = stakeM ? stakeM[1].trim() : '';
-    }
-
-    result.races.push({n:rn, t:raceMatches[i].time, d:dist, ty:ty, purse:purse, grade:grade, gradeName:stakeName});
-
-    // Parse horses from section lines
-    var lines = section.split('\n');
-    var currentHorse = null;
-    var isScratched  = false;
-    lines.forEach(function(line){
-      var l = line.trim();
-      if(!l) return;
-      // SCR marker
-      if(/\bSCR\b|Scratched/i.test(l)){
-        isScratched = true;
-        if(currentHorse && result.scratched[rn].indexOf(currentHorse)<0)
-          result.scratched[rn].push(currentHorse);
-      }
-      // ML odds: X/Y at end of line
-      var oddsM = l.match(/(\d+)\/(\d+)\s*$/);
-      if(oddsM && currentHorse && !isScratched){
-        result.odds[rn][currentHorse] = oddsM[1]+'-'+oddsM[2];
-      }
-      // Horse name: title case, 2-50 chars, not starting with digit
-      if(l.length>=2 && l.length<=50 && /^[A-Z][a-z]/.test(l) && !/^\d/.test(l)){
-        currentHorse = l.replace(/\s+\d+\s*$/, '').trim();
-        isScratched  = false;
-      }
-    });
-  }
-  return result;
-}
-
-// ── SINGLE RACE RE-PARSE ─────────────────────────────────────────────────────
-async function reparseSingleRace(raceN){
-  var key = ppApiKey || '';
-  if(!key){ alert('Add your API key in Settings first.'); return; }
-  var src = ppParseState && ppParseState.pdfText;
-  if(!src){ alert('No PDF loaded — upload the PP PDF first.'); return; }
-  var ri = R.findIndex(function(r){return r.n===raceN;}); if(ri<0) return;
-  var btn = document.getElementById('reparse-btn-'+raceN);
-  if(btn){ btn.textContent='Parsing...'; btn.disabled=true; }
-  var total=R.length, chunkSize=Math.ceil(src.length/total), overlap=Math.floor(chunkSize*0.30);
-  var cStart=Math.max(0,ri*chunkSize-overlap), cEnd=Math.min(src.length,(ri+1)*chunkSize+overlap);
-  var chunk=src.slice(cStart,cEnd);
-  var roster=(typeof equibaseRosters!=='undefined'&&equibaseRosters[raceN])||[];
-  var rStr=roster.length?'\nEquibase roster for Race '+raceN+': '+roster.map(function(h){return h.name;}).join(', '):'';
-  var prompt='Extract ONLY Race '+raceN+' horses from this DRF PP text.'+rStr+
-    '\nCRITICAL: Horse names are proper nouns (e.g. "Boltoro", "Australian Navy"). NEVER use a number as a horse name — numbers are post positions.'+
-    '\nReturn ONLY valid JSON:\n{"postTime":null,"horses":[{"name":"","disp":"","pp":1,"ml":"5-1","b":80,"sty":"Tracker","j":15,"tr":20,"layoff":14,"cc":0,"wins":3,"notes":"","eq":{"lf":false,"bf":false,"bl":false},"wk":[],"distFit":"tested"}]}'+
-    '\nname=no apostrophes, disp=with punctuation, pp=post position int, b=Beyer speed figure int (0=debut), sty=Leader/Speed/Tracker/Midpack/Closer/Plodder, j/tr=win% int, layoff=days since last race, cc=class change $K int'+
-    '\n\nPP TEXT:\n'+chunk;
-  try{
-    var resp=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:5120,messages:[{role:'user',content:[{type:'text',text:prompt}]}]})});
-    var data=await resp.json();
-    if(data.error) throw new Error(data.error.message);
-    var raw=data.content[0].text.trim().replace(/```json|```/g,'').trim();
-    var depth=0,jS=-1,jE=-1;
-    for(var ci=0;ci<raw.length;ci++){if(raw[ci]==='{'){if(depth===0)jS=ci;depth++;}else if(raw[ci]==='}'){depth--;if(depth===0){jE=ci+1;break;}}}
-    if(jS>-1&&jE>-1) raw=raw.slice(jS,jE);
-    var parsed=JSON.parse(raw), horses=parsed.horses||[];
-    if(!horses.length) throw new Error('No horses returned');
-    R[ri].horses=horses.map(function(h){return {name:h.name||'',disp:h.disp||h.name||'',pp:parseInt(h.pp)||0,ml:h.ml||'5-1',b:parseInt(h.b)||0,sty:h.sty||'Midpack',j:parseInt(h.j)||10,tr:parseInt(h.tr)||10,wins:parseInt(h.wins)||0,notes:h.notes||'',layoff:parseInt(h.layoff)||21,cc:parseInt(h.cc)||0,eq:h.eq||{lf:false,bf:false,bl:false},wk:h.wk||[],distFit:h.distFit||'tested'};});
-    if(parsed.postTime&&/\d+:\d+/.test(parsed.postTime)) R[ri].t=parsed.postTime;
-    var st=JSON.parse(localStorage.getItem('paddockiq_state')||'{}');
-    if(st.races){var sr=st.races.find(function(r){return r.n===raceN;});if(sr)sr.horses=R[ri].horses;}
-    localStorage.setItem('paddockiq_state',JSON.stringify(st));
-    if(CUR===ri) render(); renderRaceTabs(); renderPPParser();
-    alert('Race '+raceN+' re-parsed: '+horses.length+' horses loaded');
-  }catch(e){alert('Re-parse failed: '+e.message+'\n\nTry photo parse instead.');}
-  if(btn){ btn.textContent='Retry PDF'; btn.disabled=false; }
-}
-
-// ── PHOTO PARSE ───────────────────────────────────────────────────────────────
-async function parseRaceFromImages(raceN, images){
-  // images = [{data, type, name}, ...] — supports 1 to N images
-  var key=ppApiKey||''; if(!key){alert('Add API key in Settings.');return;}
-  var ri=R.findIndex(function(r){return r.n===raceN;}); if(ri<0)return;
-  var btn=document.getElementById('photo-btn-'+raceN);
-  if(btn){btn.textContent='Reading '+images.length+' image(s)...';btn.disabled=true;}
-
-  var roster=(typeof equibaseRosters!=='undefined'&&equibaseRosters[raceN])||[];
-  var rStr=roster.length?'\nEquibase roster for Race '+raceN+': '+roster.map(function(h){return h.name;}).join(', '):'';
-
-  // Build content array: all images first, then the prompt text
-  var contentBlocks=images.map(function(img){
-    return {type:'image',source:{type:'base64',media_type:img.type,data:img.data}};
-  });
-  var imgDesc=images.length>1?'These '+images.length+' images are pages of a DRF past performance sheet':'This image is a DRF past performance sheet';
-  contentBlocks.push({type:'text',text:
-    imgDesc+' for Race '+raceN+'.'+rStr+'\n'+
-    'Extract ALL horses across all images. Return ONLY valid JSON:\n'+
-    '{"postTime":null,"horses":[{"name":"","disp":"","pp":1,"ml":"5-1","b":80,'+
-    '"sty":"Tracker","j":15,"tr":20,"layoff":14,"cc":0,"wins":3,"notes":"",'+
-    '"eq":{"lf":false,"bf":false,"bl":false},"wk":[],"distFit":"tested"}]}\n'+
-    'name=no apostrophes, disp=with punctuation, b=Beyer speed figure int, '+
-    'sty=Leader/Speed/Tracker/Midpack/Closer/Plodder, j/tr=win% int, '+
-    'layoff=days since last race, cc=class change $K int. '+
-    'If a horse spans multiple pages, combine all their data into one entry.'
-  });
-
-  try{
-    var resp=await fetch(PROXY_URL,{method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:5120,
-        messages:[{role:'user',content:contentBlocks}]})});
-    var data=await resp.json();
-    if(data.error) throw new Error(data.error.message);
-    var raw=data.content[0].text.trim().replace(/```json|```/g,'').trim();
-    var depth=0,jS=-1,jE=-1;
-    for(var ci=0;ci<raw.length;ci++){
-      if(raw[ci]==='{'){if(depth===0)jS=ci;depth++;}
-      else if(raw[ci]==='}'){depth--;if(depth===0){jE=ci+1;break;}}
-    }
-    if(jS>-1&&jE>-1) raw=raw.slice(jS,jE);
-    var parsed=JSON.parse(raw), horses=parsed.horses||[];
-    if(!horses.length) throw new Error('No horses found in image(s)');
-    R[ri].horses=horses.map(function(h){
-      return {name:h.name||'',disp:h.disp||h.name||'',pp:parseInt(h.pp)||0,
-        ml:h.ml||'5-1',b:parseInt(h.b)||0,sty:h.sty||'Midpack',
-        j:parseInt(h.j)||10,tr:parseInt(h.tr)||10,wins:parseInt(h.wins)||0,
-        notes:h.notes||'',layoff:parseInt(h.layoff)||21,cc:parseInt(h.cc)||0,
-        eq:h.eq||{lf:false,bf:false,bl:false},wk:h.wk||[],distFit:h.distFit||'tested'};
-    });
-    if(parsed.postTime&&/\d+:\d+/.test(parsed.postTime)) R[ri].t=parsed.postTime;
-    var st=JSON.parse(localStorage.getItem('paddockiq_state')||'{}');
-    if(st.races){var sr=st.races.find(function(r){return r.n===raceN;});if(sr)sr.horses=R[ri].horses;}
-    localStorage.setItem('paddockiq_state',JSON.stringify(st));
-    if(CUR===ri) render(); renderRaceTabs(); renderPPParser();
-    alert('Race '+raceN+': '+horses.length+' horses loaded from '+images.length+' image(s)');
-  }catch(e){alert('Photo parse failed: '+e.message);}
-  if(btn){btn.textContent='Photo Parse';btn.disabled=false;}
-}
-
-// Keep old single-image function as alias for backward compat
-function parseRaceFromImage(raceN,imageData,mediaType){
-  parseRaceFromImages(raceN,[{data:imageData,type:mediaType,name:'image'}]);
-}
-
-function triggerPhotoParse(raceN){
-  var input=document.createElement('input');
-  input.type='file'; input.accept='image/*'; input.multiple=true;
-  input.onchange=function(e){
-    var files=Array.from(e.target.files); if(!files.length) return;
-    var btn=document.getElementById('photo-btn-'+raceN);
-    if(btn){btn.textContent='Loading '+files.length+' image(s)...';btn.disabled=true;}
-    // Read all files as base64
-    var promises=files.map(function(file){
-      return new Promise(function(resolve){
-        var reader=new FileReader();
-        reader.onload=function(ev){
-          resolve({data:ev.target.result.split(',')[1], type:file.type||'image/jpeg', name:file.name});
-        };
-        reader.readAsDataURL(file);
-      });
-    });
-    Promise.all(promises).then(function(images){
-      parseRaceFromImages(raceN, images);
-    });
-  };
-  input.click();
-}
-
-// ── RACE RESULTS & ALGORITHM EXPORT ─────────────────────────────────────────
-
 async function fetchRaceResults(){
   // Fetch Equibase results page for today's card
   // URL: /static/chart/summary/TRACKMMDDYYUSA-EQB.html
@@ -2676,44 +2417,6 @@ async function fetchRaceResults(){
     if(!data.ok || !data.text) return null;
     return parseEquibaseResults(data.text);
   }catch(e){ console.warn('Results fetch failed:',e.message); return null; }
-}
-
-function parseEquibaseResults(text){
-  // Returns {raceN: [{finish, name, odds, payouts}]}
-  var results = {};
-  // Find race sections — "Race N" headers
-  var raceRe = /Race\s+(\d+)/gi;
-  var sections = [];
-  var m;
-  while((m=raceRe.exec(text))!==null){
-    sections.push({n:parseInt(m[1]), pos:m.index});
-  }
-  for(var i=0;i<sections.length;i++){
-    var rn = sections[i].n;
-    var start = sections[i].pos;
-    var end = i+1<sections.length ? sections[i+1].pos : text.length;
-    var section = text.slice(start, Math.min(end, start+3000));
-    results[rn] = [];
-    // Parse finish order: "1 HorseName" or "1st HorseName"
-    var finRe = /\b([1-9]|10|11|12)\s+([A-Z][a-zA-Z\s']{2,30}?)(?:\s+\d|\s+[A-Z]\.)/g;
-    var fm;
-    while((fm=finRe.exec(section))!==null){
-      var pos = parseInt(fm[1]);
-      var name = fm[2].trim();
-      if(pos<=12 && name.length>2){
-        results[rn].push({finish:pos, name:name});
-      }
-    }
-    // Sort by finish position
-    results[rn].sort(function(a,b){return a.finish-b.finish;});
-    // Deduplicate
-    var seen = {};
-    results[rn] = results[rn].filter(function(h){
-      if(seen[h.finish]) return false;
-      seen[h.finish]=true; return true;
-    });
-  }
-  return results;
 }
 
 function buildAlgorithmCSV(raceResults){
@@ -3621,1159 +3324,790 @@ var cardInfo = {
   date: new Date().toLocaleDateString('en-CA',{timeZone:'America/Chicago'}), // today yyyy-mm-dd
   tz:'America/Chicago'
 }; // updated by PP Parser
-var ppParseState={loading:false,result:null,error:null,mode:'pdf',fileName:null,pdfBase64:null,pdfText:null};
-var resMode='pdf'; // 'pdf' or 'text' for results lookup
-var resPdfBase64=null; var resPdfFileName=null;
 
-function renderPPParser(){ setTimeout(function(){
-  if(!document.getElementById("save-card-btn")){
-    var cards=document.querySelectorAll(".card");
-    var rc=null;
-    cards.forEach(function(c){if(c.innerHTML.indexOf("Race Results Lookup")>-1)rc=c;});
-    if(rc){
-      var d=document.createElement("div");
-      d.innerHTML='<div style="margin-top:14px;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px"><div style="font-size:11px;color:var(--gold);text-transform:uppercase;font-weight:700;margin-bottom:8px">Multi-Day Cards</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><button id="save-card-btn" onclick="saveCardToServer()" style="background:#0a1f12;border:1px solid var(--green);color:var(--green);border-radius:7px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:600">Save Card</button><select id="saved-cards-sel" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-size:12px;flex:1;min-width:160px"><option value="">Select a saved card</option></select><button onclick="loadSelectedCard()" style="background:var(--bg);border:1px solid var(--gold);color:var(--gold);border-radius:7px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:600">Load</button></div><div id="save-card-status" style="font-size:11px;color:var(--muted);min-height:16px"></div></div>';
-      rc.before(d.firstChild);
-      if(typeof loadSavedCardList!=="undefined") loadSavedCardList().catch(function(){});
-    }
-  }
-},150);
-  var el=document.getElementById('tab-ppparser');
-  var s=ppParseState;
-  var mode=ppParseState.mode||'pdf';
-
-  // ── Backstop repair section ──────────────────────────────────────────────
-  var backstopHtml = '';
-  if(s.fullCardApplied > 0){
-    var backstopRaces = R.filter(function(r){
-      return r.horses.length===0 ||
-             r.horses.some(function(h){return h.notes&&h.notes.indexOf('backstop')>-1;});
-    });
-    if(backstopRaces.length){
-      backstopHtml = '<div style="background:#1a0a0a;border:1px solid #e05555;border-radius:8px;padding:12px 14px;margin-bottom:14px">';
-      backstopHtml += '<div style="font-size:12px;color:#e05555;font-weight:600;margin-bottom:8px">⚠️ Incomplete races — click to fix</div>';
-      backstopRaces.forEach(function(r){
-        var allBackstop = r.horses.every(function(h){return !h.notes||h.notes.indexOf('backstop')>-1;});
-        var backstopCount = r.horses.filter(function(h){return h.notes&&h.notes.indexOf('backstop')>-1;}).length;
-        var label = r.horses.length===0 ? 'Race '+r.n+' — no horses parsed' :
-                    allBackstop ? 'Race '+r.n+' — all '+r.horses.length+' horses from Equibase only' :
-                    'Race '+r.n+' — '+backstopCount+' horse(s) from Equibase only';
-        backstopHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">';
-        backstopHtml += '<span style="font-size:11px;color:var(--dim);flex:1;min-width:180px">'+label+'</span>';
-        if(s.pdfText){
-          backstopHtml += '<button id="reparse-btn-'+r.n+'" onclick="reparseSingleRace('+r.n+')" '+
-            'style="background:var(--bg2);border:1px solid #b48cf8;color:#b48cf8;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px">'+
-            '↺ Retry PDF</button>';
-        }
-        backstopHtml += '<button id="photo-btn-'+r.n+'" onclick="triggerPhotoParse('+r.n+')" '+
-          'style="background:var(--bg2);border:1px solid #c8a84b;color:#c8a84b;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px">'+
-          '📷 Photo Parse</button>';
-        backstopHtml += '</div>';
-      });
-      backstopHtml += '</div>';
-    }
-  }
-
-  el.innerHTML= backstopHtml +
-    '<div class="card" style="margin-bottom:12px">'+
-      '<div class="ctitle" style="color:#b48cf8">⚡ PP Auto-Parser</div>'+
-      '<div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.7">'+
-        'Upload the full card PDF, paste raw text, or drop individual race PDFs. '+
-        'Individual race PDFs (one per race from DRF) give the best results — drop all at once.'+
-      '</div>'+
-
-      // Multi-file drag-and-drop zone
-      '<div id="multi-drop-zone" '+
-        'ondragover="event.preventDefault();this.style.borderColor=\'#b48cf8\'" '+
-        'ondragleave="this.style.borderColor=\'var(--border)\'" '+
-        'ondrop="event.preventDefault();this.style.borderColor=\'var(--border)\';handleMultiDrop(event.dataTransfer.files)" '+
-        'style="border:2px dashed var(--border);border-radius:8px;padding:14px;text-align:center;margin-bottom:10px;cursor:pointer;transition:border-color .2s" '+
-        'onclick="document.getElementById(\'multi-pdf-input\').click()">'+
-        '<div style="font-size:13px;color:var(--dim)">📄 Drop individual race PDFs here — all at once</div>'+
-        '<div style="font-size:11px;color:#555566;margin-top:3px">Name them Race1.pdf, Race2.pdf etc — or click to select</div>'+
-        '<input id="multi-pdf-input" type="file" accept=".pdf,application/pdf" multiple style="display:none" onchange="handleMultiDrop(this.files)">'+
-      '</div>'+
-      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'+
-        '<div style="flex:1;height:1px;background:var(--border)"></div>'+
-        '<span style="font-size:10px;color:#444455">or use full card PDF below</span>'+
-        '<div style="flex:1;height:1px;background:var(--border)"></div>'+
-      '</div>'+
-
-      // API key row
-      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">'+
-        
-        '<span style="font-size:12px;color:var(--dim);margin-left:8px">API Key</span>'+
-        '<input id="pp-api-key" type="password" placeholder="sk-ant-..." value="'+ppApiKey+'" '+
-          'style="background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 10px;font-size:12px;width:220px" '+
-          'oninput="ppApiKey=this.value;saveState()"/>'+
-        '<button onclick="testProxy()" style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer">🔌 Test</button>'+
-        '<button onclick="goTab(\'settings\')" style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer">⚙️ Settings</button>'+
-      '</div>'+
-
-
-      // Mode toggle
-      '<div style="display:flex;gap:0;margin-bottom:12px;border:1px solid var(--border);border-radius:8px;overflow:hidden;width:fit-content">'+
-        '<button onclick="ppParseState.mode=\'pdf\';renderPPParser()" style="padding:7px 20px;font-size:13px;font-weight:500;border:none;cursor:pointer;'+
-          (mode==='pdf'?'background:#1a1030;color:#b48cf8;':'background:transparent;color:var(--dim);')+'">📄 PDF Upload</button>'+
-        '<button onclick="ppParseState.mode=\'text\';renderPPParser()" style="padding:7px 20px;font-size:13px;font-weight:500;border:none;border-left:1px solid var(--border);cursor:pointer;'+
-          (mode==='text'?'background:#1a1030;color:#b48cf8;':'background:transparent;color:var(--dim);')+'">📋 Paste Text</button>'+
-      '</div>'+
-
-      // PDF mode
-      (mode==='pdf'?
-        '<div id="pp-drop-zone" onclick="document.getElementById(\'pp-file-inp\').click()" '+
-          'ondragover="event.preventDefault();this.style.borderColor=\'#b48cf8\'" '+
-          'ondragleave="this.style.borderColor=\'var(--border)\'" '+
-          'ondrop="ppHandleDrop(event)" '+
-          'style="border:2px dashed var(--border);border-radius:10px;padding:36px 20px;text-align:center;cursor:pointer;transition:border-color .2s;margin-bottom:10px">'+
-          '<div style="font-size:32px;margin-bottom:8px">📄</div>'+
-          '<div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px">'+
-            (ppParseState.fileName?'✓ '+ppParseState.fileName:'Tap to select PDF — or drag and drop')+
-          '</div>'+
-          '<div style="font-size:12px;color:var(--dim)">DRF past performance PDF · full card or single race</div>'+
-          '<input id="pp-file-inp" type="file" accept=".pdf,application/pdf" style="display:none" onchange="ppHandleFile(this.files[0])"/>'+
-        '</div>'
-      :
-        // Text mode
-        '<textarea id="pp-raw-text" placeholder="Paste DRF PP text here — horse names, Beyers, jockey%, trainer%, layoff, class change, running style, equipment notes..." '+
-          'style="width:100%;height:240px;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-size:12px;font-family:\'IBM Plex Mono\',monospace;resize:vertical;line-height:1.5"></textarea>'
-      )+
-
-      '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">'+
-        '<button onclick="parsePPs()" style="background:#1a1030;border:1px solid #b48cf8;color:#b48cf8;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:14px;font-weight:500">'+
-          (s.loading?'⏳ Parsing...':'⚡ Parse with Claude')+'</button>'+
-        '<button id="scratch-check-btn" onclick="manualScratchCheck()" style="background:var(--bg2);border:1px solid var(--border);color:var(--dim);border-radius:8px;padding:9px 14px;cursor:pointer;font-size:12px">🔍 Check Scratches</button>'+
-        '<button onclick="clearPPParser()" style="background:transparent;border:1px solid var(--border);color:var(--dim);border-radius:8px;padding:10px 16px;cursor:pointer;font-size:12px">Clear</button>'+
-        (ppParseState.fileName?'<span style="font-size:11px;color:#4ec97e">'+ppParseState.fileName+' ready</span>':'')+
-        '<span style="font-size:11px;color:var(--dim);margin-left:auto">~$0.015 per race · $5 ≈ 34 cards</span>'+
+function renderCSVImport(){
+  var el=document.getElementById('tab-csvimport');
+  if(!el) return;
+  // Build Multi-Day Cards section
+  var multiDay='<div style="margin-bottom:16px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px">'+
+    '<div style="font-size:11px;color:var(--gold);text-transform:uppercase;font-weight:700;margin-bottom:10px">Multi-Day Cards</div>'+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">'+
+    '<button id="save-card-btn" onclick="saveCardToServer()" style="background:#0a1f12;border:1px solid var(--green);color:var(--green);border-radius:7px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:600">Save Card</button>'+
+    '<select id="saved-cards-sel" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-size:12px;flex:1;min-width:160px"><option value="">Select a saved card</option></select>'+
+    '<button onclick="loadSelectedCard()" style="background:var(--bg);border:1px solid var(--gold);color:var(--gold);border-radius:7px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:600">Load</button>'+
+    '</div><div id="save-card-status" style="font-size:11px;color:var(--muted);min-height:16px"></div></div>';
+  el.innerHTML=
+    '<div style="padding:16px;max-width:680px;margin:0 auto">'+
+    // CSV Upload card
+    '<div style="padding:18px;background:linear-gradient(135deg,#0d1f2d,#081420);border:1px solid #2a5a8c;border-radius:12px;margin-bottom:16px">'+
+      '<div style="font-size:12px;color:#7ecfff;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">📂 DRF Selections CSV</div>'+
+      '<div style="font-size:12px;color:#5588aa;margin-bottom:14px;line-height:1.5">Upload the <code style="color:#aaccee;background:#0a1a28;padding:1px 5px;border-radius:3px">_sf.csv</code> file from DRF to load a full race card with Beyers, pace calls, workouts &amp; trainer stats. Auto-saves to Multi-Day Cards.</div>'+
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
+      '<button id="csv-upload-btn" onclick="document.getElementById('csv-file-input').click()" style="background:linear-gradient(135deg,#1a3a5c,#0d2035);color:#7ecfff;border:1px solid #2a5a8c;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.4)">📂 Load DRF CSV</button>'+
+      '<input type="file" id="csv-file-input" accept=".csv,.txt" style="display:none" onchange="handleCSVUpload(event)">'+
+      '<div id="csv-upload-status" style="font-size:12px;color:var(--muted);flex:1"></div>'+
       '</div>'+
     '</div>'+
-    (s.loading?
-      '<div class="card" style="text-align:center;padding:36px">'+
-        '<div style="font-size:14px;color:#b48cf8;margin-bottom:8px">Reading past performances...</div>'+
-        '<div style="font-size:12px;color:var(--dim)">Claude is extracting Beyers, jockey stats, trainer%, class changes and running styles</div>'+
-      '</div>':'')+
-    (s.progress?
-      '<div class="card" style="padding:20px" id="parse-progress">'+
-        '<div style="font-size:13px;color:#b48cf8;margin-bottom:8px">Parsing Race '+s.progress.current+' of '+s.progress.total+'...</div>'+
-        '<div style="background:var(--border);border-radius:4px;height:8px;width:100%">'+
-          '<div style="background:#b48cf8;border-radius:4px;height:8px;width:'+Math.round(((s.progress.current-1)/s.progress.total)*100)+'%"></div>'+
-        '</div>'+
-        '<div style="font-size:11px;color:var(--dim);margin-top:6px">'+s.progress.applied+' races applied — this takes about 30 seconds for a full card</div>'+
-      '</div>':'')+
-    (s.error?'<div class="warn-box" id="parse-errors"></div>':'')+
-    (s.fullCardApplied?'<div style="background:#0d2010;border:1px solid var(--green);border-radius:8px;padding:12px 16px;color:var(--green);font-size:13px;margin-bottom:8px">✓ Full card applied — '+s.fullCardApplied+' races loaded. Go to 🏇 Rankings to see each race.</div>':'')+
-    (s.result?renderPPResult(s.result):'')+
-
-    // ── Race Results Lookup ──
-    '<div class="card" style="margin-top:12px">'+
-      '<div class="ctitle" style="color:#6aabbb">📋 Race Results Lookup</div>'+
-      // Track + Date row
-      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'+
-        '<span style="font-size:12px;color:var(--dim)">Track</span>'+
-        '<select id="res-track" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;font-size:13px">'+
-          TRACK_LIST.map(function(t){return '<option value="'+t.code+'"'+(t.code==="OP"?" selected":"")+'>'+t.name+" ("+t.code+")"+"</option>";}).join("")+
-        "</select>"+
-        '<span style="font-size:12px;color:var(--dim)">Date</span>'+
-        '<input id="res-date" type="date" value="'+todayISO()+'" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 10px;font-size:13px"/>'+
-        '<button onclick="openEquibaseResults()" style="background:#0d1a20;border:1px solid #6aabbb;color:#6aabbb;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:12px">🌐 Open Equibase</button>'+
+    // Scoring weights info card
+    '<div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;margin-bottom:16px">'+
+      '<div style="font-size:11px;color:var(--gold);text-transform:uppercase;font-weight:700;margin-bottom:10px">Scoring Weights (SF CSV)</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:11px">'+
+        ['Beyer 18%','Pace 13%','Class 20%','Form 20%','Speed 10%','Jockey 6%','Trainer 5%','Workouts 4%','Mkt Odds 4%'].map(function(w){
+          var parts=w.split(' ');
+          return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 8px">'+
+            '<span style="color:var(--text);font-weight:600">'+parts[0]+'</span> <span style="color:var(--gold)">'+parts[1]+'</span></div>';
+        }).join('')+
       '</div>'+
-      // Input mode toggle
-      '<div style="display:flex;gap:0;margin-bottom:10px;border:1px solid var(--border);border-radius:8px;overflow:hidden;width:fit-content">'+
-        '<button onclick="setResMode(\'pdf\')" id="res-mode-pdf" style="padding:6px 18px;font-size:12px;font-weight:500;border:none;cursor:pointer;background:#0d1a20;color:#6aabbb">📄 Upload PDF</button>'+
-        '<button onclick="setResMode(\'text\')" id="res-mode-text" style="padding:6px 18px;font-size:12px;font-weight:500;border:none;border-left:1px solid var(--border);cursor:pointer;background:transparent;color:var(--dim)">📋 Paste Text</button>'+
-      '</div>'+
-      // PDF drop zone
-      '<div id="res-drop-zone" onclick="document.getElementById(\'res-file-inp\').click()" '+
-        'ondragover="event.preventDefault();this.style.borderColor=\'#6aabbb\'" '+
-        'ondragleave="this.style.borderColor=\'var(--border)\'" '+
-        'ondrop="resHandleDrop(event)" '+
-        'style="border:2px dashed var(--border);border-radius:10px;padding:28px 20px;text-align:center;cursor:pointer;margin-bottom:8px">'+
-        '<div style="font-size:28px;margin-bottom:6px">📄</div>'+
-        '<div id="res-drop-label" style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px">Tap to select results PDF — or drag and drop</div>'+
-        '<div style="font-size:11px;color:var(--dim)">Equibase chart PDF · all races or individual</div>'+
-        '<input id="res-file-inp" type="file" accept=".pdf,application/pdf" style="display:none" onchange="resHandleFile(this.files[0])"/>'+
-      '</div>'+
-      // Paste text area (hidden by default)
-      '<textarea id="results-raw" placeholder="Paste results text here — from Equibase PDF, race chart, or mutuel board..." '+
-        'style="width:100%;height:130px;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px;font-size:12px;font-family:\'IBM Plex Mono\',monospace;resize:vertical;line-height:1.5;display:none"></textarea>'+
-      // Status + parse button
-      '<div id="results-status" style="font-size:12px;color:var(--muted);margin-top:6px;margin-bottom:6px"></div>'+
-      '<button onclick="parseResultsFromClipboard()" style="background:#0d1020;border:1px solid #b48cf8;color:#b48cf8;border-radius:8px;padding:8px 20px;cursor:pointer;font-size:13px;font-weight:500">⚡ Parse Results via Claude</button>'+
+    '</div>'+
+    // Multi-Day Cards
+    multiDay+
     '</div>';
+  // Populate saved cards dropdown
+  if(typeof loadSavedCardList!=="undefined") loadSavedCardList().catch(function(){});
 }
 
-function renderPPResult(horses){
-  var ri=-1; // Always parse all races
-  var html='<div class="card">'+
-    '<div class="ctitle" style="color:var(--green)">Parsed Horses — Race '+R[ri].n+'</div>'+
-    '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Review extracted values before applying. Click "Apply to Race '+R[ri].n+'" to overwrite the race data.</div>'+
-    (ppParseState.biasApplied&&ppParseState.biasApplied!=='none'?
-      '<div style="font-size:12px;color:var(--gold);background:#1a1400;border:1px solid #3a2800;border-radius:6px;padding:6px 10px;margin-bottom:10px">'+
-        '⚡ Track bias auto-detected: <b>'+ppParseState.biasApplied+'</b> — applied to track conditions. Toggle manually in the bar above if incorrect.'+
-      '</div>':'')+
-    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
-    '<thead><tr style="border-bottom:1px solid var(--border)">'+
-    '<th style="padding:6px 8px;text-align:left;color:var(--dim)">Horse</th>'+
-    '<th style="padding:6px 8px;text-align:center;color:var(--dim)">PP</th>'+
-    '<th style="padding:6px 8px;text-align:center;color:var(--dim)">ML</th>'+
-    '<th style="padding:6px 8px;text-align:center;color:var(--dim)">Beyer</th>'+
-    '<th style="padding:6px 8px;text-align:center;color:var(--dim)">Style</th>'+
-    '<th style="padding:6px 8px;text-align:center;color:var(--dim)">Jock%</th>'+
-    '<th style="padding:6px 8px;text-align:center;color:var(--dim)">Trn%</th>'+
-    '<th style="padding:6px 8px;text-align:center;color:var(--dim)">Layoff</th>'+
-    '<th style="padding:6px 8px;text-align:center;color:var(--dim)">CC</th>'+
-    '<th style="padding:6px 8px;text-align:center;color:var(--dim)">Wins</th>'+
-    '<th style="padding:6px 8px;text-align:center;color:var(--dim)">Eq</th>'+
-    '<th style="padding:6px 8px;text-align:center;color:#b48cf8">Works</th>'+
-    '</tr></thead><tbody>'+
-    horses.map(function(h){
-      var wks=h.wk||[];
-      var wkBest=wks.length>0?wks[0]:null;
-      var wkBadge=wkBest?(wkBest.bullet?'<span style="color:#b48cf8">🔵 B</span>':(wkBest.field>0&&wkBest.rank/wkBest.field<0.2?'<span style="color:var(--green)">★</span>':wks.length+'x')):(wks.length?wks.length+'x':'—');
-      var wkDetail=wkBest?(wkBest.dist+' '+wkBest.time+(wkBest.rank&&wkBest.field?' '+wkBest.rank+'/'+wkBest.field:'')+'<br><span style="font-size:10px;color:var(--dim)">'+wkBest.daysAgo+'d ago</span>'):'—';
-      return '<tr style="border-bottom:1px solid var(--border)">'+
-        '<td style="padding:6px 8px;color:var(--text);font-weight:500">'+(h.disp||h.name)+'</td>'+
-        '<td style="padding:6px 8px;text-align:center;color:var(--dim)">'+h.pp+'</td>'+
-        '<td style="padding:6px 8px;text-align:center;color:var(--blue)">'+h.ml+'</td>'+
-        '<td style="padding:6px 8px;text-align:center;color:var(--gold)">'+h.b+'</td>'+
-        '<td style="padding:6px 8px;text-align:center;color:var(--muted)">'+h.sty+'</td>'+
-        '<td style="padding:6px 8px;text-align:center">'+h.j+'%</td>'+
-        '<td style="padding:6px 8px;text-align:center">'+h.tr+'%</td>'+
-        '<td style="padding:6px 8px;text-align:center">'+h.layoff+'d</td>'+
-        '<td style="padding:6px 8px;text-align:center;color:'+(h.cc<0?'var(--green)':h.cc>0?'var(--red)':'var(--dim)')+'">'+
-          (h.cc>0?'+':'')+h.cc+'</td>'+
-        '<td style="padding:6px 8px;text-align:center">'+h.wins+'</td>'+
-        '<td style="padding:6px 8px;text-align:center;font-size:11px;color:var(--muted)">'+
-          [h.eq&&h.eq.lf?'LF':'',h.eq&&h.eq.bf?'BF':'',h.eq&&h.eq.bl?'BL':''].filter(Boolean).join(' ')||'—'+
-        '</td>'+
-        '<td style="padding:6px 8px;text-align:center;font-size:11px">'+wkBadge+'<br>'+wkDetail+'</td>'+
-      '</tr>';
-    }).join('')+
-    '</tbody></table></div>'+
-    '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'+
-      '<button onclick="applyParsedHorses('+ri+')" style="background:#0d2010;border:1px solid var(--green);color:var(--green);border-radius:8px;padding:8px 20px;cursor:pointer;font-size:13px;font-weight:500">'+
-        '✓ Apply to Race '+R[ri].n+'</button>'+
-      '<button onclick="ppParseState.result=null;renderPPParser()" style="background:transparent;border:1px solid var(--border);color:var(--dim);border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px">Discard</button>'+
-    '</div>'+
-  '</div>';
-  return html;
-}
-
-function clearPPParser(){
-  ppParseState={loading:false,result:null,error:null,mode:ppParseState.mode||'pdf',fileName:ppParseState.fileName,pdfBase64:ppParseState.pdfBase64,pdfText:ppParseState.pdfText};
-  var ta=document.getElementById('pp-raw-text');
-  if(ta)ta.value='';
-  // Also clear results area
-  resPdfBase64=null; resPdfFileName=null;
-  var rt=document.getElementById('results-raw'); if(rt) rt.value='';
-  var rs=document.getElementById('results-status'); if(rs) rs.textContent='';
-  renderPPParser();
-}
-
-var resPdfText=null;
-function resHandleFile(file){
-  if(!file) return;
-  if(file.type!=='application/pdf'&&!file.name.endsWith('.pdf')){
-    var st=document.getElementById('results-status'); if(st) st.textContent='Please select a PDF file.'; return;
-  }
-  resPdfText=null; resPdfBase64=null; resPdfFileName=file.name;
-  var st=document.getElementById('results-status'); if(st) st.textContent='Reading PDF...';
-  var reader=new FileReader();
-  reader.onload=function(e){
-    var arr=new Uint8Array(e.target.result);
-    if(typeof pdfjsLib==='undefined'){
-      resPdfBase64=btoa(String.fromCharCode.apply(null,arr));
-      var lbl=document.getElementById('res-drop-label'); if(lbl) lbl.textContent='\u2713 '+file.name;
-      if(st) st.textContent=''; return;
-    }
-    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    pdfjsLib.getDocument({data:arr}).promise.then(function(pdf){
-      var pages=[]; for(var i=1;i<=pdf.numPages;i++) pages.push(i);
-      return Promise.all(pages.map(function(n){
-        return pdf.getPage(n).then(function(pg){
-          return pg.getTextContent().then(function(tc){
-            return tc.items.map(function(it){return it.str;}).join(' ');
-          });
-        });
-      })).then(function(texts){
-        resPdfText=texts.join('\n\n');
-        var lbl=document.getElementById('res-drop-label');
-        if(lbl) lbl.textContent='\u2713 '+file.name+' ('+pdf.numPages+' pages extracted)';
-        document.getElementById('res-drop-zone').style.borderColor='#6aabbb';
-        if(st) st.textContent='Text ready \u2014 click Parse Results via Claude';
-      });
-    }).catch(function(err){
-      if(st) st.textContent='PDF error: '+err.message+'. Switch to Paste Text mode.';
-    });
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function resHandleDrop(e){
-  e.preventDefault();
-  var dz=document.getElementById('res-drop-zone');
-  if(dz) dz.style.borderColor='var(--border)';
-  var file=e.dataTransfer.files[0];
-  if(file) resHandleFile(file);
-}
-
-// Wire mode toggle — called from renderPPParser inline onclick
-function setResMode(m){
-  resMode=m;
-  // Toggle button styles
-  var pdfBtn=document.getElementById('res-mode-pdf');
-  var txtBtn=document.getElementById('res-mode-text');
-  var dz=document.getElementById('res-drop-zone');
-  var ta=document.getElementById('results-raw');
-  if(!pdfBtn||!txtBtn||!dz||!ta) return;
-  if(m==='pdf'){
-    pdfBtn.style.background='#0d1a20'; pdfBtn.style.color='#6aabbb';
-    txtBtn.style.background='transparent'; txtBtn.style.color='var(--dim)';
-    dz.style.display=''; ta.style.display='none';
-  } else {
-    txtBtn.style.background='#0d1a20'; txtBtn.style.color='#6aabbb';
-    pdfBtn.style.background='transparent'; pdfBtn.style.color='var(--dim)';
-    dz.style.display='none'; ta.style.display='';
-  }
-}
-
-
-function ppHandleFile(file){
-  if(!file)return;
-  if(file.type!=='application/pdf'&&!file.name.endsWith('.pdf')){
-    ppParseState.error='Please select a PDF file.';renderPPParser();return;
-  }
-  ppParseState.fileName=file.name;
-  ppParseState.error=null;
-  ppParseState.pdfText=null;
-  ppParseState.pdfBase64=null;
-  // Show extracting state
-  ppParseState.loading=true;
-  renderPPParser();
-  // Extract text using PDF.js
-  var reader=new FileReader();
-  reader.onload=function(e){
-    var arr=new Uint8Array(e.target.result);
-    if(typeof pdfjsLib==='undefined'){
-      // PDF.js not loaded — fall back to base64
-      var b64=btoa(String.fromCharCode.apply(null,arr));
-      ppParseState.pdfBase64=b64;
-      ppParseState.loading=false;
-      renderPPParser();
-      return;
-    }
-    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    pdfjsLib.getDocument({data:arr}).promise.then(function(pdf){
-      var pages=[];
-      var total=pdf.numPages;
-      for(var i=1;i<=total;i++) pages.push(i);
-      return Promise.all(pages.map(function(n){
-        return pdf.getPage(n).then(function(page){
-          return page.getTextContent().then(function(tc){
-            return tc.items.map(function(item){return item.str;}).join(' ');
-          });
-        });
-      }));
-    }).then(function(pageTexts){
-      ppParseState.pdfText=pageTexts.join('\n\n');
-      ppParseState.loading=false;
-      renderPPParser();
-    }).catch(function(err){
-      ppParseState.error='PDF read error: '+err.message+'. Try Paste Text mode instead.';
-      ppParseState.loading=false;
-      renderPPParser();
-    });
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function ppHandleDrop(e){
-  e.preventDefault();
-  document.getElementById('pp-drop-zone').style.borderColor='var(--border)';
-  var file=e.dataTransfer.files[0];
-  if(file)ppHandleFile(file);
-}
-
-async function testProxy(){
-  var key = document.getElementById('pp-api-key').value.trim();
-  if(!key){ alert('Enter your API key first'); return; }
-  var btn = document.querySelector('button[onclick="testProxy()"]');
-  if(btn) btn.textContent = '⏳ Testing...';
+async function handleCSVUpload(evt){
+  var file=evt.target.files[0]; if(!file) return;
+  var btn=document.getElementById('csv-upload-btn');
+  var status=document.getElementById('csv-upload-status');
+  btn.textContent='⏳ Parsing…'; btn.disabled=true;
   try{
-    var resp = await fetch(PROXY_URL,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:20,
-        messages:[{role:'user',content:'Say OK'}]})
+    var text=await new Promise(function(res,rej){
+      var r=new FileReader(); r.onload=function(e){res(e.target.result);}; r.onerror=rej; r.readAsText(file);
     });
-    var txt = await resp.text();
-    console.log('Proxy test response:', txt.slice(0,200));
-    var data;
-    try{ data = JSON.parse(txt); }catch(e){
-      alert('Non-JSON response (HTTP '+resp.status+'):\n\n'+txt.slice(0,400));
-      if(btn) btn.textContent = '🔌 Test';
-      return;
-    }
-    if(data.error){
-      alert('Proxy error: '+data.error.message);
-    } else if(data.content&&data.content[0]){
-      alert('✅ Proxy working! Claude says: "'+data.content[0].text+'"');
+    var cardState=parseSFCSV(text);
+    if(!cardState||!cardState.races.length) throw new Error('No races found. Make sure this is a DRF _sf.csv Selections File.');
+    loadCSVCard(cardState);
+    var totalHorses=cardState.races.reduce(function(a,r){return a+r.horses.length;},0);
+    status.innerHTML='<span style="color:var(--green)">⏳ Saving '+cardState.races.length+' races, '+totalHorses+' horses…</span>';
+    var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var d=new Date(cardState.date+'T12:00:00'); // noon to avoid tz issues
+    var label=cardState.trackName+' - '+months[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();
+    var resp=await fetch('/api/cards',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({track:cardState.track,raceDate:cardState.date,numRaces:cardState.races.length,label:label,data:cardState})});
+    var result=await resp.json();
+    if(result.ok){
+      status.innerHTML='<span style="color:var(--green)">✅ '+label+' saved (id:'+result.id+')</span>';
+      await loadSavedCardList();
     } else {
-      alert('Unexpected response:\n'+JSON.stringify(data).slice(0,200));
+      status.innerHTML='<span style="color:var(--gold)">⚠️ Card loaded but save failed</span>';
     }
-  }catch(e){
-    alert('Connection failed: '+e.message);
+    btn.textContent='✅ '+label.split(' - ')[1];
+    setTimeout(function(){btn.textContent='📂 Load DRF CSV';btn.disabled=false;},5000);
+  }catch(err){
+    console.error('[CSV Import]',err);
+    status.innerHTML='<span style="color:#e05555">❌ '+err.message+'</span>';
+    btn.textContent='📂 Load DRF CSV'; btn.disabled=false;
   }
-  if(btn) btn.textContent = '🔌 Test';
+  evt.target.value='';
 }
 
-function handleMultiDrop(files){
-  if(!files || !files.length) return;
-  // Check if these are single-race PDFs (multiple files) or one full card PDF
-  if(files.length > 1){
-    // Multiple files — treat as individual race PDFs
-    if(typeof fetchEquibaseData === 'function' && cardInfo.date){
-      // Sync Equibase first to get rosters
-      fetchEquibaseData().then(function(eqData){
-        if(eqData){
-          rebuildRacesFromEquibase(eqData);
-          // Build equibase rosters
-          var url = equibaseURL();
-          if(url) fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({action:'fetchDRF',url:url})})
-            .then(function(r){return r.json();})
-            .then(function(d){
-              if(d.ok&&d.text) equibaseRosters=parseEquibaseRosters(d.text);
-              parseMultiplePDFs(files);
-            }).catch(function(){parseMultiplePDFs(files);});
-          else parseMultiplePDFs(files);
-        } else parseMultiplePDFs(files);
-      }).catch(function(){ parseMultiplePDFs(files); });
-    } else {
-      parseMultiplePDFs(files);
-    }
-  } else {
-    // Single file — use existing full-card parser
-    var input = document.createElement('input');
-    ppHandleFile(files[0]);
-  }
+
+async function saveCardToServer(){
+  var btn=document.getElementById("save-card-btn"),st=document.getElementById("save-card-status");
+  if(!R.some(function(r){return r.horses.length>0;})){if(st)st.textContent="No parsed card.";return;}
+  if(btn){btn.disabled=true;btn.textContent="Saving...";}
+  try{
+    var raceDate=(cardInfo&&cardInfo.date)?cardInfo.date:new Date().toLocaleDateString("en-CA",{timeZone:"America/Chicago"});
+    var track=(cardInfo&&cardInfo.code)?cardInfo.code:"OP";
+    var trackName=(cardInfo&&cardInfo.track)?cardInfo.track:"Oaklawn Park";
+    var p=raceDate.split("-"),months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var label=trackName+" - "+months[parseInt(p[1])-1]+" "+parseInt(p[2]);
+    var resp=await fetch("/api/cards",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({track:track,raceDate:raceDate,numRaces:R.filter(function(r){return r.horses.length>0;}).length,label:label,data:JSON.stringify({cardInfo:cardInfo,races:R,scratches:scratches})})});
+    var data=await resp.json();
+    if(data.ok){if(st)st.innerHTML='<span style="color:var(--green)">Saved: '+label+'</span>';await loadSavedCardList();}
+  }catch(e){if(st)st.innerHTML='<span style="color:var(--red)">Error: '+e.message+'</span>';}
+  if(btn){btn.disabled=false;btn.textContent="Save Card";}
+}
+async function loadSavedCardList(){
+  try{
+    var resp=await fetch("/api/cards"),cards=await resp.json();
+    var sel=document.getElementById("saved-cards-sel");
+    if(!sel||!Array.isArray(cards))return;
+    var today=new Date().toLocaleDateString("en-CA",{timeZone:"America/Chicago"});
+    sel.innerHTML='<option value="">Select a saved card</option>'+cards.map(function(c){
+      var flag=c.raceDate===today?" TODAY":c.raceDate>today?" UPCOMING":" past";
+      return '<option value="'+c.id+'">'+c.label+flag+'</option>';
+    }).join("");
+    var auto=cards.find(function(c){return c.raceDate===today;})||cards.find(function(c){return c.raceDate>=today;});
+    if(auto&&!R.some(function(r){return r.horses.length>0;}))await loadCardById(auto.id);
+  }catch(e){console.warn(e);}
+}
+async function loadCardById(id){
+  try{
+    var resp=await fetch("/api/cards?id="+id),card=await resp.json();
+    if(!card||!card.data)return;
+    var saved=JSON.parse(card.data);
+    if(saved.cardInfo){if(!cardInfo)cardInfo={};Object.assign(cardInfo,saved.cardInfo);}
+    if(saved.races&&saved.races.length)R=saved.races;
+    if(saved.scratches)scratches=saved.scratches;
+    updateCardHeader();renderRaceTabs();goRace(0);render();
+    var st=document.getElementById("save-card-status");
+    if(st)st.innerHTML='<span style="color:var(--green)">Loaded: '+card.label+'</span>';
+    document.querySelectorAll(".ntab").forEach(function(b){if(b.textContent.indexOf("Rankings")>-1)b.click();});
+  }catch(e){console.warn(e);}
+}
+async function loadSelectedCard(){
+  var sel=document.getElementById("saved-cards-sel");
+  if(!sel||!sel.value)return;
+  await loadCardById(parseInt(sel.value));
 }
 
-async function parseMultiplePDFs(files){
-  var key = ppApiKey || '';
-  if(!key){ alert('Add your API key in Settings first.'); return; }
-  if(!files || !files.length) return;
-
-  var fileArr = Array.from(files).sort(function(a,b){
-    return a.name.localeCompare(b.name, undefined, {numeric:true});
-  });
-
-  var applied = 0, errors = [], total = fileArr.length;
-
-  function setMP(msg, pct){
-    var el = document.getElementById('parse-progress');
-    if(!el) return;
-    el.innerHTML = '<div style="font-size:13px;color:#b48cf8;margin-bottom:6px">'+msg+'</div>'+
-      '<div style="background:var(--border);border-radius:4px;height:8px;width:100%">'+
-        '<div style="background:#b48cf8;border-radius:4px;height:8px;width:'+pct+'%;transition:width .4s"></div>'+
+function renderCSVImport(){
+  var el=document.getElementById('tab-csvimport');
+  if(!el) return;
+  // Build Multi-Day Cards section
+  var multiDay='<div style="margin-bottom:16px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px">'+
+    '<div style="font-size:11px;color:var(--gold);text-transform:uppercase;font-weight:700;margin-bottom:10px">Multi-Day Cards</div>'+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">'+
+    '<button id="save-card-btn" onclick="saveCardToServer()" style="background:#0a1f12;border:1px solid var(--green);color:var(--green);border-radius:7px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:600">Save Card</button>'+
+    '<select id="saved-cards-sel" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-size:12px;flex:1;min-width:160px"><option value="">Select a saved card</option></select>'+
+    '<button onclick="loadSelectedCard()" style="background:var(--bg);border:1px solid var(--gold);color:var(--gold);border-radius:7px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:600">Load</button>'+
+    '</div><div id="save-card-status" style="font-size:11px;color:var(--muted);min-height:16px"></div></div>';
+  el.innerHTML=
+    '<div style="padding:16px;max-width:680px;margin:0 auto">'+
+    // CSV Upload card
+    '<div style="padding:18px;background:linear-gradient(135deg,#0d1f2d,#081420);border:1px solid #2a5a8c;border-radius:12px;margin-bottom:16px">'+
+      '<div style="font-size:12px;color:#7ecfff;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">📂 DRF Selections CSV</div>'+
+      '<div style="font-size:12px;color:#5588aa;margin-bottom:14px;line-height:1.5">Upload the <code style="color:#aaccee;background:#0a1a28;padding:1px 5px;border-radius:3px">_sf.csv</code> file from DRF to load a full race card with Beyers, pace calls, workouts &amp; trainer stats. Auto-saves to Multi-Day Cards.</div>'+
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
+      '<button id="csv-upload-btn" onclick="document.getElementById('csv-file-input').click()" style="background:linear-gradient(135deg,#1a3a5c,#0d2035);color:#7ecfff;border:1px solid #2a5a8c;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.5px;box-shadow:0 2px 8px rgba(0,0,0,.4)">📂 Load DRF CSV</button>'+
+      '<input type="file" id="csv-file-input" accept=".csv,.txt" style="display:none" onchange="handleCSVUpload(event)">'+
+      '<div id="csv-upload-status" style="font-size:12px;color:var(--muted);flex:1"></div>'+
       '</div>'+
-      '<div style="font-size:11px;color:var(--dim);margin-top:4px">'+applied+'/'+total+' files applied</div>';
-  }
+    '</div>'+
+    // Scoring weights info card
+    '<div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;margin-bottom:16px">'+
+      '<div style="font-size:11px;color:var(--gold);text-transform:uppercase;font-weight:700;margin-bottom:10px">Scoring Weights (SF CSV)</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:11px">'+
+        ['Beyer 18%','Pace 13%','Class 20%','Form 20%','Speed 10%','Jockey 6%','Trainer 5%','Workouts 4%','Mkt Odds 4%'].map(function(w){
+          var parts=w.split(' ');
+          return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 8px">'+
+            '<span style="color:var(--text);font-weight:600">'+parts[0]+'</span> <span style="color:var(--gold)">'+parts[1]+'</span></div>';
+        }).join('')+
+      '</div>'+
+    '</div>'+
+    // Multi-Day Cards
+    multiDay+
+    '</div>';
+  // Populate saved cards dropdown
+  if(typeof loadSavedCardList!=="undefined") loadSavedCardList().catch(function(){});
+}
 
-  ppParseState.loading = false;
-  ppParseState.progress = {current:0, total:total, applied:0};
-  renderPPParser();
-
-  for(var fi=0; fi<fileArr.length; fi++){
-    var file = fileArr[fi];
-    setMP('Reading '+file.name+'...', Math.round(fi/total*20));
-
-    try{
-      var b64 = await new Promise(function(resolve, reject){
-        var reader = new FileReader();
-        reader.onload  = function(e){ resolve(e.target.result.split(',')[1]); };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      // Detect race number from filename — explicitly avoid date digits
-      // Match: Race1.pdf, R1.pdf, Race_1.pdf — NOT dates like 03-22-2026
-      var rnm = file.name.match(/(?:race|r)[\s_\-]?(\d{1,2})(?![\d\-])/i);
-      if(!rnm){
-        // Try bare number only if filename is simple like "1.pdf" or "11.pdf"
-        var simpleNum = file.name.match(/^(\d{1,2})\.pdf$/i);
-        rnm = simpleNum;
-      }
-      var hintRaceN = rnm ? parseInt(rnm[1]) : null;
-
-      setMP('Parsing '+file.name+(hintRaceN?' (Race '+hintRaceN+')':'')+' ...', Math.round((fi/total)*90+5));
-
-      var roster    = (hintRaceN && typeof equibaseRosters!=='undefined' && equibaseRosters[hintRaceN]) || [];
-      var rosterStr = roster.length ? ' Equibase roster: '+roster.map(function(h){return h.name;}).join(', ')+'. Only return these horses.' : '';
-      var raceHint  = hintRaceN ? 'This is Race '+hintRaceN+' past performance page.'+rosterStr : 'Detect the race number from this past performance page.';
-
-      var prompt = raceHint+'\n\nExtract ALL horses from this single-race DRF past performance PDF.\n\nRULES:\n1. Horse names are proper nouns e.g. Boltoro, Mo Sense\n2. NEVER use a number as a name - numbers are post positions\n3. J/T line e.g. J/T 2025-26 OP (47 14 .30) = 30% win rate\n4. Use CURRENT MEET win% not career stats\n\nReturn ONLY valid JSON: {"raceN":1,"postTime":"1:30 PM","grade":null,"gradeName":null,"trackBias":"none","horses":[{"name":"","disp":"","pp":1,"ml":"5-2","b":78,"sty":"Tracker","j":18,"tr":22,"layoff":21,"cc":0,"wins":0,"notes":"","eq":{"lf":false,"bf":false,"bl":false},"wk":[],"distFit":"tested"}]}';
-
-            var resp = await fetch(PROXY_URL,{
-        method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
-        body:JSON.stringify({
-          model:'claude-sonnet-4-20250514', max_tokens:5120,
-          messages:[{role:'user',content:[
-            {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
-            {type:'text',text:prompt}
-          ]}]
-        })
-      });
-
-      var data = await resp.json();
-      if(data.error) throw new Error(data.error.message);
-
-      var raw = data.content[0].text.trim().replace(/```json|```/g,'').trim();
-      var depth=0,jS=-1,jE=-1;
-      for(var ci=0;ci<raw.length;ci++){
-        if(raw[ci]==='{'){if(depth===0)jS=ci;depth++;}
-        else if(raw[ci]==='}'){depth--;if(depth===0){jE=ci+1;break;}}
-      }
-      if(jS>-1&&jE>-1) raw=raw.slice(jS,jE);
-      var parsed = JSON.parse(raw);
-
-      var raceN = hintRaceN || parseInt(parsed.raceN) || (fi+1);
-      var ri    = R.findIndex(function(r){return r.n===raceN;});
-      if(ri<0){
-        R.push({n:raceN,t:'',d:'',ty:'',grade:0,gradeName:'',horses:[]});
-        R.sort(function(a,b){return a.n-b.n;});
-        ri = R.findIndex(function(r){return r.n===raceN;});
-      }
-
-      var horses = (parsed.horses||[]).filter(function(h){
-        var n=(h.name||'').trim();
-        return n.length>1 && isNaN(n) && !/^\d+$/.test(n);
-      });
-      if(!horses.length) throw new Error('No valid horses extracted');
-
-      R[ri].horses = horses.map(function(h){
-        return {name:h.name||'',disp:h.disp||h.name||'',pp:parseInt(h.pp)||0,
-          ml:h.ml||'5-1',b:parseInt(h.b)||0,sty:h.sty||'Midpack',
-          j:parseInt(h.j)||10,tr:parseInt(h.tr)||10,wins:parseInt(h.wins)||0,
-          notes:h.notes||'',layoff:parseInt(h.layoff)||21,cc:parseInt(h.cc)||0,
-          eq:h.eq||{lf:false,bf:false,bl:false},wk:h.wk||[],distFit:h.distFit||'tested'};
-      });
-      if(parsed.postTime&&/\d+:\d+/.test(parsed.postTime)) R[ri].t=parsed.postTime;
-      if(parsed.grade&&parseInt(parsed.grade)>0){ R[ri].grade=parseInt(parsed.grade); R[ri].gradeName=parsed.gradeName||''; }
-      if(parsed.trackBias&&parsed.trackBias!=='none'&&tc.bias==='none'){ tc.bias=parsed.trackBias; renderTC(); }
-
-      applied++;
-      console.log('Race '+raceN+' from '+file.name+': '+horses.length+' horses');
-
-    }catch(e){
-      errors.push(file.name+': '+e.message);
-      console.error('Multi-PDF', file.name, e.message);
+async function handleCSVUpload(evt){
+  var file=evt.target.files[0]; if(!file) return;
+  var btn=document.getElementById('csv-upload-btn');
+  var status=document.getElementById('csv-upload-status');
+  btn.textContent='⏳ Parsing…'; btn.disabled=true;
+  try{
+    var text=await new Promise(function(res,rej){
+      var r=new FileReader(); r.onload=function(e){res(e.target.result);}; r.onerror=rej; r.readAsText(file);
+    });
+    var cardState=parseSFCSV(text);
+    if(!cardState||!cardState.races.length) throw new Error('No races found. Make sure this is a DRF _sf.csv Selections File.');
+    loadCSVCard(cardState);
+    var totalHorses=cardState.races.reduce(function(a,r){return a+r.horses.length;},0);
+    status.innerHTML='<span style="color:var(--green)">⏳ Saving '+cardState.races.length+' races, '+totalHorses+' horses…</span>';
+    var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var d=new Date(cardState.date+'T12:00:00'); // noon to avoid tz issues
+    var label=cardState.trackName+' - '+months[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();
+    var resp=await fetch('/api/cards',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({track:cardState.track,raceDate:cardState.date,numRaces:cardState.races.length,label:label,data:cardState})});
+    var result=await resp.json();
+    if(result.ok){
+      status.innerHTML='<span style="color:var(--green)">✅ '+label+' saved (id:'+result.id+')</span>';
+      await loadSavedCardList();
+    } else {
+      status.innerHTML='<span style="color:var(--gold)">⚠️ Card loaded but save failed</span>';
     }
-
-    if(fi < fileArr.length-1) await new Promise(function(r){setTimeout(r,3000);});
+    btn.textContent='✅ '+label.split(' - ')[1];
+    setTimeout(function(){btn.textContent='📂 Load DRF CSV';btn.disabled=false;},5000);
+  }catch(err){
+    console.error('[CSV Import]',err);
+    status.innerHTML='<span style="color:#e05555">❌ '+err.message+'</span>';
+    btn.textContent='📂 Load DRF CSV'; btn.disabled=false;
   }
-
-  ppParseState.progress = null;
-  ppParseState.fullCardApplied = applied;
-  if(errors.length) ppParseState.error = errors.join(' | ');
-
-  persistState().catch(function(e){});
-  var st=JSON.parse(localStorage.getItem('paddockiq_state')||'{}');
-  st.races=R.map(function(r){return {n:r.n,t:r.t,d:r.d,ty:r.ty,grade:r.grade||0,gradeName:r.gradeName||'',horses:r.horses.map(function(h){return {name:h.name,disp:h.disp,pp:h.pp,ml:h.ml,b:h.b,sty:h.sty,j:h.j,tr:h.tr,layoff:h.layoff,cc:h.cc,wins:h.wins,notes:h.notes,eq:h.eq||{lf:false,bf:false,bl:false},wk:h.wk||[],distFit:h.distFit||'tested'};})};});
-  st.savedAt=new Date().toISOString(); st.cardInfo=cardInfo;
-  localStorage.setItem('paddockiq_state',JSON.stringify(st));
-  scheduleAutoExport(); writeParseTrigger(); saveCardToDrive();
-  renderRaceTabs(); goRace(0); render(); renderPPParser();
-  document.querySelectorAll('.ntab').forEach(function(b){if(b.textContent.indexOf('Rankings')>-1)b.click();});
-  var msg='\u2713 Done! '+applied+'/'+total+' race PDFs loaded!'+(errors.length?'\n\nFailed: '+errors.join(', '):'');
-  alert(msg);
+  evt.target.value='';
 }
 
 
-async function parsePPs(){
-  // Use variable directly — DOM element may not exist if tab not rendered
-  var key = ppApiKey || (document.getElementById('pp-api-key') ? document.getElementById('pp-api-key').value.trim() : '');
-
-  // ── Step 1: Fetch Equibase to get official race structure + horse rosters ──
-  if(typeof fetchEquibaseData === 'function' && cardInfo.date){
-    try{
-      var eqCheck = await fetchEquibaseData();
-      if(eqCheck && eqCheck.races && eqCheck.races.length > 0){
-        rebuildRacesFromEquibase(eqCheck);
-        console.log('Pre-parse Equibase sync: R.length =', R.length);
-        // Also extract horse rosters for validation
-        try{
-          var dp2=cardInfo.date.split('-');
-          var yr2=dp2[0].slice(2);
-          var eqUrl='https://www.equibase.com/static/entry/'+cardInfo.code+dp2[1]+dp2[2]+yr2+'USA-EQB.html';
-          var eqResp = await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'fetchDRF',url:eqUrl})});
-          var eqData = await eqResp.json();
-          if(eqData.ok && eqData.text){
-            equibaseRosters = parseEquibaseRosters(eqData.text);
-            var totalHorses = Object.values(equibaseRosters).reduce(function(s,v){return s+v.length;},0);
-            console.log('Equibase rosters: '+totalHorses+' horses across '+Object.keys(equibaseRosters).length+' races');
-          }
-        }catch(re){ console.warn('Roster fetch failed:', re.message); }
-      }
-    }catch(e){ console.warn('Pre-parse Equibase sync failed:', e.message); }
-  }
-  var ri=-1; // Always parse all races
-  var mode=ppParseState.mode||'pdf';
-
-  if(!key){ppParseState.error='Enter your Anthropic API key above (sk-ant-...).';renderPPParser();return;}
-
-  // Build content array — PDF or text
-  var userContent=[];
-  // Full card: parse each race sequentially
-  if(ri === -1){
-    var src = ppParseState.pdfText || null;
-    if(!src && mode==='text'){
-      var ta=document.getElementById('pp-raw-text');
-      src = ta ? ta.value.trim() : '';
-    }
-    if(!src){
-      ppParseState.error='No PDF text found. Please re-upload the PDF file.';
-      renderPPParser();return;
-    }
-    parseAllRaces(key, src);
-    return;
-  }
-
-  if(mode==='pdf'){
-    if(!ppParseState.pdfText&&!ppParseState.pdfBase64){
-      ppParseState.error='Please select a PDF file first.';renderPPParser();return;
-    }
-    if(ppParseState.pdfText){
-      userContent=[{type:'text',text:buildParsePrompt(ri)+'\n\nPP TEXT (extracted from PDF):\n'+ppParseState.pdfText}];
-    } else {
-      userContent=[
-        {type:'document',source:{type:'base64',media_type:'application/pdf',data:ppParseState.pdfBase64}},
-        {type:'text',text:buildParsePrompt(ri)}
-      ];
-    }
-  } else {
-    var text=document.getElementById('pp-raw-text').value.trim();
-    if(!text||text.length<50){ppParseState.error='Please paste DRF PP text first.';renderPPParser();return;}
-    userContent=[{type:'text',text:buildParsePrompt(ri)+'\n\nPP TEXT:\n'+text}];
-  }
-
-  ppParseState.loading=true;ppParseState.error=null;ppParseState.result=null;
-  renderPPParser();
-
+async function saveCardToServer(){
+  var btn=document.getElementById("save-card-btn"),st=document.getElementById("save-card-status");
+  if(!R.some(function(r){return r.horses.length>0;})){if(st)st.textContent="No parsed card.";return;}
+  if(btn){btn.disabled=true;btn.textContent="Saving...";}
   try{
-    var resp=await fetch(PROXY_URL,{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':key,
-        'anthropic-version':'2023-06-01',
-        'anthropic-beta':'pdfs-2024-09-25'
-      },
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:8192,
-        messages:[{role:'user',content:userContent}]
+    var raceDate=(cardInfo&&cardInfo.date)?cardInfo.date:new Date().toLocaleDateString("en-CA",{timeZone:"America/Chicago"});
+    var track=(cardInfo&&cardInfo.code)?cardInfo.code:"OP";
+    var trackName=(cardInfo&&cardInfo.track)?cardInfo.track:"Oaklawn Park";
+    var p=raceDate.split("-"),months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var label=trackName+" - "+months[parseInt(p[1])-1]+" "+parseInt(p[2]);
+    var resp=await fetch("/api/cards",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({track:track,raceDate:raceDate,numRaces:R.filter(function(r){return r.horses.length>0;}).length,label:label,data:JSON.stringify({cardInfo:cardInfo,races:R,scratches:scratches})})});
+    var data=await resp.json();
+    if(data.ok){if(st)st.innerHTML='<span style="color:var(--green)">Saved: '+label+'</span>';await loadSavedCardList();}
+  }catch(e){if(st)st.innerHTML='<span style="color:var(--red)">Error: '+e.message+'</span>';}
+  if(btn){btn.disabled=false;btn.textContent="Save Card";}
+}
+async function loadSavedCardList(){
+  try{
+    var resp=await fetch("/api/cards"),cards=await resp.json();
+    var sel=document.getElementById("saved-cards-sel");
+    if(!sel||!Array.isArray(cards))return;
+    var today=new Date().toLocaleDateString("en-CA",{timeZone:"America/Chicago"});
+    sel.innerHTML='<option value="">Select a saved card</option>'+cards.map(function(c){
+      var flag=c.raceDate===today?" TODAY":c.raceDate>today?" UPCOMING":" past";
+      return '<option value="'+c.id+'">'+c.label+flag+'</option>';
+    }).join("");
+    var auto=cards.find(function(c){return c.raceDate===today;})||cards.find(function(c){return c.raceDate>=today;});
+    if(auto&&!R.some(function(r){return r.horses.length>0;}))await loadCardById(auto.id);
+  }catch(e){console.warn(e);}
+}
+async function loadCardById(id){
+  try{
+    var resp=await fetch("/api/cards?id="+id),card=await resp.json();
+    if(!card||!card.data)return;
+    var saved=JSON.parse(card.data);
+    if(saved.cardInfo){if(!cardInfo)cardInfo={};Object.assign(cardInfo,saved.cardInfo);}
+    if(saved.races&&saved.races.length)R=saved.races;
+    if(saved.scratches)scratches=saved.scratches;
+    updateCardHeader();renderRaceTabs();goRace(0);render();
+    var st=document.getElementById("save-card-status");
+    if(st)st.innerHTML='<span style="color:var(--green)">Loaded: '+card.label+'</span>';
+    document.querySelectorAll(".ntab").forEach(function(b){if(b.textContent.indexOf("Rankings")>-1)b.click();});
+  }catch(e){console.warn(e);}
+}
+async function loadSelectedCard(){
+  var sel=document.getElementById("saved-cards-sel");
+  if(!sel||!sel.value)return;
+  await loadCardById(parseInt(sel.value));
+}
+</script>
+
+<script>
+
+// ── Public API for CSV tab ──────────────────────────────────────────────────
+// parseSFCSV and loadCSVCard are called from handleCSVUpload above
+// They are defined inside initCSVImport() but exposed as window globals
+
+// ============================================================
+// PaddockIQ CSV Import Patch
+// Append this <script> block to public/index.html before </body>
+//
+// WHAT THIS DOES:
+// 1. Renames "⚡ PP Parser" tab to "📥 Card Import"
+// 2. Adds a "📂 Load DRF CSV" button to the top of that tab
+//    - Accepts the _sf.csv (Selections File) format from DRF
+//    - Parses all horses with Beyers, pace calls, works, ML odds
+//    - Scores using updated weights (Beyer + pace now available)
+//    - Saves to Neon via /api/cards and populates dropdown
+//    - Loads the card immediately into window.R
+// 3. Keeps PDF/Paste parse options below (still useful for scratches etc)
+// 4. Updated scoring weights that use the richer SF data
+// ============================================================
+
+(function initCSVImport() {
+  'use strict';
+
+  // ── SCORING ENGINE (updated weights with real Beyer + pace) ──
+  // Old weights (no Beyer/pace): speed:27, pace:13, class:23, form:22, jock:5, trainer:4, works:3, ml:3
+  // New weights (Beyer+pace available): beyer:18, pace:13, class:20, form:20, speed:10, jock:6, trainer:5, works:4, ml:4
+  // Rationale:
+  //   - Beyer gets its own full 18% (was merged into speed proxy)
+  //   - Pace stays at 13% (now real call positions, not estimated)
+  //   - Class drops 3% (23→20) — earnings/claim still useful but less predictive than speed figs
+  //   - Form drops 2% (22→20) — still important but Beyer already captures recent form
+  //   - Speed proxy drops from 27% to 10% — only used as tiebreaker / dist+trk win%
+  //   - Jockey up 1% (5→6), Trainer up 1% (4→5) — richer situational data in SF
+  //   - Works up 1% (3→4) — bullet work data now reliable
+  //   - ML up 1% (3→4) — market is useful signal especially for first-timers
+
+  const W = {
+    beyer:   0.18,
+    pace:    0.13,
+    class_:  0.20,
+    form:    0.20,
+    speed:   0.10,
+    jock:    0.06,
+    trainer: 0.05,
+    works:   0.04,
+    ml:      0.04
+  };
+
+  function nv(v) { const f = parseFloat(v); return isNaN(f) ? 0 : f; }
+
+  function parseCSV(text) {
+    const lines = text.trim().split('\n');
+    const headers = lines[0].split(',').map(h => h.trim().replace(/\r/,'').replace(/"/g,''));
+    return lines.slice(1).map(line => {
+      const cols = []; let cur = '', inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') inQ = !inQ;
+        else if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+        else cur += c;
+      }
+      cols.push(cur.trim().replace(/\r/,''));
+      const obj = {}; headers.forEach((h,i) => obj[h] = cols[i] || '');
+      return obj;
+    });
+  }
+
+  function getBeyerFigs(h) {
+    const figs = [];
+    for (let i = 1; i <= 12; i++) {
+      const b = nv(h['HR_Beyer_'+i]), date = h['HR_Date_'+i];
+      if (!date) break;
+      if (b > 0 && b < 900) figs.push(b);
+    }
+    return figs;
+  }
+
+  function getPaceData(h, fieldSize) {
+    const data = [];
+    for (let i = 1; i <= 6; i++) {
+      const date = h['HR_Date_'+i]; if (!date) break;
+      const fc = nv(h['HR_FirstCall_'+i]), fin = nv(h['HR_FinalCall_'+i]);
+      if (fc > 0) data.push({ first: fc, final: fin });
+    }
+    return data;
+  }
+
+  function getWorks(h) {
+    const wk = []; let bullets = 0, score = 0, count = 0;
+    for (let i = 1; i <= 6; i++) {
+      const d = h['W_Date_'+i]; if (!d) break;
+      const isBullet = h['W_Bullet_'+i] === '*';
+      const rank = nv(h['W_Rank_'+i]), rankIn = nv(h['W_RankIn_'+i]);
+      if (isBullet) bullets++;
+      if (rankIn > 0) score += (rankIn - rank) / rankIn;
+      count++;
+      wk.push({ date: d, dist: String(nv(h['W_Distance_'+i])), time: h['W_WorkTime_'+i],
+                bullet: isBullet, rank, rankIn });
+    }
+    return { wk, bullets, score: count > 0 ? score / count : 0.5 };
+  }
+
+  function mlToDecimal(mlStr) {
+    if (!mlStr || !mlStr.includes('-')) return 99;
+    const [a, b] = mlStr.split('-').map(Number);
+    return b > 0 ? a/b : 99;
+  }
+
+  function inferStyle(h, fieldSize) {
+    const calls = [];
+    for (let i = 1; i <= 6; i++) {
+      const date = h['HR_Date_'+i]; if (!date) break;
+      const fc = nv(h['HR_FirstCall_'+i]);
+      if (fc > 0) calls.push(fc);
+    }
+    if (calls.length === 0) return 'Unknown';
+    const avg = calls.reduce((a,b)=>a+b,0)/calls.length;
+    const fs = fieldSize || 8;
+    if (avg <= 1.5) return 'Front';
+    if (avg <= 3)   return 'Presser';
+    if (avg <= fs*0.5) return 'Tracker';
+    return 'Closer';
+  }
+
+  function getDays(h) {
+    if (!h.H_LastRaced || !h.H_LastRaced.match(/\d+\/\d+\/\d+/)) return 0;
+    const p = h.H_LastRaced.split('/'), r = h.R_RCDate.split('/');
+    return Math.round((new Date(r[2],r[0]-1,r[1]) - new Date(p[2],p[0]-1,p[1])) / 86400000);
+  }
+
+  function scoreRaceCSV(horses) {
+    const raw = horses.map(h => {
+      // Beyer
+      const beyerFigs = getBeyerFigs(h);
+      const bestBeyer = beyerFigs.length > 0 ? Math.max(...beyerFigs) : 0;
+      const avg3Beyer = beyerFigs.length > 0 ? beyerFigs.slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,beyerFigs.length) : 0;
+      const beyerRaw = bestBeyer > 0 ? bestBeyer*0.55 + avg3Beyer*0.45 : 0;
+
+      // Pace
+      const fs = nv(h.R_Starters) || 8;
+      const pd = getPaceData(h, fs);
+      let earlyPos = 0, posGain = 0;
+      if (pd.length > 0) {
+        earlyPos = pd.reduce((a,c)=>a+c.first,0)/pd.length;
+        posGain  = pd.reduce((a,c)=>a+(c.first-c.final),0)/pd.length;
+      }
+      const earlyNorm  = earlyPos > 0 ? Math.max(0, 1-(earlyPos-1)/(fs-1)) : 0.5;
+      const gainNorm   = posGain > 0 ? Math.min(1, posGain/4) : 0;
+      const paceRaw    = earlyNorm*0.6 + gainNorm*0.4;
+
+      // Speed proxy (dist/trk win% as tiebreaker)
+      const trkS = nv(h.H_TrkStarts), trkW = nv(h.H_TrkWins);
+      const distS = nv(h.H_DistStarts), distW = nv(h.H_DistWins);
+      const speedRaw = (trkS>0 ? trkW/trkS : 0)*0.55 + (distS>0 ? distW/distS : 0)*0.45;
+
+      // Class
+      const starts = nv(h.H_Starts);
+      const eps    = starts > 0 ? nv(h.H_Earnings)/starts : 0;
+      const trkEps = trkS > 0 ? nv(h.H_TrkEarnings)/trkS : 0;
+      const classRaw = eps*0.55 + trkEps*0.35 + nv(h.H_ClaimPrice)*0.1;
+
+      // Form
+      const wins = nv(h.H_Wins), places = nv(h.H_Places), shows = nv(h.H_Shows);
+      const cyS = nv(h.H_CYStarts), cyW = nv(h.H_CYWins);
+      const winPct  = starts > 0 ? wins/starts : 0;
+      const itmPct  = starts > 0 ? (wins+places+shows)/starts : 0;
+      const cyWinPct = cyS > 0 ? cyW/cyS : 0;
+      const days = getDays(h);
+      const layoff = days<=60&&days>=7?1:days<7?0.7:days<=90?0.65:days<=120?0.45:0.2;
+      const formRaw = winPct*0.35 + cyWinPct*0.25 + itmPct*0.2 + layoff*0.2;
+
+      // Jockey
+      const jockRaw = nv(h.H_JockMeetWinPct)*0.65 + nv(h.H_JockYTDWinPct)*0.35;
+
+      // Trainer (base + situational)
+      const trnrBase = nv(h.H_TrainerMeetWinPct)*0.5 + nv(h.H_TrainerYTDWinPct)*0.3;
+      let trnrSit = 0;
+      for (let i = 1; i <= 6; i++) {
+        const cat = h['T_Category_'+i], wp = nv(h['T_WinPct_'+i]), roi = nv(h['T_ROI_'+i]);
+        if (cat && wp > 0 && ((days>45&&cat.includes('Off'))||(h.H_Blinker&&cat.includes('Blink'))||cat.includes('Clm')||cat==='Dirt'))
+          trnrSit += wp * Math.min(roi/2, 1.5);
+      }
+      const trainerRaw = trnrBase*0.7 + Math.min(trnrSit*0.3, 0.25);
+
+      // Works
+      const workData = getWorks(h);
+
+      // J/T combo
+      const jtBonus = nv(h.H_JTAllWinPct) * Math.min(nv(h.H_JTAllRoi), 5);
+
+      // ML
+      const mlDec = mlToDecimal(h.B_MLOdds);
+      const mlRaw = mlDec<=1?1:mlDec<=2?0.85:mlDec<=4?0.70:mlDec<=9?0.55:mlDec<=19?0.35:0.15;
+
+      return {
+        horseName: h.H_Horse, pp: parseInt(h.H_PostPosition)||0,
+        jockey: h.H_Jockey, trainer: h.H_Trainer, ml: h.B_MLOdds,
+        scratch: h.H_Scratch === 'Y', days,
+        beyerFigs: beyerFigs.slice(0,3), bestBeyer,
+        sty: inferStyle(h, fs),
+        eq: { lf: h.H_Lasix==='L'||h.H_Lasix==='l', bf: false, bl: !!h.H_Blinker },
+        wk: workData.wk, bullets: workData.bullets,
+        notes: (h.CL_Comment||'').substring(0,120).trim(),
+        sire: h.H_Sire, dam: h.H_Dam,
+        claimPrice: nv(h.H_ClaimPrice), earnings: nv(h.H_Earnings),
+        starts, wins: nv(h.H_Wins), places: nv(h.H_Places), shows: nv(h.H_Shows),
+        jockMeetWinPct: nv(h.H_JockMeetWinPct), trnrMeetWinPct: nv(h.H_TrainerMeetWinPct),
+        jtAllWinPct: nv(h.H_JTAllWinPct), jtAllRoi: nv(h.H_JTAllRoi),
+        // raw scores
+        beyerRaw, paceRaw, speedRaw, classRaw, formRaw, jockRaw, trainerRaw,
+        worksScore: workData.score, mlRaw, jtBonus
+      };
+    }).filter(h => !h.scratch);
+
+    // Min-max normalize per race
+    const factors = ['beyerRaw','paceRaw','speedRaw','classRaw','formRaw','jockRaw','trainerRaw'];
+    const mm = {};
+    factors.forEach(f => {
+      const vals = raw.map(r => r[f]);
+      mm[f] = { min: Math.min(...vals), max: Math.max(...vals) };
+    });
+    const norm = (v,f) => mm[f].max===mm[f].min ? 0.5 : (v-mm[f].min)/(mm[f].max-mm[f].min);
+    const jtMax = Math.max(...raw.map(r => r.jtBonus), 0.001);
+
+    return raw.map(h => {
+      const bN = norm(h.beyerRaw,'beyerRaw'), pN = norm(h.paceRaw,'paceRaw'),
+            sN = norm(h.speedRaw,'speedRaw'), cN = norm(h.classRaw,'classRaw'),
+            fN = norm(h.formRaw,'formRaw'),   jN = norm(h.jockRaw,'jockRaw'),
+            tN = norm(h.trainerRaw,'trainerRaw'), jtN = h.jtBonus/jtMax;
+
+      const score = Math.round((
+        bN*W.beyer + pN*W.pace + sN*W.speed + cN*W.class_ + fN*W.form +
+        jN*W.jock + tN*W.trainer + h.worksScore*W.works + h.mlRaw*W.ml + jtN*0.02
+      ) * 100);
+
+      return {
+        name: h.horseName, disp: h.horseName, pp: h.pp, ml: h.ml,
+        b: h.bestBeyer, beyerFigs: h.beyerFigs, sty: h.sty,
+        j: Math.round(h.jockMeetWinPct*100), tr: Math.round(h.trnrMeetWinPct*100),
+        layoff: h.days, cc: 0, wins: h.wins, notes: h.notes, eq: h.eq, wk: h.wk,
+        distFit: 'csv', jockeyName: h.jockey, trainerName: h.trainer,
+        sire: h.sire, dam: h.dam, claimPrice: h.claimPrice, earnings: h.earnings,
+        starts: h.starts, places: h.places, shows: h.shows,
+        jockMeetWinPct: h.jockMeetWinPct, trnrMeetWinPct: h.trnrMeetWinPct,
+        jtAllWinPct: h.jtAllWinPct, jtAllRoi: h.jtAllRoi,
+        _csvScore: score
+      };
+    });
+  }
+
+  // ── PARSE FULL SF CSV INTO CARD ──────────────────────────────
+  function parseSFCSV(text) {
+    const rawRows = parseCSV(text);
+    // Carry R_RCRace forward (only first horse per race has it populated)
+    let currentRace = null, raceFields = {};
+    const rows = rawRows.map(r => {
+      if (r.R_RCRace) {
+        currentRace = r.R_RCRace;
+        raceFields = Object.fromEntries(Object.entries(r).filter(([k]) => k.startsWith('R_')));
+      }
+      if (!r.H_Horse?.trim()) return null;
+      return { ...raceFields, ...r, _race: currentRace };
+    }).filter(Boolean);
+
+    if (rows.length === 0) return null;
+
+    const raceNums = [...new Set(rows.map(r => r._race))].sort((a,b) => +a - +b);
+    const dateStr  = rows[0].R_RCDate || '';          // "4/2/2026"
+    const trackCode = rows[0].R_RCTrack || 'OP';
+    const trackName = rows[0].R_TrackName || 'Oaklawn Park';
+
+    // Convert "4/2/2026" → "2026-04-02"
+    let isoDate = dateStr;
+    if (dateStr.match(/\d+\/\d+\/\d+/)) {
+      const [m,d,y] = dateStr.split('/');
+      isoDate = y + '-' + m.padStart(2,'0') + '-' + d.padStart(2,'0');
+    }
+
+    // Display date: "Apr 2, 2026"
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const dispDate = dateStr.match(/\d+\/\d+\/\d+/) ?
+      months[parseInt(dateStr.split('/')[0])-1] + ' ' + parseInt(dateStr.split('/')[1]) + ', ' + dateStr.split('/')[2]
+      : dateStr;
+
+    const races = raceNums.map(rn => {
+      const horses = rows.filter(r => r._race === rn);
+      const ri = horses[0];
+      const dist = nv(ri.R_Distance);
+      const scored = scoreRaceCSV(horses);
+
+      return {
+        n: parseInt(rn),
+        t: (ri.R_PostTime || '') + ' CT',
+        d: dist + 'F ' + (ri.R_Surface === 'T' ? 'Turf' : 'Dirt'),
+        ty: ri.R_LongClass || ri.R_Class || '',
+        grade: 0, gradeName: '',
+        purse: String(Math.round(nv(ri.R_Purse) * 1000)),
+        horses: scored
+      };
+    });
+
+    return {
+      track: trackCode, trackName, date: isoDate, tz: 'America/Chicago',
+      cardInfo: { track: trackName, code: trackCode, numRaces: races.length, date: isoDate, tz: 'America/Chicago' },
+      races, dispDate
+    };
+  }
+
+  // ── LOAD CARD INTO APP ───────────────────────────────────────
+  function loadCardIntoApp(cardState) {
+    // Fix workout dist to string (app calls .replace() on it)
+    cardState.races.forEach(race => {
+      race.horses.forEach(horse => {
+        if (horse.wk) horse.wk.forEach(w => { w.dist = String(w.dist); });
+      });
+    });
+
+    // Write to localStorage
+    localStorage.setItem('paddockiq_state', JSON.stringify(cardState));
+
+    // Swap window.R and re-render
+    if (window.R) {
+      window.R.splice(0, window.R.length, ...cardState.races);
+    }
+    if (window.cardInfo) {
+      Object.assign(window.cardInfo, cardState.cardInfo);
+    }
+    if (typeof window.renderRaceTabs === 'function') window.renderRaceTabs();
+    if (typeof window.render === 'function') window.render('rankings');
+  }
+
+  // ── SAVE TO NEON ─────────────────────────────────────────────
+  async function saveToNeon(cardState, label) {
+    const resp = await fetch('/api/cards', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        track: cardState.track,
+        raceDate: cardState.date,
+        numRaces: cardState.races.length,
+        label,
+        data: cardState
       })
     });
-    var data=await resp.json();
-    if(data.error){throw new Error(data.error.message||'API error');}
-    var raw=data.content[0].text.trim();
-    raw=raw.replace(/```json|```/g,'').trim();
-    // Extract JSON object or array
-    var objMatch=raw.match(/\{[\s\S]*\}/);
-    if(objMatch)raw=objMatch[0];
-    var parsed=JSON.parse(raw);
-    var bias=parsed.trackBias||'none';
-
-    // Full card response: {races:[{n,horses},...],...}
-    if(parsed.races&&Array.isArray(parsed.races)&&parsed.races.length>0){
-      // Apply all races at once
-      var applied=0;
-      parsed.races.forEach(function(raceData){
-        var ri=R.findIndex(function(r){return r.n===raceData.n;});
-        if(ri<0||!raceData.horses||!raceData.horses.length)return;
-        R[ri].horses=raceData.horses.map(function(h){
-          return {name:h.name,disp:h.disp||h.name,pp:h.pp||0,ml:h.ml||'5-1',
-            b:h.b||0,sty:h.sty||'Midpack',j:h.j||10,tr:h.tr||10,
-            wins:h.wins||0,notes:h.notes||'',layoff:h.layoff||21,cc:h.cc||0,
-            eq:h.eq||{lf:false,bf:false,bl:false},wk:h.wk||[],distFit:h.distFit||'tested',
-            // Validate cc — should be in $K (e.g. -10 = drop $10K), cap at ±150
-            cc: (function(v){ v=parseInt(v)||0; if(Math.abs(v)>150) v=Math.round(v/1000); return Math.max(-150,Math.min(150,v)); })(h.cc)};
-        });
-        applied++;
-      });
-      if(bias!=='none'&&tc.bias==='none'){tc.bias=bias;renderTC();ppParseState.biasApplied=bias;}
-      ppParseState.loading=false;
-      ppParseState.result=null; // no single-race preview for full card
-      ppParseState.fullCardApplied=applied;
-      renderPPParser();
-      goRace(CUR);
-      document.querySelectorAll('.ntab').forEach(function(b){if(b.textContent.indexOf('Rankings')>-1){b.click();}});
-      alert('✓ Full card parsed — '+applied+' races loaded with PP data!');
-      return;
+    const result = await resp.json();
+    if (result.ok) {
+      // Refresh the dropdown
+      if (typeof window.loadSavedCardList === 'function') window.loadSavedCardList();
     }
-
-    // Single race response: {horses:[...],...}
-    var horses=Array.isArray(parsed)?parsed:(parsed.horses||[]);
-    if(!horses.length){throw new Error('Parser returned empty — try selecting a specific race number instead of All Races');}
-    if(bias!=='none'&&tc.bias==='none'){tc.bias=bias;renderTC();ppParseState.biasApplied=bias;}
-    ppParseState.result=horses;
-    ppParseState.loading=false;
-    renderPPParser();
-  }catch(e){
-    ppParseState.loading=false;
-    var emsg=e.message||'';
-    if(emsg.toLowerCase().indexOf('fetch')>-1||emsg.toLowerCase().indexOf('network')>-1||emsg.toLowerCase().indexOf('cors')>-1){
-      ppParseState.error='\u26a0 Connection blocked — connection failed — make sure the app is deployed on Netlify (not opened as a local file). If the problem persists, check your API key. (Error: '+emsg+')';
-    } else if(emsg.indexOf('401')>-1||emsg.indexOf('auth')>-1){
-      ppParseState.error='\u26a0 API key rejected — check your key in the field above (sk-ant-...).';
-    } else {
-      ppParseState.error='Parse error: '+emsg+'. Try: (1) parse one race at a time using the race selector, or (2) switch to Paste Text mode and paste just that race result.';
-    }
-    renderPPParser();
-  }
-}
-
-async function parseAllRaces(key, srcText){
-  var total   = R.length;
-  var applied = 0;
-  var errors  = [];
-  var allRaceNums = R.map(function(r){return r.n;}).sort(function(a,b){return a-b;});
-
-  ppParseState.loading  = false;
-  ppParseState.progress = {current:0,total:total,applied:0};
-  ppParseState.error    = null;
-  ppParseState.result   = null;
-  renderPPParser();
-
-  function setProgress(msg, pct){
-    var el = document.getElementById('parse-progress');
-    if(!el) return;
-    el.innerHTML =
-      '<div style="font-size:13px;color:#b48cf8;margin-bottom:6px">'+msg+'</div>'+
-      '<div style="background:var(--border);border-radius:4px;height:8px;width:100%">'+
-        '<div style="background:#b48cf8;border-radius:4px;height:8px;width:'+pct+'%;transition:width .4s"></div>'+
-      '</div>'+
-      '<div style="font-size:11px;color:var(--dim);margin-top:4px">'+applied+'/'+total+' races applied</div>';
+    return result;
   }
 
-  // ── One API call per race — most reliable approach ───────────────────────
-  // Each race gets a centered chunk. Equibase roster filters bad results.
-  var chunkSize = Math.ceil(srcText.length / total);
-  var overlap   = Math.floor(chunkSize * 0.25); // 25% each side
+  // ── UI INJECTION ─────────────────────────────────────────────
+  function renameParserTab() {
+    // Rename "⚡ PP Parser" nav tab to "📥 Card Import"
+    const parserTab = Array.from(document.querySelectorAll('.ntab'))
+      .find(t => t.textContent.includes('PP Parser'));
+    if (parserTab && !parserTab.dataset.csvRenamed) {
+      parserTab.textContent = '📥 Card Import';
+      parserTab.dataset.csvRenamed = '1';
+    }
+  }
 
-  for(var i=0; i<allRaceNums.length; i++){
-    var raceN = allRaceNums[i];
-    var ri    = R.findIndex(function(r){return r.n===raceN;});
-    if(ri < 0) continue;
+  function injectCSVButton() {
+    if (document.getElementById('csv-import-btn')) return;
 
-    setProgress('Parsing Race '+raceN+' of '+allRaceNums[allRaceNums.length-1]+'...', Math.round(i/total*90));
+    // Hidden file input
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.csv,.txt';
+    fileInput.id = 'csv-import-input';
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
 
-    // Center chunk on this race's position in the text
-    var cStart = Math.max(0, i*chunkSize - overlap);
-    var cEnd   = Math.min(srcText.length, (i+1)*chunkSize + overlap);
-    var chunk  = srcText.slice(cStart, cEnd);
+    // CSV Import button — prominent, at the top of the tab
+    const btn = document.createElement('button');
+    btn.id = 'csv-import-btn';
+    btn.innerHTML = '📂 Load DRF CSV';
+    btn.title = 'Upload DRF Selections File (_sf.csv) to load a race card';
+    btn.style.cssText = [
+      'background:linear-gradient(135deg,#1a3a5c,#0d2035)',
+      'color:#7ecfff',
+      'border:1px solid #2a5a8c',
+      'border-radius:8px',
+      'padding:8px 18px',
+      'font-size:13px',
+      'font-weight:700',
+      'cursor:pointer',
+      'letter-spacing:.6px',
+      'display:flex',
+      'align-items:center',
+      'gap:8px',
+      'white-space:nowrap',
+      'box-shadow:0 2px 8px rgba(0,0,0,.4)',
+      'transition:all .15s'
+    ].join(';');
+    btn.onmouseover = () => btn.style.background = 'linear-gradient(135deg,#1f4570,#122840)';
+    btn.onmouseout  = () => btn.style.background = 'linear-gradient(135deg,#1a3a5c,#0d2035)';
+    btn.onclick = () => fileInput.click();
 
-    // Equibase roster for this race — used as anchor and filter
-    var roster = (typeof equibaseRosters!=='undefined' && equibaseRosters[raceN]) || [];
-    var rosterStr = roster.length
-      ? '\nEquibase confirms these horses are in Race '+raceN+': '+roster.map(function(h){return h.name;}).join(', ')+'.\nOnly return horses from this list.'
-      : '';
+    fileInput.onchange = async (evt) => {
+      const file = evt.target.files[0];
+      if (!file) return;
+      btn.innerHTML = '⏳ Parsing…';
+      btn.disabled = true;
 
-    var prevN = i>0 ? allRaceNums[i-1] : null;
-    var nextN = i<allRaceNums.length-1 ? allRaceNums[i+1] : null;
-
-    var prompt =
-      'Extract past performance data for Race '+raceN+' ONLY from this DRF text.'+rosterStr+'\n\n'+
-      'CRITICAL RULES:\n'+
-      '1. Horse NAMES are proper nouns — e.g. "Boltoro", "Australian Navy", "Mo Sense"\n'+
-      '2. NEVER use a number as a horse name. Numbers = post positions (pp field)\n'+
-      '3. Only include horses entered in Race '+raceN+
-        (prevN ? ' — Race '+prevN+' horses have already been extracted, do not include them.' : '')+
-        (nextN ? ' — Race '+nextN+' horses will be extracted next, do not include them.' : '')+'\n'+
-      '4. J/T stats line format: "J/T 2025-26 OP (47 14 .30 $2.14)" — use .30 = 30% for j or tr\n'+
-      '5. Use CURRENT MEET (OP/KEE/CD etc) win% for jockey and trainer, not career\n\n'+
-      'Return ONLY valid JSON:\n'+
-      '{"postTime":null,"grade":null,"gradeName":null,"trackBias":"none","horses":[\n'+
-      '  {"name":"HorseName","disp":"Horse Name","pp":1,"ml":"5-2","b":78,\n'+
-      '   "sty":"Tracker","j":18,"tr":22,"layoff":21,"cc":-10,"wins":3,\n'+
-      '   "notes":"brief key angles","eq":{"lf":false,"bf":false,"bl":false},\n'+
-      '   "wk":[{"daysAgo":5,"dist":"5f","time":"1:00.2","bullet":true,"rank":1,"field":8,"track":"OP"}],\n'+
-      '   "distFit":"proven"}\n'+
-      ']}\n\n'+
-      'PP TEXT:\n'+chunk;
-
-    var attempts = 0;
-    var success  = false;
-
-    while(attempts < 2 && !success){
-      attempts++;
-      try{
-        var resp = await fetch(PROXY_URL,{
-          method:'POST',
-          headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
-          body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:5120,
-            messages:[{role:'user',content:[{type:'text',text:prompt}]}]})
-        });
-        var txt  = await resp.text();
-        var data; try{data=JSON.parse(txt);}catch(e){throw new Error('Proxy: '+txt.slice(0,60));}
-
-        if(data.error){
-          var em = data.error.message||'';
-          if(em.indexOf('rate limit')>-1){
-            setProgress('Rate limit — waiting 65s...', Math.round(i/total*90));
-            await new Promise(function(r){setTimeout(r,65000);});
-            attempts--; continue;
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const cardState = parseSFCSV(e.target.result);
+          if (!cardState || cardState.races.length === 0) {
+            alert('⚠️ No races found.\n\nMake sure this is a DRF Selections File (_sf.csv).\nThe plain PP CSV will not work — you need the SF format.');
+            btn.innerHTML = '📂 Load DRF CSV';
+            btn.disabled = false;
+            fileInput.value = '';
+            return;
           }
-          if(em.indexOf('credit')>-1||em.indexOf('billing')>-1){
-            ppParseState.error='\u26a0\ufe0f API credits exhausted.';
-            renderPPParser(); return;
-          }
-          throw new Error(em);
+
+          const totalHorses = cardState.races.reduce((a,r) => a+r.horses.length, 0);
+          const label = cardState.trackName + ' - ' + cardState.dispDate;
+
+          // Load into app immediately
+          loadCardIntoApp(cardState);
+
+          // Save to Neon in background
+          btn.innerHTML = '💾 Saving…';
+          const result = await saveToNeon(cardState, label);
+
+          const msg = [
+            '✅ Card loaded: ' + label,
+            '',
+            '🏇 Races: ' + cardState.races.length,
+            '🐴 Horses: ' + totalHorses,
+            result.ok ? '💾 Saved to Neon (id:' + result.id + ')' : '⚠️ Neon save failed — card is loaded but not persisted',
+            '',
+            'Scoring uses updated weights:',
+            '  Beyer 18% · Pace 13% · Class 20%',
+            '  Form 20% · Speed 10% · Jockey 6%',
+            '  Trainer 5% · Works 4% · ML 4%'
+          ].join('\n');
+          alert(msg);
+
+          btn.innerHTML = '✅ ' + cardState.dispDate;
+          setTimeout(() => { btn.innerHTML = '📂 Load DRF CSV'; btn.disabled = false; }, 5000);
+
+        } catch (err) {
+          console.error('[CSV Import]', err);
+          alert('❌ Parse error:\n' + err.message + '\n\nMake sure you\'re uploading the _sf.csv (Selections File) from DRF, not the plain PP CSV.');
+          btn.innerHTML = '📂 Load DRF CSV';
+          btn.disabled = false;
         }
-
-        // Extract JSON
-        var raw   = data.content[0].text.trim().replace(/```json|```/g,'').trim();
-        var depth=0,jS=-1,jE=-1;
-        for(var ci=0;ci<raw.length;ci++){
-          if(raw[ci]==='{'){if(depth===0)jS=ci;depth++;}
-          else if(raw[ci]==='}'){depth--;if(depth===0){jE=ci+1;break;}}
-        }
-        if(jS>-1&&jE>-1) raw=raw.slice(jS,jE);
-        var parsed = JSON.parse(raw);
-
-        // Apply track bias
-        if(parsed.trackBias&&parsed.trackBias!=='none'&&tc.bias==='none'){tc.bias=parsed.trackBias;renderTC();}
-
-        // Apply post time + grade
-        if(parsed.postTime&&/\d+:\d+/.test(parsed.postTime)) R[ri].t=parsed.postTime;
-        if(parsed.grade&&parseInt(parsed.grade)>0){
-          R[ri].grade=parseInt(parsed.grade);
-          R[ri].gradeName=parsed.gradeName||'';
-        }
-
-        var horses = parsed.horses||[];
-
-        // Filter: no numeric names, must be 2+ chars
-        horses = horses.filter(function(h){
-          var n=(h.name||'').trim();
-          return n.length>1 && isNaN(n) && !/^\d+$/.test(n);
-        });
-
-        // Filter to roster if available (prevents cross-race contamination)
-        if(roster.length){
-          var rLow = roster.map(function(r){return r.name.toLowerCase().replace(/[^a-z]/g,'');});
-          var filtered = horses.filter(function(h){
-            var hn=(h.name||'').toLowerCase().replace(/[^a-z]/g,'');
-            var hd=(h.disp||'').toLowerCase().replace(/[^a-z]/g,'');
-            return rLow.some(function(r){
-              if(r===hn||r===hd) return true;
-              if(r.length>=5&&hn.length>=5&&(hn.indexOf(r)>-1||r.indexOf(hn)>-1)) return true;
-              return false;
-            });
-          });
-          // Use filtered if it has a reasonable number of horses
-          if(filtered.length >= Math.min(3, horses.length * 0.5)) horses = filtered;
-        }
-
-        if(!horses.length){
-          if(attempts < 2){
-            console.warn('R'+raceN+' attempt '+attempts+': no valid horses, retrying with wider chunk');
-            var wider = Math.floor(chunkSize * 0.40);
-            var wStart = Math.max(0, i*chunkSize - wider);
-            var wEnd   = Math.min(srcText.length, (i+1)*chunkSize + wider);
-            chunk = srcText.slice(wStart, wEnd);
-            continue;
-          }
-          errors.push('R'+raceN+': no horses extracted');
-          break;
-        }
-
-        R[ri].horses = horses.map(function(h){
-          return {name:h.name||'',disp:h.disp||h.name||'',pp:parseInt(h.pp)||0,
-            ml:h.ml||'5-1',b:parseInt(h.b)||0,sty:h.sty||'Midpack',
-            j:parseInt(h.j)||10,tr:parseInt(h.tr)||10,wins:parseInt(h.wins)||0,
-            notes:h.notes||'',layoff:parseInt(h.layoff)||21,cc:parseInt(h.cc)||0,
-            eq:h.eq||{lf:false,bf:false,bl:false},wk:h.wk||[],distFit:h.distFit||'tested',
-            // Validate cc — should be in $K (e.g. -10 = drop $10K), cap at ±150
-            cc: (function(v){ v=parseInt(v)||0; if(Math.abs(v)>150) v=Math.round(v/1000); return Math.max(-150,Math.min(150,v)); })(h.cc)};
-        });
-
-        applied++;
-        success = true;
-        console.log('R'+raceN+' OK: '+horses.length+' horses'+(roster.length?' ('+roster.length+' in roster)':''));
-
-      }catch(e){
-        if(attempts >= 2){
-          errors.push('R'+raceN+': '+e.message);
-          console.error('R'+raceN+' failed:', e.message);
-        }
-      }
-    }
-
-    // 3 second gap between races to stay under rate limit
-    if(i < allRaceNums.length-1) await new Promise(function(r){setTimeout(r,3000);});
-  }
-
-  // ── Validation + backstop ─────────────────────────────────────────────────
-  var missingRaces=[], partialRaces=[];
-  R.forEach(function(r){
-    var roster=(typeof equibaseRosters!=='undefined'&&equibaseRosters[r.n])||[];
-    var active=roster.filter(function(h){return !h.scratched;});
-    if(!active.length) return;
-    var parsed=r.horses.map(function(h){return (h.name||'').toLowerCase().replace(/[^a-z]/g,'');});
-    var missing=active.filter(function(eq){
-      var en=eq.name.toLowerCase().replace(/[^a-z]/g,'');
-      return !parsed.some(function(p){
-        if(p===en)return true;
-        if(en.length>=5&&p.length>=5&&(p.indexOf(en)>-1||en.indexOf(p)>-1))return true;
-        return false;
-      });
-    });
-    if(r.horses.length===0){
-      missingRaces.push({n:r.n,count:active.length});
-      active.forEach(function(eq){
-        r.horses.push({name:eq.name.replace(/\s+/g,'_'),disp:eq.name,pp:eq.pp,
-          ml:eq.ml||'5-1',b:0,sty:'Midpack',j:10,tr:10,wins:0,layoff:21,cc:0,
-          notes:'[Equibase backstop]',eq:{lf:false,bf:false,bl:false},wk:[],distFit:'tested'});
-      });
-    } else if(missing.length){
-      partialRaces.push({n:r.n,parsed:r.horses.length,total:active.length,missing:missing});
-      missing.forEach(function(eq){
-        r.horses.push({name:eq.name.replace(/\s+/g,'_'),disp:eq.name,pp:eq.pp,
-          ml:eq.ml||'5-1',b:0,sty:'Midpack',j:10,tr:10,wins:0,layoff:21,cc:0,
-          notes:'[Equibase backstop]',eq:{lf:false,bf:false,bl:false},wk:[],distFit:'tested'});
-      });
-    }
-  });
-
-  ppParseState.progress=null; ppParseState.fullCardApplied=applied;
-  if(errors.length) ppParseState.error=errors.join(' | ');
-
-  // Save
-  var st=JSON.parse(localStorage.getItem('paddockiq_state')||'{}');
-  st.races=R.map(function(r){return {n:r.n,t:r.t,d:r.d,ty:r.ty,grade:r.grade||0,gradeName:r.gradeName||'',horses:r.horses.map(function(h){
-    return {name:h.name,disp:h.disp,pp:h.pp,ml:h.ml,b:h.b,sty:h.sty,j:h.j,tr:h.tr,
-      layoff:h.layoff,cc:h.cc,wins:h.wins,notes:h.notes,eq:h.eq||{lf:false,bf:false,bl:false},wk:h.wk||[],distFit:h.distFit||'tested'};
-  })};});
-  st.savedAt=new Date().toISOString(); st.cardInfo=cardInfo;
-  localStorage.setItem('paddockiq_state',JSON.stringify(st));
-  persistState().catch(function(e){});
-
-  // Schedule auto-export at 11 PM now that we have parsed data
-  scheduleAutoExport();
-  writeParseTrigger();
-  saveCardToDrive();
-
-  var msg='\u2713 Done! '+applied+'/'+total+' races loaded!';
-  if(errors.length) msg+='\n\nErrors: '+errors.join(', ');
-  if(missingRaces.length) msg+='\n\n\u26a0\ufe0f '+missingRaces.length+' race(s) empty — filled from Equibase:\n'+missingRaces.map(function(r){return 'Race '+r.n+' ('+r.count+' horses added)';}).join('\n');
-  if(partialRaces.length) msg+='\n\n\u26a0\ufe0f '+partialRaces.length+' race(s) partial — missing horses added:\n'+partialRaces.map(function(r){return 'Race '+r.n+': got '+r.parsed+'/'+r.total;}).join('\n');
-
-  renderRaceTabs(); goRace(0); render(); renderPPParser();
-  document.querySelectorAll('.ntab').forEach(function(b){if(b.textContent.indexOf('Rankings')>-1)b.click();});
-  alert(msg);
-}
-
-
-function splitTextByRace(text, numRaces){
-  // Try to find DRF race boundary markers
-  var ordinals = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th'];
-  var patterns = [];
-  // Pattern: "1st Race", "RACE 1", "Race 1", numbered headers
-  for(var i=0;i<numRaces;i++){
-    patterns.push(new RegExp('('+ordinals[i]+'\\s+Race|RACE\\s+'+(i+1)+'\\b|Race\\s+'+(i+1)+'\\b)', 'i'));
-  }
-  
-  // Find positions of each race boundary
-  var positions = [];
-  for(var i=0;i<patterns.length;i++){
-    var m = patterns[i].exec(text);
-    if(m) positions.push({idx:i, pos:m.index});
-  }
-  positions.sort(function(a,b){return a.pos-b.pos;});
-  
-  // If we found boundaries, split on them
-  if(positions.length >= Math.floor(numRaces * 0.5)){
-    var chunks = [];
-    for(var i=0;i<positions.length;i++){
-      var start = positions[i].pos;
-      var end = i+1 < positions.length ? positions[i+1].pos : text.length;
-      chunks[positions[i].idx] = text.slice(start, end);
-    }
-    // Fill any missing with empty string
-    for(var i=0;i<numRaces;i++){ if(!chunks[i]) chunks[i]=''; }
-    return chunks;
-  }
-  
-  // Fallback: equal chunks by line count
-  var lines = text.split('\n');
-  var chunkLines = Math.ceil(lines.length / numRaces);
-  var chunks = [];
-  for(var i=0;i<numRaces;i++){
-    chunks.push(lines.slice(i*chunkLines, (i+1)*chunkLines+20).join('\n'));
-  }
-  return chunks;
-}
-
-function buildParsePrompt(ri){
-  var isAll = ri === -1;
-  var raceRef = isAll ? 'ALL races in this card' : 'Race '+R[ri].n;
-  return 'You are a horse racing handicapping data extractor. Extract horse data from the following DRF past performance document for '+raceRef+'.\n\n'+
-    'For each horse return a JSON object with these exact fields:\n'+
-    '- name: string (internal key, no apostrophes, e.g. "Im Fired Up")\n'+
-    '- disp: string (display name with proper punctuation, e.g. "I\'m Fired Up")\n'+
-    '- pp: number (post position number)\n'+
-    '- ml: string (morning line odds e.g. "5-2", "9-1")\n'+
-    '- b: number (best recent Beyer Speed Figure, 0 if debut or unknown)\n'+
-    '- sty: string (exactly one of: Leader, Speed, Tracker, Midpack, Closer, Plodder)\n'+
-    '- j: number (jockey win% at meet or overall, integer 0-99)\n'+
-    '- tr: number (trainer win% at meet or overall, integer 0-99)\n'+
-    '- layoff: number (days since last race; use 14 if under 2 weeks, 21 if unknown)\n'+
-    '- cc: number (class change in $K: negative=dropped, positive=rose, 0=same)\n'+
-    '- wins: number (career wins total)\n'+
-    '- notes: string (brief: X wins, last finish, key angle. No apostrophes)\n'+
-    '- eq: object — {lf: bool (lasix first time), bf: bool (blinkers first time), bl: bool (blinkers continuing)}\n'+
-    '- wk: array of workout objects, most recent first, max 5. Each workout:\n'+
-    '  {daysAgo: number (days before race date, e.g. 5), dist: string (e.g. "4f","5f","6f"), '+
-    'time: string (e.g. "0:47.2","1:00.1"), bullet: bool (fastest of the day = B), '+
-    'rank: number (e.g. 3 if 3/18), field: number (e.g. 18 if 3/18), track: string (e.g. "OP")}\n'+
-    '  If no workouts available, use empty array [].\n\n'+
-    'Style guide: Leader/Speed=on or near front; Tracker=just off pace; Midpack=middle; Closer=from behind; Plodder=always far back.\n\n'+
-    'Also detect track bias. Add top-level "trackBias": one of "none","speed","closer","inside","outside".\n\n'+
-    +(isAll
-      ? 'Return a JSON object: {"races": [{"n": 1, "horses": [...]}, {"n": 2, "horses": [...]}], "trackBias": "none"}. One entry per race. No markdown, no backticks, no preamble.'
-      : 'Return a JSON object: {"horses": [...], "trackBias": "none"}. No markdown, no backticks, no preamble.');
-}
-
-function applyParsedHorses(ri){
-  var horses=ppParseState.result;
-  if(!horses||!horses.length)return;
-  // Merge into race — preserve existing scratches, kaci, liveOdds
-  R[ri].horses=horses.map(function(h){
-    return {
-      name:h.name, disp:h.disp||h.name, pp:h.pp||0, ml:h.ml||'5-1',
-      b:h.b||0, sty:h.sty||'Midpack', j:h.j||10, tr:h.tr||10,
-      wins:h.wins||0, notes:h.notes||'', layoff:h.layoff||21, cc:h.cc||0,
-      eq:h.eq||{lf:false,bf:false,bl:false},
-      wk:h.wk||[]
+        fileInput.value = '';
+      };
+      reader.readAsText(file);
     };
-  });
-  ppParseState.result=null;
-  ppParseState.error=null;
-  CUR=ri;
-  goRace(ri);
-  // Switch to rankings to show result
-  document.querySelectorAll('.ntab').forEach(function(b){
-    if(b.textContent.indexOf('Rankings')>-1){b.click();}
-  });
-  alert('Race '+R[ri].n+' updated with '+horses.length+' horses from PP data!');
-}
 
+    // ── INSERT AT TOP OF PP PARSER TAB ───────────────────────
+    // Wrap in a styled container with label
+    const container = document.createElement('div');
+    container.id = 'csv-import-container';
+    container.style.cssText = [
+      'background:#0d1f2d',
+      'border:1px solid #1a3a5c',
+      'border-radius:10px',
+      'padding:14px 16px',
+      'margin-bottom:16px',
+      'display:flex',
+      'align-items:center',
+      'gap:14px'
+    ].join(';');
 
-async function saveCardToServer(){
-  var btn=document.getElementById("save-card-btn"),st=document.getElementById("save-card-status");
-  if(!R.some(function(r){return r.horses.length>0;})){if(st)st.textContent="No parsed card.";return;}
-  if(btn){btn.disabled=true;btn.textContent="Saving...";}
-  try{
-    var raceDate=(cardInfo&&cardInfo.date)?cardInfo.date:new Date().toLocaleDateString("en-CA",{timeZone:"America/Chicago"});
-    var track=(cardInfo&&cardInfo.code)?cardInfo.code:"OP";
-    var trackName=(cardInfo&&cardInfo.track)?cardInfo.track:"Oaklawn Park";
-    var p=raceDate.split("-"),months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    var label=trackName+" - "+months[parseInt(p[1])-1]+" "+parseInt(p[2]);
-    var resp=await fetch("/api/cards",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({track:track,raceDate:raceDate,numRaces:R.filter(function(r){return r.horses.length>0;}).length,label:label,data:JSON.stringify({cardInfo:cardInfo,races:R,scratches:scratches})})});
-    var data=await resp.json();
-    if(data.ok){if(st)st.innerHTML='<span style="color:var(--green)">Saved: '+label+'</span>';await loadSavedCardList();}
-  }catch(e){if(st)st.innerHTML='<span style="color:var(--red)">Error: '+e.message+'</span>';}
-  if(btn){btn.disabled=false;btn.textContent="Save Card";}
-}
-async function loadSavedCardList(){
-  try{
-    var resp=await fetch("/api/cards"),cards=await resp.json();
-    var sel=document.getElementById("saved-cards-sel");
-    if(!sel||!Array.isArray(cards))return;
-    var today=new Date().toLocaleDateString("en-CA",{timeZone:"America/Chicago"});
-    sel.innerHTML='<option value="">Select a saved card</option>'+cards.map(function(c){
-      var flag=c.raceDate===today?" TODAY":c.raceDate>today?" UPCOMING":" past";
-      return '<option value="'+c.id+'">'+c.label+flag+'</option>';
-    }).join("");
-    var auto=cards.find(function(c){return c.raceDate===today;})||cards.find(function(c){return c.raceDate>=today;});
-    if(auto&&!R.some(function(r){return r.horses.length>0;}))await loadCardById(auto.id);
-  }catch(e){console.warn(e);}
-}
-async function loadCardById(id){
-  try{
-    var resp=await fetch("/api/cards?id="+id),card=await resp.json();
-    if(!card||!card.data)return;
-    var saved=JSON.parse(card.data);
-    if(saved.cardInfo){if(!cardInfo)cardInfo={};Object.assign(cardInfo,saved.cardInfo);}
-    if(saved.races&&saved.races.length)R=saved.races;
-    if(saved.scratches)scratches=saved.scratches;
-    updateCardHeader();renderRaceTabs();goRace(0);render();
-    var st=document.getElementById("save-card-status");
-    if(st)st.innerHTML='<span style="color:var(--green)">Loaded: '+card.label+'</span>';
-    document.querySelectorAll(".ntab").forEach(function(b){if(b.textContent.indexOf("Rankings")>-1)b.click();});
-  }catch(e){console.warn(e);}
-}
-async function loadSelectedCard(){
-  var sel=document.getElementById("saved-cards-sel");
-  if(!sel||!sel.value)return;
-  await loadCardById(parseInt(sel.value));
-}
+    const label = document.createElement('div');
+    label.style.cssText = 'flex:1;font-size:12px;color:#5588aa;line-height:1.5';
+    label.innerHTML = '<strong style="color:#7ecfff;font-size:13px">DRF Selections CSV</strong><br>' +
+      'Upload the <code style="color:#aaccee">_sf.csv</code> file from DRF to load a full race card with ' +
+      'Beyers, pace calls, workouts &amp; trainer stats.';
 
-async function saveCardToServer(){
-  var btn=document.getElementById("save-card-btn"),st=document.getElementById("save-card-status");
-  if(!R.some(function(r){return r.horses.length>0;})){if(st)st.textContent="No parsed card.";return;}
-  if(btn){btn.disabled=true;btn.textContent="Saving...";}
-  try{
-    var raceDate=(cardInfo&&cardInfo.date)?cardInfo.date:new Date().toLocaleDateString("en-CA",{timeZone:"America/Chicago"});
-    var track=(cardInfo&&cardInfo.code)?cardInfo.code:"OP";
-    var trackName=(cardInfo&&cardInfo.track)?cardInfo.track:"Oaklawn Park";
-    var p=raceDate.split("-"),months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    var label=trackName+" - "+months[parseInt(p[1])-1]+" "+parseInt(p[2]);
-    var resp=await fetch("/api/cards",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({track:track,raceDate:raceDate,numRaces:R.filter(function(r){return r.horses.length>0;}).length,label:label,data:JSON.stringify({cardInfo:cardInfo,races:R,scratches:scratches})})});
-    var data=await resp.json();
-    if(data.ok){if(st)st.innerHTML='<span style="color:var(--green)">Saved: '+label+'</span>';await loadSavedCardList();}
-  }catch(e){if(st)st.innerHTML='<span style="color:var(--red)">Error: '+e.message+'</span>';}
-  if(btn){btn.disabled=false;btn.textContent="Save Card";}
-}
-async function loadSavedCardList(){
-  try{
-    var resp=await fetch("/api/cards"),cards=await resp.json();
-    var sel=document.getElementById("saved-cards-sel");
-    if(!sel||!Array.isArray(cards))return;
-    var today=new Date().toLocaleDateString("en-CA",{timeZone:"America/Chicago"});
-    sel.innerHTML='<option value="">Select a saved card</option>'+cards.map(function(c){
-      var flag=c.raceDate===today?" TODAY":c.raceDate>today?" UPCOMING":" past";
-      return '<option value="'+c.id+'">'+c.label+flag+'</option>';
-    }).join("");
-    var auto=cards.find(function(c){return c.raceDate===today;})||cards.find(function(c){return c.raceDate>=today;});
-    if(auto&&!R.some(function(r){return r.horses.length>0;}))await loadCardById(auto.id);
-  }catch(e){console.warn(e);}
-}
-async function loadCardById(id){
-  try{
-    var resp=await fetch("/api/cards?id="+id),card=await resp.json();
-    if(!card||!card.data)return;
-    var saved=JSON.parse(card.data);
-    if(saved.cardInfo){if(!cardInfo)cardInfo={};Object.assign(cardInfo,saved.cardInfo);}
-    if(saved.races&&saved.races.length)R=saved.races;
-    if(saved.scratches)scratches=saved.scratches;
-    updateCardHeader();renderRaceTabs();goRace(0);render();
-    var st=document.getElementById("save-card-status");
-    if(st)st.innerHTML='<span style="color:var(--green)">Loaded: '+card.label+'</span>';
-    document.querySelectorAll(".ntab").forEach(function(b){if(b.textContent.indexOf("Rankings")>-1)b.click();});
-  }catch(e){console.warn(e);}
-}
-async function loadSelectedCard(){
-  var sel=document.getElementById("saved-cards-sel");
-  if(!sel||!sel.value)return;
-  await loadCardById(parseInt(sel.value));
-}
+    container.appendChild(label);
+    container.appendChild(btn);
+
+    // Find the PP Parser tab content and prepend
+    const ppTab = document.getElementById('tab-ppparser');
+    if (ppTab) {
+      // Insert before the first child
+      ppTab.insertBefore(container, ppTab.firstChild);
+    } else {
+      // Fallback: float button
+      btn.style.cssText += ';position:fixed;bottom:72px;right:16px;z-index:9999';
+      document.body.appendChild(btn);
+    }
+  }
+
+  // Watch for tab renders and re-inject
+  function watchTab() {
+    const obs = new MutationObserver(() => {
+      renameParserTab();
+      if (!document.getElementById('csv-import-btn')) injectCSVButton();
+    });
+    const target = document.getElementById('tab-ppparser') || document.body;
+    obs.observe(target, { childList: true, subtree: false });
+    // Also watch nav for rename
+    const nav = document.querySelector('.nav, #nav, [class*="nav"]') || document.body;
+    obs.observe(nav, { childList: true, subtree: true });
+  }
+
+  // Expose scoring for console debugging
+  window._csvParseSF  = parseSFCSV;
+  window._csvLoadCard = loadCardIntoApp;
+  window._csvSaveNeon = saveToNeon;
+  window._csvWeights  = W;
+
+  // Init
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { renameParserTab(); injectCSVButton(); watchTab(); });
+  } else {
+    renameParserTab();
+    injectCSVButton();
+    watchTab();
+  }
+
+})();
+
 </script>
 </body>
 </html>
