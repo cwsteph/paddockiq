@@ -476,7 +476,7 @@ function scoreRace(ri){
     var trMeetBonus = h.tr >= tElite ? 6 : h.tr >= tGood ? 3 : 0;
     var trn = (trBase + trMeetBonus) * 0.04;
     // Layoff adjustment
-    var lo=h.layoff||21;
+    var lo=h.layoff!=null ? h.layoff : (h.wk&&h.wk.length&&typeof h.wk[0]==='object'&&h.wk[0].daysAgo ? h.wk[0].daysAgo+7 : 30);
     var layoffAdj= lo<=14?3 : lo<=28?0 : lo<=45?-2 : lo<=90?-5 : -8;
     // Class change: negative cc = dropped in class = bonus
     var cc=h.cc||0;
@@ -1020,7 +1020,11 @@ function renderRankings(){
       (isExp?'<div class="hcard-detail">'+
         '<div style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:8px">'+s.horse.notes+'</div>'+
         '<div class="hcard-grid">'+
-        [['Beyer',s.horse.b],['Style',s.horse.sty],['Jockey%',s.horse.j+'%'],['Trainer%',s.horse.tr+'%'],['Layoff',(s.horse.layoff||'?')+'d'],['Equipment',(s.horse.eq?(s.horse.eq.lf?'LASIX 1ST':s.horse.eq.bf?'BLINK 1ST':s.horse.eq.bl?'Blinkers':'None'):'—')],['Class Chg',s.horse.cc!=null?(s.horse.cc===0?'Even':(s.horse.cc<0?'DROP $'+Math.abs(s.horse.cc)+'K':'UP $'+s.horse.cc+'K')):'--'],['Workout Pts',(s.wkScore||0)>0?'+'+s.wkScore+' pts':'—'],['Dist Fit',(s.distFitAdj||0)!==0?((s.distFitAdj>0?'+':'')+s.distFitAdj+' pts ('+( s.horse.distFit||'tested')+')'):s.horse.distFit||'—'],['Stakes',(s.stakesBonus||0)>0?'+'+s.stakesBonus+' pts':'—'],['New Trn Bonus',(s.newTrnBonus||0)>0?'+'+s.newTrnBonus+'pts':'—'],['Drop Bonus',(s.extremeDropBonus||0)>0?'+'+s.extremeDropBonus+'pts':'—'],['Base',s.base],['Track Adj',(s.tb>=0?'+':'')+s.tb],['Win Prob',pr2+'%'],['Final Score',s.score]].map(function(x){
+        [['Beyer',s.horse.b],['Style',s.horse.sty],['Jockey%',s.horse.j+'%'],['Trainer%',s.horse.tr+'%'],['Layoff',s.horse.layoff!=null ? s.horse.layoff+'d' : (s.horse.wk&&s.horse.wk.length&&typeof s.horse.wk[0]==='object' ? (s.horse.wk[0].daysAgo||'?')+'d wk' : '—')],['Equipment',(s.horse.eq?(s.horse.eq.lf?'LASIX 1ST':s.horse.eq.bf?'BLINK 1ST':s.horse.eq.bl?'Blinkers':'None'):'—')],['Class Chg',s.horse.cc!=null?(s.horse.cc===0?'Even':(s.horse.cc<0?'DROP $'+Math.abs(s.horse.cc)+'K':'UP $'+s.horse.cc+'K')):'--'],['Workout Pts',(s.wkScore||0)>0?'+'+s.wkScore+' pts':'—'],['Dist Fit',(function(){
+  var df=s.horse.distFit||'';
+  var label=df==='winner'?'✓ Winner':df==='no wins'?'0 wins':df==='first-time'?'First time':df==='tested'?'Tested':df==='lightly-tested'?'Light':df||'—';
+  return (s.distFitAdj&&s.distFitAdj!==0)?((s.distFitAdj>0?'+':'')+s.distFitAdj+' pts ('+label+')'):label;
+})()],['Stakes',(s.stakesBonus||0)>0?'+'+s.stakesBonus+' pts':'—'],['New Trn Bonus',(s.newTrnBonus||0)>0?'+'+s.newTrnBonus+'pts':'—'],['Drop Bonus',(s.extremeDropBonus||0)>0?'+'+s.extremeDropBonus+'pts':'—'],['Base',s.base],['Track Adj',(s.tb>=0?'+':'')+s.tb],['Win Prob',pr2+'%'],['Final Score',s.score]].map(function(x){
           var vc=x[0]==='Track Adj'?(parseFloat(x[1])>=0?'var(--green)':'var(--red)'):x[0]==='Final Score'?'var(--gold)':x[0]==='Workout Pts'?'var(--purple)':x[0]==='Dist Fit'?(s.distFitAdj>0?'var(--green)':s.distFitAdj<0?'var(--red)':'var(--muted)'):x[0]==='Stakes'?'#c490f8':'var(--text)';
           return '<div class="hcard-stat"><div class="hcard-stat-l">'+x[0]+'</div><div class="hcard-stat-v" style="color:'+vc+'">'+x[1]+'</div></div>';
         }).join('')+
@@ -3627,7 +3631,7 @@ function applyLoadedState(state){
           return {name:h.name||'',disp:h.disp||h.name||'',pp:parseInt(h.pp)||0,
             ml:h.ml||'5-1',b:parseInt(h.b)||0,sty:h.sty||'Midpack',
             j:parseInt(h.j)||10,tr:parseInt(h.tr)||10,wins:parseInt(h.wins)||0,
-            notes:h.notes||'',layoff:parseInt(h.layoff)||21,cc:parseInt(h.cc)||0,
+            notes:h.notes||'',layoff:h.layoff!=null?parseInt(h.layoff):null,cc:parseInt(h.cc)||0,
             eq:h.eq||{lf:false,bf:false,bl:false},wk:h.wk||[],distFit:h.distFit||'tested',
             // Validate cc — should be in $K (e.g. -10 = drop $10K), cap at ±150
             cc: (function(v){ v=parseInt(v)||0; if(Math.abs(v)>150) v=Math.round(v/1000); return Math.max(-150,Math.min(150,v)); })(h.cc)};
@@ -4313,7 +4317,11 @@ async function loadSelectedCard(){
         jtAllWinPct: nv(h.H_JTAllWinPct), jtAllRoi: nv(h.H_JTAllRoi),
         // raw scores
         beyerRaw, paceRaw, speedRaw, classRaw, formRaw, jockRaw, trainerRaw,
-        worksScore: workData.score, mlRaw, jtBonus
+        worksScore: workData.score, mlRaw, jtBonus,
+        // pass through for distFit computation
+        H_DistStarts: nv(h.H_DistStarts), H_DistWins: nv(h.H_DistWins),
+        H_TrkStarts: nv(h.H_TrkStarts), H_TrkWins: nv(h.H_TrkWins),
+        raceFurlongs: nv(h.R_Distance)
       };
     }).filter(h => !h.scratch);
 
@@ -4338,12 +4346,19 @@ async function loadSelectedCard(){
         jN*W.jock + tN*W.trainer + h.worksScore*W.works + h.mlRaw*W.ml + jtN*0.02
       ) * 100);
 
+      // Compute distFit from distance history
+      const _distS = h.H_DistStarts || 0, _distW = h.H_DistWins || 0;
+      const _distLabel = _distS === 0 ? 'first-time'
+                       : _distW >= 2 ? 'winner'
+                       : _distW === 1 && _distS <= 3 ? 'winner'
+                       : _distW === 0 && _distS >= 4 ? 'no wins'
+                       : 'tested';
       return {
         name: h.horseName, disp: h.horseName, pp: h.pp, ml: h.ml,
         b: h.bestBeyer, beyerFigs: h.beyerFigs, sty: h.sty,
         j: Math.round(h.jockMeetWinPct*100), tr: Math.round(h.trnrMeetWinPct*100),
         layoff: h.days, cc: 0, wins: h.wins, notes: h.notes, eq: h.eq, wk: h.wk,
-        distFit: 'csv', jockeyName: h.jockey, trainerName: h.trainer,
+        distFit: _distLabel, jockeyName: h.jockey, trainerName: h.trainer,
         sire: h.sire, dam: h.dam, claimPrice: h.claimPrice, earnings: h.earnings,
         starts: h.starts, places: h.places, shows: h.shows,
         jockMeetWinPct: h.jockMeetWinPct, trnrMeetWinPct: h.trnrMeetWinPct,
