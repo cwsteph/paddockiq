@@ -4104,7 +4104,21 @@ async function loadCardById(id){
     if(!card||!card.data)return;
     var saved=JSON.parse(card.data);
     if(saved.cardInfo){if(!cardInfo)cardInfo={};Object.assign(cardInfo,saved.cardInfo);}
-    if(saved.races&&saved.races.length)R=saved.races;
+    if(saved.races&&saved.races.length){
+      // Sanitize legacy Neon data on load
+      R=saved.races.map(function(race){
+        return Object.assign({},race,{
+          horses:(race.horses||[]).map(function(h){
+            var eq=h.eq||{lf:false,lo:false,bf:false,bl:false};
+            // Legacy: lf was set for "on lasix" not "first time" — move to lo
+            if(eq.lf&&!eq.lo){ eq=Object.assign({},eq,{lo:true,lf:false}); }
+            // Legacy: distFit:'csv' → 'tested' as safe default
+            var distFit=h.distFit==='csv'?'tested':(h.distFit||'tested');
+            return Object.assign({},h,{eq:eq,distFit:distFit});
+          })
+        });
+      });
+    }
     if(saved.scratches)scratches=saved.scratches;
     window._loadedCardId=id;
     // Persist jockey/trainer stats for this track
