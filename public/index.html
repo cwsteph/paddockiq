@@ -3647,11 +3647,21 @@ function applyLoadedState(state){
         grade:sr.grade||0, gradeName:sr.gradeName||'',
         purse:sr.purse||'',
         horses:(sr.horses||[]).map(function(h){
+          // Sanitize legacy eq data: lf was wrongly set for "on lasix" — move to lo
+          var rawEq = h.eq||{lf:false,bf:false,bl:false};
+          var eq = {
+            lf: rawEq.lf && rawEq.lo ? rawEq.lf : false,  // keep lf only if lo also set (genuine first-time)
+            lo: rawEq.lo || (rawEq.lf && !rawEq.lo),       // migrate old lf→lo
+            bf: rawEq.bf||false,
+            bl: rawEq.bl||false
+          };
+          // Sanitize legacy distFit
+          var distFit = h.distFit==='csv' ? 'tested' : (h.distFit||'tested');
           return {name:h.name||'',disp:h.disp||h.name||'',pp:parseInt(h.pp)||0,
             ml:h.ml||'5-1',b:parseInt(h.b)||0,sty:h.sty||'Midpack',
             j:parseInt(h.j)||10,tr:parseInt(h.tr)||10,wins:parseInt(h.wins)||0,
             notes:h.notes||'',layoff:h.layoff!=null?parseInt(h.layoff):null,cc:parseInt(h.cc)||0,
-            eq:h.eq||{lf:false,bf:false,bl:false},wk:h.wk||[],distFit:h.distFit||'tested',
+            eq:eq,wk:h.wk||[],distFit:distFit,
             // Validate cc — should be in $K (e.g. -10 = drop $10K), cap at ±150
             cc: (function(v){ v=parseInt(v)||0; if(Math.abs(v)>150) v=Math.round(v/1000); return Math.max(-150,Math.min(150,v)); })(h.cc)};
         })
