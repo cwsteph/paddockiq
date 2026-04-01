@@ -350,20 +350,34 @@ function updateCardHeader(){
 
 function raceTypeBadge(ty){
   // Returns short badge text from race type string
+  // Handles both PP-parser format (MDN, CLM) and CSV format (Md Sp Wt, Clm, -G1 etc)
   if(!ty) return '';
   var t = ty.toUpperCase();
+  // Graded stakes first — CSV format: "Ashland-G1", "Beaumont-G2", "Trnylvna-G3"
+  if(/-G1\b|\bG1\b|GRADE 1/.test(t))                    return 'G1';
+  if(/-G2\b|\bG2\b|GRADE 2/.test(t))                    return 'G2';
+  if(/-G3\b|\bG3\b|GRADE 3/.test(t))                    return 'G3';
+  // Maiden claiming — must check before generic maiden/claiming
   if(t.indexOf('MDN CLM')>-1||t.indexOf('MAIDEN CLM')>-1) return 'MDN CLM';
-  if(t.indexOf('MDN')>-1||t.indexOf('MAIDEN')>-1)         return 'MDN';
+  if(/\bMD\s+CLM|\bMD CLM/.test(t))                     return 'MDN CLM';
+  // Maiden special weight — CSV: "Md Sp Wt", "Md Sp Wt 90k"
+  if(/\bMD SP WT|\bMSW\b/.test(t))                      return 'MSW';
+  // Generic maiden
+  if(t.indexOf('MDN')>-1||t.indexOf('MAIDEN')>-1||/\bMD\b/.test(t)) return 'MDN';
+  // Stakes — CSV: "LafayetteL400k", "Stk 200k"
   if(t.indexOf('STK')>-1||t.indexOf('STAKES')>-1)         return 'STK';
-  if(t.indexOf('G1')>-1||t.indexOf('GRADE 1')>-1)         return 'G1';
-  if(t.indexOf('G2')>-1||t.indexOf('GRADE 2')>-1)         return 'G2';
-  if(t.indexOf('G3')>-1||t.indexOf('GRADE 3')>-1)         return 'G3';
-  if(t.indexOf('ALW')>-1||t.indexOf('ALLOWANCE')>-1||t.indexOf('ALLW')>-1) return 'ALW';
-  if(t.indexOf('OC')>-1||t.indexOf('OPT CLM')>-1)         return 'OC';
-  if(t.indexOf('CLM')>-1||t.indexOf('CLAIMING')>-1)       return 'CLM';
+  // Named stakes (CSV format: word + optional L + number + k)
+  if(/[A-Z]{4,}L?\d+K/.test(t))                          return 'STK';
+  // Allowance
+  if(/\bALW\b|\bALLOWANCE\b|\bALLW\b/.test(t))      return 'ALW';
+  // Optional claiming
+  if(t.indexOf('OPT CLM')>-1||/\bOC\b/.test(t))         return 'OC';
+  // Maiden claiming catch-all
+  if(/\bMCL\b/.test(t))                                  return 'MCL';
+  // Claiming — CSV: "Clm 25000", PP: "CLM"
+  if(/\bCLM\b|\bCLAIMING\b|\bCLM\b/.test(t))        return 'CLM';
+  if(/\bCLM\b/.test(t))                                  return 'CLM';
   if(t.indexOf('RHP')>-1||t.indexOf('R/HP')>-1)           return 'RHP';
-  if(t.indexOf('MSW')>-1)                                  return 'MSW';
-  if(t.indexOf('MCL')>-1)                                  return 'MCL';
   return '';
 }
 
@@ -476,7 +490,7 @@ function scoreRace(ri){
     var trMeetBonus = h.tr >= tElite ? 6 : h.tr >= tGood ? 3 : 0;
     var trn = (trBase + trMeetBonus) * 0.04;
     // Layoff adjustment
-    var lo=h.layoff!=null ? h.layoff : (h.wk&&h.wk.length&&typeof h.wk[0]==='object'&&h.wk[0].daysAgo ? h.wk[0].daysAgo+7 : 30);
+    var lo=(h.layoff!=null&&h.layoff>0) ? h.layoff : (h.wk&&h.wk.length&&typeof h.wk[0]==='object'&&h.wk[0].daysAgo>0 ? h.wk[0].daysAgo+7 : 30);
     var layoffAdj= lo<=14?3 : lo<=28?0 : lo<=45?-2 : lo<=90?-5 : -8;
     // Class change: negative cc = dropped in class = bonus
     var cc=h.cc||0;
@@ -542,7 +556,7 @@ function scoreRace(ri){
     }
     var bulletBonus = wkScore; // keep variable name for base calculation below
     // Equipment signals from PDF extraction
-    var heq=h.eq||{lf:false,bf:false,bl:false};
+    var heq=h.eq||{lf:false,lo:false,bf:false,bl:false};
     var lasixFirst=heq.lf?12:0;    // Lasix first time — horse was bleeding, expect big improvement
     var blinkFirst=heq.bf?10:0;    // Blinkers first time — focus/equipment change
     var blinkCont=heq.bl?3:0;      // Blinkers continuing — minor signal
@@ -1020,7 +1034,7 @@ function renderRankings(){
       (isExp?'<div class="hcard-detail">'+
         '<div style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:8px">'+s.horse.notes+'</div>'+
         '<div class="hcard-grid">'+
-        [['Beyer',s.horse.b],['Style',s.horse.sty],['Jockey%',s.horse.j+'%'],['Trainer%',s.horse.tr+'%'],['Layoff',s.horse.layoff!=null ? s.horse.layoff+'d' : (s.horse.wk&&s.horse.wk.length&&typeof s.horse.wk[0]==='object' ? (s.horse.wk[0].daysAgo||'?')+'d wk' : '—')],['Equipment',(s.horse.eq?(s.horse.eq.lf?'LASIX 1ST':s.horse.eq.bf?'BLINK 1ST':s.horse.eq.bl?'Blinkers':'None'):'—')],['Class Chg',s.horse.cc!=null?(s.horse.cc===0?'Even':(s.horse.cc<0?'DROP $'+Math.abs(s.horse.cc)+'K':'UP $'+s.horse.cc+'K')):'--'],['Workout Pts',(s.wkScore||0)>0?'+'+s.wkScore+' pts':'—'],['Dist Fit',(function(){
+        [['Beyer',s.horse.b],['Style',s.horse.sty],['Jockey%',s.horse.j+'%'],['Trainer%',s.horse.tr+'%'],['Layoff',(s.horse.layoff!=null&&s.horse.layoff>0) ? s.horse.layoff+'d' : (s.horse.wk&&s.horse.wk.length&&typeof s.horse.wk[0]==='object'&&s.horse.wk[0].daysAgo>0 ? s.horse.wk[0].daysAgo+'d wk' : '—')],['Equipment',(s.horse.eq?(s.horse.eq.lf?'LASIX 1ST':s.horse.eq.lo?'LASIX':s.horse.eq.bf?'BLINK 1ST':s.horse.eq.bl?'Blinkers':'None'):'—')],['Class Chg',s.horse.cc!=null?(s.horse.cc===0?'Even':(s.horse.cc<0?'DROP $'+Math.abs(s.horse.cc)+'K':'UP $'+s.horse.cc+'K')):'--'],['Workout Pts',(s.wkScore||0)>0?'+'+s.wkScore+' pts':'—'],['Dist Fit',(function(){
   var df=s.horse.distFit||'';
   var label=df==='winner'?'✓ Winner':df==='no wins'?'0 wins':df==='first-time'?'First time':df==='tested'?'Tested':df==='lightly-tested'?'Light':df||'—';
   return (s.distFitAdj&&s.distFitAdj!==0)?((s.distFitAdj>0?'+':'')+s.distFitAdj+' pts ('+label+')'):label;
@@ -1128,14 +1142,18 @@ function whyBadge(s){
 function flagPills(h,rn){
   var nn=(h.notes||'').toLowerCase();
   var pills=[];
-  var lo=h.layoff||21;
-  var lbg,lcl,ltx;
-  if(lo<=14){lbg='#0d2010';lcl='#4ec97e';ltx=lo+'d fresh';}
-  else if(lo<=28){lbg='#0d1a20';lcl='#6aabbb';ltx=lo+'d';}
-  else if(lo<=45){lbg='#1a1a0d';lcl='#aaaa66';ltx=lo+'d';}
-  else if(lo<=90){lbg='#2a1a0a';lcl='#d4904a';ltx=lo+'d rust';}
-  else{lbg='#2a0a0a';lcl='#e05555';ltx=lo+'d LAYOFF';}
-  pills.push('<span style="font-size:9px;background:'+lbg+';color:'+lcl+';border-radius:3px;padding:1px 5px">'+ltx+'</span>');
+  // Null-safe layoff: use actual days, fall back to last workout + 7, skip badge if unknown
+  var lo=(h.layoff!=null&&h.layoff>0) ? h.layoff :
+         (h.wk&&h.wk.length&&typeof h.wk[0]==='object'&&h.wk[0].daysAgo>0 ? h.wk[0].daysAgo+7 : null);
+  if(lo!=null){
+    var lbg,lcl,ltx;
+    if(lo<=14){lbg='#0d2010';lcl='#4ec97e';ltx=lo+'d fresh';}
+    else if(lo<=28){lbg='#0d1a20';lcl='#6aabbb';ltx=lo+'d';}
+    else if(lo<=45){lbg='#1a1a0d';lcl='#aaaa66';ltx=lo+'d';}
+    else if(lo<=90){lbg='#2a1a0a';lcl='#d4904a';ltx=lo+'d rust';}
+    else{lbg='#2a0a0a';lcl='#e05555';ltx=lo+'d LAYOFF';}
+    pills.push('<span style="font-size:9px;background:'+lbg+';color:'+lcl+';border-radius:3px;padding:1px 5px">'+ltx+'</span>');
+  }
   var cc=h.cc||0;
   if(cc<=-20)pills.push('<span style="font-size:9px;font-weight:700;background:#052010;color:#4ec97e;border:1px solid #4ec97e;border-radius:3px;padding:2px 7px">⬇ DROP $'+Math.abs(cc)+'K</span>');
   else if(cc<=-10)pills.push('<span style="font-size:9px;font-weight:700;background:#0d2010;color:#4ec97e;border:1px solid #2a6040;border-radius:3px;padding:2px 7px">↓ DROP $'+Math.abs(cc)+'K</span>');
@@ -1146,8 +1164,9 @@ function flagPills(h,rn){
   if(nn.indexOf('bullet')>-1||(h.wk&&h.wk.length>0&&h.wk[0].bullet))pills.push('<span style="font-size:9px;background:#1a1030;color:#b48cf8;border-radius:3px;padding:1px 5px">🔵 BULLET</span>');
   else if(h.wk&&h.wk.length>0&&(h.wk[0].rank/Math.max(1,h.wk[0].field))<0.15)pills.push('<span style="font-size:9px;background:#0d1a10;color:var(--green);border-radius:3px;padding:1px 5px">★ ELITE WRK</span>');
   else if(nn.indexOf('sharp work')>-1||nn.indexOf('works well')>-1)pills.push('<span style="font-size:9px;background:#101020;color:#888;border-radius:3px;padding:1px 5px">SHARP WRK</span>');
-  var heqf=h.eq||{lf:false,bf:false,bl:false};
+  var heqf=h.eq||{lf:false,lo:false,bf:false,bl:false};
   if(heqf.lf)pills.push('<span style="font-size:9px;background:#0a1a30;color:#60b8ff;border-radius:3px;padding:1px 5px;font-weight:700">LASIX 1ST</span>');
+  else if(heqf.lo)pills.push('<span style="font-size:9px;background:#080f1a;color:#4488cc;border-radius:3px;padding:1px 5px">LASIX</span>');
   if(heqf.bf)pills.push('<span style="font-size:9px;background:#1a0a30;color:#c090ff;border-radius:3px;padding:1px 5px;font-weight:700">BLINK 1ST</span>');
   if(nn.indexOf('stakes')>-1||nn.indexOf('grade')>-1)pills.push('<span style="font-size:9px;background:#1a1030;color:#c490f8;border-radius:3px;padding:1px 5px">STAKES</span>');
   // Distance fit badge
@@ -4059,18 +4078,24 @@ async function loadSavedCardList(){
     var resp=await fetch("/api/cards"),cards=await resp.json();
     var sel=document.getElementById("saved-cards-sel");
     if(!sel||!Array.isArray(cards))return;
-    // Filter by current track so cards from other tracks don't clutter the list
-    var curCode=(typeof cardInfo!=='undefined'&&cardInfo.code)?cardInfo.code:'OP';
-    var filtered=cards.filter(function(c){ return !c.track || c.track===curCode; });
-    // Fall back to all cards if none match (e.g. fresh session)
+    // Use the manual track filter dropdown — NOT cardInfo.code
+    // This way loading a new card doesn't hijack the filter
+    var filterSel=document.getElementById('cards-track-filter');
+    var filterCode=filterSel?filterSel.value:'';
+    var filtered=filterCode ? cards.filter(function(c){ return c.track===filterCode; }) : cards;
     if(filtered.length===0) filtered=cards;
     var today=new Date().toLocaleDateString("en-CA",{timeZone:"America/Chicago"});
     sel.innerHTML='<option value="">Select saved card ('+(filtered.length)+')</option>'+filtered.map(function(c){
+      // Show track code prefix when showing all tracks
+      var prefix=!filterCode&&c.track ? '['+c.track+'] ' : '';
       var flag=c.raceDate===today?" ● TODAY":c.raceDate>today?" UPCOMING":" past";
-      return '<option value="'+c.id+'">'+c.label+flag+'</option>';
+      return '<option value="'+c.id+'">'+ prefix +c.label+flag+'</option>';
     }).join("");
-    var auto=filtered.find(function(c){return c.raceDate===today;})||filtered.find(function(c){return c.raceDate>=today;});
-    if(auto&&!R.some(function(r){return r.horses.length>0;}))await loadCardById(auto.id);
+    // Only auto-load if no card is currently loaded
+    if(!R.some(function(r){return r.horses.length>0;})){
+      var auto=filtered.find(function(c){return c.raceDate===today;})||filtered.find(function(c){return c.raceDate>=today;});
+      if(auto)await loadCardById(auto.id);
+    }
   }catch(e){console.warn(e);}
 }
 async function loadCardById(id){
@@ -4088,8 +4113,6 @@ async function loadCardById(id){
     updateCardHeader();renderRaceTabs();goRace(0);render();
     var st=document.getElementById("save-card-status");
     if(st)st.innerHTML='<span style="color:var(--green)">Loaded: '+card.label+'</span>';
-    // Refresh card list filtered to the just-loaded track
-    loadSavedCardList().catch(function(){});
     document.querySelectorAll(".ntab").forEach(function(b){if(b.textContent.indexOf("Rankings")>-1)b.click();});
   }catch(e){console.warn(e);}
 }
@@ -4307,7 +4330,7 @@ async function loadSelectedCard(){
         scratch: h.H_Scratch === 'Y', days,
         beyerFigs: beyerFigs.slice(0,3), bestBeyer,
         sty: inferStyle(h, fs),
-        eq: { lf: h.H_Lasix==='L'||h.H_Lasix==='l', bf: false, bl: !!h.H_Blinker },
+        eq: { lf: false, lo: h.H_Lasix==='L'||h.H_Lasix==='l', bf: false, bl: !!h.H_Blinker },
         wk: workData.wk, bullets: workData.bullets,
         notes: (h.CL_Comment||'').substring(0,120).trim(),
         sire: h.H_Sire, dam: h.H_Dam,
@@ -4413,7 +4436,20 @@ async function loadSelectedCard(){
         t: (ri.R_PostTime || '') + ' CT',
         d: dist + 'F ' + (ri.R_Surface === 'T' ? 'Turf' : 'Dirt'),
         ty: ri.R_LongClass || ri.R_Class || '',
-        grade: 0, gradeName: '',
+        grade: (function(){
+          var tc = (ri.R_LongClass||ri.R_Class||'').toUpperCase();
+          if(/-G1\b|\bG1\b/.test(tc)) return 1;
+          if(/-G2\b|\bG2\b/.test(tc)) return 2;
+          if(/-G3\b|\bG3\b/.test(tc)) return 3;
+          return 0;
+        })(),
+        gradeName: (function(){
+          var tc = (ri.R_LongClass||ri.R_Class||'').toUpperCase();
+          if(/-G1\b|\bG1\b/.test(tc)) return 'Grade 1';
+          if(/-G2\b|\bG2\b/.test(tc)) return 'Grade 2';
+          if(/-G3\b|\bG3\b/.test(tc)) return 'Grade 3';
+          return '';
+        })(),
         purse: String(Math.round(nv(ri.R_Purse) * 1000)),
         horses: scored
       };
