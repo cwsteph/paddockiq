@@ -209,7 +209,7 @@ var R=[
 var PP_COLORS={1:{bg:"#CC0000",t:"#fff"},2:{bg:"#ffffff",t:"#111"},3:{bg:"#1a4fd6",t:"#fff"},4:{bg:"#f5c518",t:"#000"},5:{bg:"#2d8a2d",t:"#fff"},6:{bg:"#1a1a1a",t:"#fff"},7:{bg:"#e85c0d",t:"#fff"},8:{bg:"#e84d8a",t:"#fff"},9:{bg:"#1abfbf",t:"#000"},10:{bg:"#7b3fa0",t:"#fff"},11:{bg:"#888888",t:"#fff"},12:{bg:"#a8e63d",t:"#000"}};
 var CUR=0, TAB='rankings';
 var DEFAULT_BANKROLL=100;
-var APP_VERSION='2.0'; // bump this to clear stale saved state
+var APP_VERSION='2.1'; // bump this to clear stale saved state
 var bankroll=DEFAULT_BANKROLL, wagered=0, returned=0;
 var scratches={
   0:{"Itzel":true},
@@ -3711,7 +3711,12 @@ function loadState(){
       state.races.forEach(function(saved){
         var ri=R.findIndex(function(r){return r.n===saved.n;});
         if(ri>=0){
-          if(saved.horses&&saved.horses.length) R[ri].horses=saved.horses;
+          if(saved.horses&&saved.horses.length) R[ri].horses=saved.horses.map(function(h){
+            var eq=h.eq||{lf:false,lo:false,bf:false,bl:false};
+            if(eq.lf&&!eq.lo){ eq=Object.assign({},eq,{lo:true,lf:false}); }
+            var distFit=h.distFit==='csv'?'tested':(h.distFit||'tested');
+            return Object.assign({},h,{eq:eq,distFit:distFit});
+          });
           if(saved.t) R[ri].t=saved.t;
           if(saved.d) R[ri].d=saved.d;
           if(saved.ty) R[ri].ty=saved.ty;
