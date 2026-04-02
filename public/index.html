@@ -639,7 +639,9 @@ function scoreRace(ri){
 }
 
 function softmax(sc){
-  var T=8, mx=Math.max.apply(null,sc.map(function(s){return s.score;}));
+  // Scale temperature by field size — larger fields need more spread to avoid inflated probabilities
+  var T = Math.max(6, 5 + sc.length * 0.7);
+  var mx=Math.max.apply(null,sc.map(function(s){return s.score;}));
   var ex=sc.map(function(s){return Math.exp((s.score-mx)/T);});
   var sum=ex.reduce(function(a,b){return a+b;},0);
   return ex.map(function(e){return e/sum;});
@@ -648,8 +650,8 @@ function softmax(sc){
 function kellyBet(prob,ml,bank){
   var b=mlDec(ml),q=1-prob,f=(b*prob-q)/b*0.5;
   if(f<=0)return 0;
-  var raw = Math.round(f*bank*100)/100;
-  return Math.max(2, Math.round(Math.min(bank*0.20, raw))); // whole dollars for Caesars sportsbook
+  var raw = f*bank;
+  return Math.max(2, Math.round(Math.min(bank*0.20, raw))); // whole dollars, min $2, max 20% of bankroll
 }
 
 function conf(sc){
@@ -866,15 +868,20 @@ function renderRankings(){
   if(!sc.length){el.innerHTML='<div style="color:var(--dim);padding:20px">All horses scratched.</div>';return;}
   var top=sc[0], top2=sc[1]||{name:'—',score:0}, top3=sc[2]||{name:'—',score:0};
   var gap=top.score-(top2.score||0);
-  var btype=cf==='high'?'WIN':cf==='medium'?'WIN / PLACE':'PLACE / SHOW';
+  var btype=cf==='high'?'WIN':cf==='medium'?'WIN / PLACE':'NO BET';
   var cfBadge=cf==='high'?'badge-h':cf==='medium'?'badge-m':'badge-l';
   var odds=getOdds(CUR,top.name);
   // ── DAILY BUDGET CAP ─────────────────────────────────────────
+<<<<<<< Updated upstream
   // Count races with HIGH or MEDIUM confidence to avoid over-betting the bankroll
+=======
+  // Count HIGH or MEDIUM confidence races across the card
+>>>>>>> Stashed changes
   var qualRaces = R.reduce(function(n, r, i) {
     var s = scoreRace(i);
     if (!s.length) return n;
     var g = s[0].score - (s[1] ? s[1].score : 0);
+<<<<<<< Updated upstream
     return n + (g >= 4 ? 1 : 0); // medium or high conf
   }, 0);
   var qualCount = Math.max(1, qualRaces);
@@ -882,6 +889,19 @@ function renderRankings(){
   var dailyBudget = rem() * 0.50;
   var perRaceCap = dailyBudget / qualCount;
   var ka = Math.min(kellyBet(pr[0]||.01, odds, rem()), perRaceCap);
+=======
+    return n + (g >= 4 ? 1 : 0);
+  }, 0);
+  var qualCount = Math.max(1, qualRaces);
+  // Full bankroll available — cap any single race at 20% max, divide evenly among qualifying races
+  var perRaceCap = Math.min(rem() * 0.20, rem() / qualCount);
+  // LOW confidence = NO BET regardless of Kelly
+  var ka = (cf === 'low') ? 0 : Math.min(kellyBet(pr[0]||.01, odds, rem()), perRaceCap);
+  // Maiden warning — short favorite in field with 3+ debut horses
+  var mlDecTop = mlDec(odds);
+  var maidenWarn = (sc._debutWarning && mlDecTop <= 2) ?
+    '<div class="warn-box" style="margin-bottom:10px">⚠️ Short favorite in maiden field with 3+ first-time starters. High variance — consider skipping.</div>' : '';
+>>>>>>> Stashed changes
   var debutWarn=sc._debutWarning?'<div class="warn-box" style="margin-bottom:10px">⚠️ Debut warning — 3+ first-out horses in this field. Algorithm confidence is reduced; use caution sizing bets.</div>':'';
 
   var html='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:12px">'+
@@ -905,6 +925,7 @@ function renderRankings(){
   // Top pick
   var html=renderChecklist(CUR);
   html+=_trackBanner;
+  html+=maidenWarn;
   html+=debutWarn;
   html+='<div class="card-gold">'+
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">'+
@@ -932,12 +953,16 @@ function renderRankings(){
           // Primary recommended bet
           '<div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;text-align:right">Recommended Bet</div>'+
           '<div style="font-size:9px;color:#555;text-align:right">Budget: $'+perRaceCap.toFixed(0)+'/race · '+qualCount+' qualifying races</div>'+
+<<<<<<< Updated upstream
           '<button onclick="logBet(\''+top.name.replace(/'/g,'\\\'')+'\',' +ka.toFixed(2)+')" style="'+
+=======
+          '<button onclick="logBet(\''+top.name.replace(/'/g,'\\\'')+'\',' +ka+')" style="'+
+>>>>>>> Stashed changes
             'background:'+(cf==='high'?'#0d2010':cf==='medium'?'#0d1a0d':'#1a0d0d')+';'+
             'border:2px solid '+(cf==='high'?'var(--green)':cf==='medium'?'#4ea84e':'#c07070')+';'+
             'color:'+(cf==='high'?'var(--green)':cf==='medium'?'#7ec87e':'#d4a0a0')+';'+
             'border-radius:8px;padding:8px 16px;cursor:pointer;font-family:\'Bebas Neue\',sans-serif;font-size:18px;letter-spacing:1px;min-width:170px;text-align:center">'+
-            (cf==='high'?'WIN — $'+ka.toFixed(2):cf==='medium'?'WIN / PLACE — $'+ka.toFixed(2):'PLACE / SHOW — $'+ka.toFixed(2))+
+            (cf==='high'?'WIN — $'+ka:cf==='medium'?'WIN / PLACE — $'+ka:'NO BET')+
           '</button>'+
           // Secondary exotic option
           (sc.length>=2
@@ -948,7 +973,7 @@ function renderRankings(){
                 'EXACTA BOX — $'+(ka*0.5).toFixed(2)+
               '</button>'
             : '')+
-          '<div style="font-size:10px;color:var(--dim);text-align:right;margin-top:3px">Kelly: $'+ka.toFixed(2)+' @ '+odds+' · '+
+          '<div style="font-size:10px;color:var(--dim);text-align:right;margin-top:3px">Kelly: $'+ka+' @ '+odds+' · '+
             (cf==='high'?'High confidence':cf==='medium'?'Medium confidence':'Lower confidence')+
           '</div>'+
         '</div>'
@@ -1204,6 +1229,31 @@ function flagPills(h,rn){
   else if(df==='debut_dist')pills.push('<span style="font-size:9px;background:#1a1a00;color:#aaaa44;border-radius:3px;padding:1px 5px">NEW DIST</span>');
   var eq=(eqChange[rn]&&eqChange[rn][h.name])||0;
   if(eq>0)pills.push('<span style="font-size:9px;background:#101a30;color:#90b8f8;border-radius:3px;padding:1px 5px">BLINK+</span>');
+
+  // ── CLAIMING TRAINER ANGLE ───────────────────────────────────
+  // Flag when trainer has strong claim win% AND good ROI — Winter's Ghost lesson
+  var claimAngle = false;
+  for(var ti=1;ti<=4;ti++){
+    var tcat=(h['trnrCat'+ti]||'').toLowerCase();
+    var twp=parseFloat(h['trnrWp'+ti]||0);
+    var troi=parseFloat(h['trnrRoi'+ti]||0);
+    if((tcat.indexOf('clm')>-1||tcat.indexOf('claim')>-1)&&twp>=0.18&&troi>=1.8){
+      claimAngle=true; break;
+    }
+  }
+  if(claimAngle) pills.push('<span style="font-size:9px;font-weight:700;background:#1a1200;color:#f0c850;border:1px solid #f0c85088;border-radius:3px;padding:2px 7px">🎯 CLAIM ANGLE</span>');
+
+  // ── CLASS DROP ORIGIN ────────────────────────────────────────
+  // ALW/OC/Stakes → claim = red flag (connections giving up)
+  // Within-claim drop = green flag (trainer spotting a spot)
+  var lastClassStr = (h.lastClass||'').toUpperCase();
+  var claimNow = parseFloat(h.claimPrice||0);
+  var claimLast = parseFloat(h.lastClaimPrice||0);
+  var isAlwDrop = claimNow>0 && (lastClassStr.indexOf('ALW')>-1||lastClassStr.indexOf('OC ')>-1||lastClassStr.indexOf('ALLOW')>-1||lastClassStr.indexOf('STK')>-1||lastClassStr.indexOf('STAKE')>-1||lastClassStr.indexOf('MSW')>-1||lastClassStr.indexOf('MDN SP')>-1);
+  var isClaimDrop = claimNow>0 && claimLast>0 && claimLast>claimNow;
+  if(isAlwDrop) pills.push('<span style="font-size:9px;font-weight:700;background:#200808;color:#e05555;border:1px solid #e0555588;border-radius:3px;padding:2px 7px">⚠️ ALW DROP</span>');
+  else if(isClaimDrop) pills.push('<span style="font-size:9px;font-weight:700;background:#052010;color:#4ec97e;border:1px solid #4ec97e88;border-radius:3px;padding:2px 7px">✅ CLM DROP</span>');
+
   return pills.length?'<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px">'+pills.join('')+'</div>':'';
 }
 
@@ -1669,7 +1719,7 @@ function toggleScr(ri,name){if(!scratches[ri])scratches[ri]={};scratches[ri][nam
 function renderBankroll(){
   var sc=scoreRace(CUR), pr=softmax(sc), cf=conf(sc);
   var pnl=returned-wagered;
-  var btype=cf==='high'?'WIN':cf==='medium'?'WIN / PLACE':'PLACE / SHOW';
+  var btype=cf==='high'?'WIN':cf==='medium'?'WIN / PLACE':'NO BET';
   var cfWts={high:.20,medium:.15,low:.08};
   var html='<div class="card-gold"><div class="ctitle">Bankroll Manager</div>'+
     '<div class="stat-grid">';
@@ -1788,7 +1838,7 @@ function renderBankroll(){
       '<span class="'+cc+'">'+a.cf.toUpperCase()+'</span>'+
       '<div class="pbar" style="flex:1;min-width:50px"><div class="pbar-fill" style="width:'+pct+'%"></div></div>'+
       '<div style="font-size:11px;color:var(--dim);min-width:26px">'+pct+'%</div>'+
-      '<div class="bebas" style="font-size:18px;color:var(--gold);min-width:44px;text-align:right">$'+amt.toFixed(2)+'</div>'+
+      '<div class="bebas" style="font-size:18px;color:var(--gold);min-width:44px;text-align:right">$'+Math.round(amt)+'</div>'+
       '</div>';
   });
   html+='</div>';
@@ -1797,21 +1847,25 @@ function renderBankroll(){
   if(sc.length>0){
     var top=sc[0], odds=getOdds(CUR,top.name);
     var _qr=Math.max(1,R.reduce(function(n,r,i){var s=scoreRace(i);if(!s.length)return n;var g=s[0].score-(s[1]?s[1].score:0);return n+(g>=4?1:0);},0));
+<<<<<<< Updated upstream
     var _kaBR=Math.min(kellyBet(pr[0]||.01,odds,rem()), rem()*0.50/_qr);
+=======
+    var _kaBR=Math.min(kellyBet(pr[0]||.01,odds,rem()), rem()*0.20);
+>>>>>>> Stashed changes
     var ka=_kaBR;
     html+='<div class="card"><div class="ctitle">Bet Recs — Race '+R[CUR].n+'</div>'+
       '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 13px;margin-bottom:8px">'+
       '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
       '<div class="bebas" style="font-size:14px;color:'+(ka>0?'var(--gold)':'#884444')+'">'+
-        (ka>0?(cf==='high'?'Recommended: WIN':cf==='medium'?'Recommended: WIN / PLACE':'Recommended: PLACE / SHOW'):'NO BET — Skip This Race')+
+        (ka>0?(cf==='high'?'Recommended: WIN':cf==='medium'?'Recommended: WIN / PLACE':'NO BET'):'NO BET — Skip This Race')+
       '</div>'+
       '<div style="font-size:12px;color:var(--muted);flex:1">#'+top.horse.pp+' '+top.name+' @ '+odds+'</div>'+
       '<div class="bebas" style="font-size:22px;color:'+(ka>0?'var(--green)':'#664444')+'">'+
-        (ka>0?'$'+ka.toFixed(2):'SKIP')+
+        (ka>0?'$'+ka:'SKIP')+
       '</div></div>'+
       (ka>0?
         ((sc.length>=2?'<div class="note-box" style="margin-top:8px"><b>Secondary option:</b> Exacta '+sc[0].name+' &gt; '+sc[1].name+(sc[2]?'<br>Trifecta: '+sc[0].name+' / '+sc[1].name+' / '+sc[2].name:'')+'</div>':''))+
-        '<button class="btn on" style="margin-top:8px" onclick="logBet(\''+top.name.replace(/'/g,'\\\'')+'\',' +ka.toFixed(2)+')">Log Recommended Bet — $'+ka.toFixed(2)+'</button>'
+        '<button class="btn on" style="margin-top:8px" onclick="logBet(\''+top.name.replace(/'/g,'\\\'')+'\',' +ka+')">Log Recommended Bet — $'+ka+'</button>'
         :'<div style="font-size:11px;color:#664444;margin-top:6px;padding:8px;background:#1a0d0d;border-radius:6px">No positive edge at current odds. Consider using this horse in multi-race exotics only.</div>'
       )+
       '</div></div>';
@@ -2054,7 +2108,7 @@ function logBet(name,amt){
   wagered+=amt;
   bets.push({race:R[CUR].n,horse:name,amount:amt,type:conf(scoreRace(CUR))==='high'?'WIN':'WIN/PLACE',settled:false,payout:0});
   render();saveState();
-  alert('Bet logged: $'+amt.toFixed(2)+' on '+name);
+  alert('Bet logged: $'+Math.round(amt)+' on '+name);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -4360,18 +4414,42 @@ async function loadSelectedCard(){
       const layoff = days<=60&&days>=7?1:days<7?0.7:days<=90?0.65:days<=120?0.45:0.2;
       const formRaw = winPct*0.35 + cyWinPct*0.25 + itmPct*0.2 + layoff*0.2;
 
-      // Jockey
-      const jockRaw = nv(h.H_JockMeetWinPct)*0.65 + nv(h.H_JockYTDWinPct)*0.35;
+      // Jockey — use YTD if meet starts < 5 (not enough sample)
+      const jMeetStarts = nv(h.H_JockMeetStarts);
+      const jMeetPct = nv(h.H_JockMeetWinPct);
+      const jYTDPct = nv(h.H_JockYTDWinPct);
+      const jEffPct = jMeetStarts >= 5 ? jMeetPct*0.65 + jYTDPct*0.35 : jYTDPct;
+      const jockRaw = jEffPct;
+      // Display pct — best available
+      const jDispPct = jMeetStarts >= 5 ? jMeetPct : jYTDPct;
 
-      // Trainer (base + situational)
-      const trnrBase = nv(h.H_TrainerMeetWinPct)*0.5 + nv(h.H_TrainerYTDWinPct)*0.3;
+      // Trainer — use YTD if meet starts < 5 (not enough sample)
+      const tMeetStarts = nv(h.H_TrainerMeetStarts);
+      const tMeetPct = nv(h.H_TrainerMeetWinPct);
+      const tYTDPct = nv(h.H_TrainerYTDWinPct);
+      const tEffPct = tMeetStarts >= 5 ? tMeetPct*0.5 + tYTDPct*0.3 : tYTDPct;
+      // Display pct — best available
+      const tDispPct = tMeetStarts >= 5 ? tMeetPct : tYTDPct;
+      const trnrBase = tEffPct;
       let trnrSit = 0;
+      let claimAngleBonus = 0;
       for (let i = 1; i <= 6; i++) {
         const cat = h['T_Category_'+i], wp = nv(h['T_WinPct_'+i]), roi = nv(h['T_ROI_'+i]);
         if (cat && wp > 0 && ((days>45&&cat.includes('Off'))||(h.H_Blinker&&cat.includes('Blink'))||cat.includes('Clm')||cat==='Dirt'))
           trnrSit += wp * Math.min(roi/2, 1.5);
+        // Claim angle bonus — trainer specializes in claims with strong ROI
+        if (cat && (cat.includes('Clm')||cat.toLowerCase().includes('claim')) && wp >= 0.18 && roi >= 1.8)
+          claimAngleBonus = Math.min(0.15, wp * Math.min(roi/2, 2.0));
       }
-      const trainerRaw = trnrBase*0.7 + Math.min(trnrSit*0.3, 0.25);
+      const trainerRaw = trnrBase*0.7 + Math.min(trnrSit*0.3, 0.25) + claimAngleBonus;
+
+      // Class drop origin — ALW/Stakes → claim = penalty, within-claim drop = bonus
+      const lastClassStr = (h.HR_LongClass_1||'').toUpperCase();
+      const claimNow = nv(h.H_ClaimPrice);
+      const claimLast = nv(h.HR_ClaimPrice_1);
+      const isAlwDrop = claimNow>0 && (lastClassStr.includes('ALW')||lastClassStr.includes('OC ')||lastClassStr.includes('ALLOW')||lastClassStr.includes('STK')||lastClassStr.includes('STAKE')||lastClassStr.includes('MSW')||lastClassStr.includes('MDN SP'));
+      const isClaimDrop = claimNow>0 && claimLast>0 && claimLast>claimNow;
+      const classDropAdj = isAlwDrop ? -0.12 : isClaimDrop ? 0.10 : 0;
 
       // Works
       const workData = getWorks(h);
@@ -4394,11 +4472,19 @@ async function loadSelectedCard(){
         notes: (h.CL_Comment||'').substring(0,120).trim(),
         sire: h.H_Sire, dam: h.H_Dam,
         claimPrice: nv(h.H_ClaimPrice), earnings: nv(h.H_Earnings),
+        lastClaimPrice: nv(h.HR_ClaimPrice_1),
+        lastClass: h.HR_LongClass_1 || '',
         starts, wins: nv(h.H_Wins), places: nv(h.H_Places), shows: nv(h.H_Shows),
         jockMeetWinPct: nv(h.H_JockMeetWinPct), trnrMeetWinPct: nv(h.H_TrainerMeetWinPct),
         jtAllWinPct: nv(h.H_JTAllWinPct), jtAllRoi: nv(h.H_JTAllRoi),
+        // Trainer situational categories (up to 6) for claim angle pill
+        trnrCat1: h.T_Category_1||'', trnrWp1: nv(h.T_WinPct_1), trnrRoi1: nv(h.T_ROI_1),
+        trnrCat2: h.T_Category_2||'', trnrWp2: nv(h.T_WinPct_2), trnrRoi2: nv(h.T_ROI_2),
+        trnrCat3: h.T_Category_3||'', trnrWp3: nv(h.T_WinPct_3), trnrRoi3: nv(h.T_ROI_3),
+        trnrCat4: h.T_Category_4||'', trnrWp4: nv(h.T_WinPct_4), trnrRoi4: nv(h.T_ROI_4),
         // raw scores
         beyerRaw, paceRaw, speedRaw, classRaw, formRaw, jockRaw, trainerRaw,
+        classDropAdj,
         worksScore: workData.score, mlRaw, jtBonus,
         // pass through for distFit computation
         H_DistStarts: nv(h.H_DistStarts), H_DistWins: nv(h.H_DistWins),
@@ -4424,7 +4510,7 @@ async function loadSelectedCard(){
             tN = norm(h.trainerRaw,'trainerRaw'), jtN = h.jtBonus/jtMax;
 
       const score = Math.round((
-        bN*W.beyer + pN*W.pace + sN*W.speed + cN*W.class_ + fN*W.form +
+        bN*W.beyer + pN*W.pace + sN*W.speed + (cN + h.classDropAdj)*W.class_ + fN*W.form +
         jN*W.jock + tN*W.trainer + h.worksScore*W.works + h.mlRaw*W.ml + jtN*0.02
       ) * 100);
 
@@ -4438,13 +4524,19 @@ async function loadSelectedCard(){
       return {
         name: h.horseName, disp: h.horseName, pp: h.pp, ml: h.ml,
         b: h.bestBeyer, beyerFigs: h.beyerFigs, sty: h.sty,
-        j: Math.round(h.jockMeetWinPct*100), tr: Math.round(h.trnrMeetWinPct*100),
+        j: Math.round(jDispPct*100), tr: Math.round(tDispPct*100),
         layoff: h.days, cc: 0, wins: h.wins, notes: h.notes, eq: h.eq, wk: h.wk,
         distFit: _distLabel, jockeyName: h.jockey, trainerName: h.trainer,
         sire: h.sire, dam: h.dam, claimPrice: h.claimPrice, earnings: h.earnings,
+        lastClaimPrice: h.lastClaimPrice, lastClass: h.lastClass,
         starts: h.starts, places: h.places, shows: h.shows,
-        jockMeetWinPct: h.jockMeetWinPct, trnrMeetWinPct: h.trnrMeetWinPct,
+        jockMeetWinPct: jDispPct, trnrMeetWinPct: tDispPct,
         jtAllWinPct: h.jtAllWinPct, jtAllRoi: h.jtAllRoi,
+        // Trainer situational categories for claim angle pill
+        trnrCat1: h.trnrCat1, trnrWp1: h.trnrWp1, trnrRoi1: h.trnrRoi1,
+        trnrCat2: h.trnrCat2, trnrWp2: h.trnrWp2, trnrRoi2: h.trnrRoi2,
+        trnrCat3: h.trnrCat3, trnrWp3: h.trnrWp3, trnrRoi3: h.trnrRoi3,
+        trnrCat4: h.trnrCat4, trnrWp4: h.trnrWp4, trnrRoi4: h.trnrRoi4,
         _csvScore: score
       };
     });
