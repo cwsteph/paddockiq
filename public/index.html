@@ -872,24 +872,11 @@ function renderRankings(){
   var cfBadge=cf==='high'?'badge-h':cf==='medium'?'badge-m':'badge-l';
   var odds=getOdds(CUR,top.name);
   // ── DAILY BUDGET CAP ─────────────────────────────────────────
-<<<<<<< Updated upstream
-  // Count races with HIGH or MEDIUM confidence to avoid over-betting the bankroll
-=======
   // Count HIGH or MEDIUM confidence races across the card
->>>>>>> Stashed changes
   var qualRaces = R.reduce(function(n, r, i) {
     var s = scoreRace(i);
     if (!s.length) return n;
     var g = s[0].score - (s[1] ? s[1].score : 0);
-<<<<<<< Updated upstream
-    return n + (g >= 4 ? 1 : 0); // medium or high conf
-  }, 0);
-  var qualCount = Math.max(1, qualRaces);
-  // Max 50% of bankroll across all races; divide evenly among qualifying races
-  var dailyBudget = rem() * 0.50;
-  var perRaceCap = dailyBudget / qualCount;
-  var ka = Math.min(kellyBet(pr[0]||.01, odds, rem()), perRaceCap);
-=======
     return n + (g >= 4 ? 1 : 0);
   }, 0);
   var qualCount = Math.max(1, qualRaces);
@@ -901,7 +888,6 @@ function renderRankings(){
   var mlDecTop = mlDec(odds);
   var maidenWarn = (sc._debutWarning && mlDecTop <= 2) ?
     '<div class="warn-box" style="margin-bottom:10px">⚠️ Short favorite in maiden field with 3+ first-time starters. High variance — consider skipping.</div>' : '';
->>>>>>> Stashed changes
   var debutWarn=sc._debutWarning?'<div class="warn-box" style="margin-bottom:10px">⚠️ Debut warning — 3+ first-out horses in this field. Algorithm confidence is reduced; use caution sizing bets.</div>':'';
 
   var html='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:12px">'+
@@ -953,11 +939,7 @@ function renderRankings(){
           // Primary recommended bet
           '<div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;text-align:right">Recommended Bet</div>'+
           '<div style="font-size:9px;color:#555;text-align:right">Budget: $'+perRaceCap.toFixed(0)+'/race · '+qualCount+' qualifying races</div>'+
-<<<<<<< Updated upstream
-          '<button onclick="logBet(\''+top.name.replace(/'/g,'\\\'')+'\',' +ka.toFixed(2)+')" style="'+
-=======
           '<button onclick="logBet(\''+top.name.replace(/'/g,'\\\'')+'\',' +ka+')" style="'+
->>>>>>> Stashed changes
             'background:'+(cf==='high'?'#0d2010':cf==='medium'?'#0d1a0d':'#1a0d0d')+';'+
             'border:2px solid '+(cf==='high'?'var(--green)':cf==='medium'?'#4ea84e':'#c07070')+';'+
             'color:'+(cf==='high'?'var(--green)':cf==='medium'?'#7ec87e':'#d4a0a0')+';'+
@@ -1847,11 +1829,7 @@ function renderBankroll(){
   if(sc.length>0){
     var top=sc[0], odds=getOdds(CUR,top.name);
     var _qr=Math.max(1,R.reduce(function(n,r,i){var s=scoreRace(i);if(!s.length)return n;var g=s[0].score-(s[1]?s[1].score:0);return n+(g>=4?1:0);},0));
-<<<<<<< Updated upstream
-    var _kaBR=Math.min(kellyBet(pr[0]||.01,odds,rem()), rem()*0.50/_qr);
-=======
     var _kaBR=Math.min(kellyBet(pr[0]||.01,odds,rem()), rem()*0.20);
->>>>>>> Stashed changes
     var ka=_kaBR;
     html+='<div class="card"><div class="ctitle">Bet Recs — Race '+R[CUR].n+'</div>'+
       '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 13px;margin-bottom:8px">'+
