@@ -4453,7 +4453,8 @@ async function loadSelectedCard(){
         lastClaimPrice: nv(h.HR_ClaimPrice_1),
         lastClass: h.HR_LongClass_1 || '',
         starts, wins: nv(h.H_Wins), places: nv(h.H_Places), shows: nv(h.H_Shows),
-        jockMeetWinPct: nv(h.H_JockMeetWinPct), trnrMeetWinPct: nv(h.H_TrainerMeetWinPct),
+        jockMeetWinPct: jDispPct, trnrMeetWinPct: tDispPct,
+        _jDispPct: jDispPct, _tDispPct: tDispPct,
         jtAllWinPct: nv(h.H_JTAllWinPct), jtAllRoi: nv(h.H_JTAllRoi),
         // Trainer situational categories (up to 6) for claim angle pill
         trnrCat1: h.T_Category_1||'', trnrWp1: nv(h.T_WinPct_1), trnrRoi1: nv(h.T_ROI_1),
@@ -4502,15 +4503,14 @@ async function loadSelectedCard(){
       return {
         name: h.horseName, disp: h.horseName, pp: h.pp, ml: h.ml,
         b: h.bestBeyer, beyerFigs: h.beyerFigs, sty: h.sty,
-        j: Math.round(jDispPct*100), tr: Math.round(tDispPct*100),
+        j: Math.round(h._jDispPct*100), tr: Math.round(h._tDispPct*100),
         layoff: h.days, cc: 0, wins: h.wins, notes: h.notes, eq: h.eq, wk: h.wk,
         distFit: _distLabel, jockeyName: h.jockey, trainerName: h.trainer,
         sire: h.sire, dam: h.dam, claimPrice: h.claimPrice, earnings: h.earnings,
         lastClaimPrice: h.lastClaimPrice, lastClass: h.lastClass,
         starts: h.starts, places: h.places, shows: h.shows,
-        jockMeetWinPct: jDispPct, trnrMeetWinPct: tDispPct,
+        jockMeetWinPct: h._jDispPct, trnrMeetWinPct: h._tDispPct,
         jtAllWinPct: h.jtAllWinPct, jtAllRoi: h.jtAllRoi,
-        // Trainer situational categories for claim angle pill
         trnrCat1: h.trnrCat1, trnrWp1: h.trnrWp1, trnrRoi1: h.trnrRoi1,
         trnrCat2: h.trnrCat2, trnrWp2: h.trnrWp2, trnrRoi2: h.trnrRoi2,
         trnrCat3: h.trnrCat3, trnrWp3: h.trnrWp3, trnrRoi3: h.trnrRoi3,
