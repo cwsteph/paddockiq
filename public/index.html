@@ -408,6 +408,20 @@ function scoreRace(ri){
     return _autoScr.some(function(s){if(s===hn)return true;if(s.length>=5&&hn.length>=5&&(hn.includes(s)||s.includes(hn)))return true;return false;});
   }
   var results=[];
+  // If all horses in this race have _csvScore, use those directly (CSV card)
+  var csvHorses = race.horses.filter(function(h){ return !_isScrH(h) && h._csvScore != null; });
+  if (csvHorses.length > 0 && csvHorses.length === race.horses.filter(function(h){ return !_isScrH(h); }).length) {
+    csvHorses.forEach(function(h){
+      var trendDir = (h.beyerFigs && h.beyerFigs.length >= 2) ? h.beyerFigs[0] - h.beyerFigs[1] : 0;
+      results.push({ name:h.name, horse:h, score:h._csvScore, base:h._csvScore, tb:0, km:1, kaciOn:false,
+        newTrnBonus:0, extremeDropBonus:0, wkScore:0, wkLabel:'', distFitAdj:0, stakesBonus:0,
+        _components:{spd:0,frm:0,cls:0,pce:0,jck:0,trn:0,wk:0,trend:trendDir,ml:0} });
+    });
+    results.sort(function(a,b){ return b.score - a.score; });
+    var debutCount = race.horses.filter(function(h){ return !_isScrH(h) && (h.b===0||h.b==null||isNaN(h.b)); }).length;
+    results._debutWarning = debutCount >= 3;
+    return results;
+  }
   race.horses.forEach(function(h){
     if(_isScrH(h))return;
     // Speed: Beyer weight 18% — best figure
