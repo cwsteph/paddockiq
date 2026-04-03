@@ -705,6 +705,18 @@ var TRACK_LAT = 34.4850, TRACK_LON = -93.0571;
 var TRACK_CITY = 'Hot+Springs,AR';
 var weatherStatus = '';
 
+// Update weather coords when track changes and re-fetch
+function updateWeatherForTrack(code) {
+  var tObj = TRACK_LIST.find(function(t){ return t.code === code; });
+  if (tObj && tObj.lat && tObj.lon) {
+    TRACK_LAT = tObj.lat;
+    TRACK_LON = tObj.lon;
+    // Build city string from track name for wttr.in fallback
+    TRACK_CITY = (tObj.name || code).replace(/\s+/g, '+');
+  }
+  try { fetchLiveWeather(); } catch(e) { console.warn('weather update:', e); }
+}
+
 function fetchLiveWeather() {
   weatherStatus = 'Fetching...';
   renderTC();
@@ -949,10 +961,10 @@ function renderRankings(){
           // Secondary exotic option
           (sc.length>=2
             ? '<div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;text-align:right;margin-top:2px">Secondary Option</div>'+
-              '<button onclick="logBet(\''+top.name.replace(/'/g,'\\\'')+'\',' +(ka*0.5).toFixed(2)+')" style="'+
+              '<button onclick="logBet(\''+top.name.replace(/'/g,'\\\'')+'\',' +Math.ceil(ka*0.5)+')" style="'+
                 'background:#0d1020;border:1px solid #7b8df8;color:#7b8df8;'+
                 'border-radius:8px;padding:6px 14px;cursor:pointer;font-family:\'Bebas Neue\',sans-serif;font-size:14px;letter-spacing:1px;min-width:170px;text-align:center">'+
-                'EXACTA BOX — $'+(ka*0.5).toFixed(2)+
+                'EXACTA BOX — $'+Math.ceil(ka*0.5)+
               '</button>'
             : '')+
           '<div style="font-size:10px;color:var(--dim);text-align:right;margin-top:3px">Kelly: $'+ka+' @ '+odds+' · '+
@@ -3340,46 +3352,47 @@ function renderRaceTabs(){
 // ── Race Results Lookup ──
 var TRACK_LIST = [
   // ET = Eastern, CT = Central, MT = Mountain, PT = Pacific
-  {code:'AQU',name:'Aqueduct',          tz:'America/New_York'},
-  {code:'AZD',name:'Arizona Downs',     tz:'America/Phoenix'},
-  {code:'BEL',name:'Belmont Park',      tz:'America/New_York'},
-  {code:'BTP',name:'Belterra Park',     tz:'America/New_York'},
-  {code:'CD', name:'Churchill Downs',   tz:'America/New_York'},
-  {code:'CNL',name:'Colonial Downs',    tz:'America/New_York'},
-  {code:'DEL',name:'Delaware Park',     tz:'America/New_York'},
-  {code:'DMR',name:'Del Mar',           tz:'America/Los_Angeles'},
-  {code:'ELP',name:'Evangeline Downs',  tz:'America/Chicago'},
-  {code:'ELY',name:'Ellis Park',        tz:'America/Chicago'},
-  {code:'FG', name:'Fair Grounds',      tz:'America/Chicago'},
-  {code:'FNO',name:'Fresno',            tz:'America/Los_Angeles'},
-  {code:'GG', name:'Golden Gate',       tz:'America/Los_Angeles'},
-  {code:'GP', name:'Gulfstream Park',   tz:'America/New_York'},
-  {code:'HAW',name:'Hawthorne',         tz:'America/Chicago'},
-  {code:'HST',name:'Hastings',          tz:'America/Vancouver'},
-  {code:'IND',name:'Indiana Grand',     tz:'America/Indiana/Indianapolis'},
-  {code:'KEE',name:'Keeneland',         tz:'America/New_York'},
-  {code:'LAD',name:'Louisiana Downs',   tz:'America/Chicago'},
-  {code:'LRL',name:'Laurel Park',       tz:'America/New_York'},
-  {code:'CTX',name:'Lone Star Park',    tz:'America/Chicago'},
-  {code:'MVR',name:'Mahoning Valley',   tz:'America/New_York'},
-  {code:'MTH',name:'Monmouth Park',     tz:'America/New_York'},
-  {code:'OP', name:'Oaklawn Park',      tz:'America/Chicago'},
-  {code:'OTC',name:'OTC (Palm Beach)',  tz:'America/New_York'},
-  {code:'PRX',name:'Parx Racing',       tz:'America/New_York'},
-  {code:'PIM',name:'Pimlico',           tz:'America/New_York'},
-  {code:'PRM',name:'Prairie Meadows',   tz:'America/Chicago'},
-  {code:'RET',name:'Retama Park',       tz:'America/Chicago'},
-  {code:'RUI',name:'Ruidoso Downs',     tz:'America/Denver'},
-  {code:'SA', name:'Santa Anita',       tz:'America/Los_Angeles'},
-  {code:'SAR',name:'Saratoga',          tz:'America/New_York'},
-  {code:'SOL',name:'Solano',            tz:'America/Los_Angeles'},
-  {code:'SUN',name:'Sunland Park',      tz:'America/Denver'},
-  {code:'TAM',name:'Tampa Bay Downs',   tz:'America/New_York'},
-  {code:'TDN',name:'Thistledown',       tz:'America/New_York'},
-  {code:'TP', name:'Turfway Park',      tz:'America/New_York'},
-  {code:'TUP',name:'Turf Paradise',     tz:'America/Phoenix'},
-  {code:'WO', name:'Woodbine',          tz:'America/Toronto'},
-  {code:'ZIA',name:'Zia Park',          tz:'America/Denver'},
+  // lat/lon used for live weather fetch
+  {code:'AQU',name:'Aqueduct',          tz:'America/New_York',    lat:40.6701, lon:-73.8327},
+  {code:'AZD',name:'Arizona Downs',     tz:'America/Phoenix',     lat:31.5477, lon:-110.2990},
+  {code:'BEL',name:'Belmont Park',      tz:'America/New_York',    lat:40.7182, lon:-73.7148},
+  {code:'BTP',name:'Belterra Park',     tz:'America/New_York',    lat:38.8121, lon:-84.1388},
+  {code:'CD', name:'Churchill Downs',   tz:'America/New_York',    lat:38.2027, lon:-85.7709},
+  {code:'CNL',name:'Colonial Downs',    tz:'America/New_York',    lat:37.5962, lon:-77.1002},
+  {code:'DEL',name:'Delaware Park',     tz:'America/New_York',    lat:39.6598, lon:-75.5988},
+  {code:'DMR',name:'Del Mar',           tz:'America/Los_Angeles', lat:32.9794, lon:-117.2653},
+  {code:'ELP',name:'Evangeline Downs',  tz:'America/Chicago',     lat:30.2082, lon:-92.0282},
+  {code:'ELY',name:'Ellis Park',        tz:'America/Chicago',     lat:37.9373, lon:-87.5711},
+  {code:'FG', name:'Fair Grounds',      tz:'America/Chicago',     lat:29.9887, lon:-90.0820},
+  {code:'FNO',name:'Fresno',            tz:'America/Los_Angeles', lat:36.7468, lon:-119.7726},
+  {code:'GG', name:'Golden Gate',       tz:'America/Los_Angeles', lat:37.9054, lon:-122.3477},
+  {code:'GP', name:'Gulfstream Park',   tz:'America/New_York',    lat:25.9811, lon:-80.1494},
+  {code:'HAW',name:'Hawthorne',         tz:'America/Chicago',     lat:41.7237, lon:-87.7556},
+  {code:'HST',name:'Hastings',          tz:'America/Vancouver',   lat:49.2376, lon:-123.0376},
+  {code:'IND',name:'Indiana Grand',     tz:'America/Indiana/Indianapolis', lat:39.7298, lon:-85.8975},
+  {code:'KEE',name:'Keeneland',         tz:'America/New_York',    lat:38.0406, lon:-84.6080},
+  {code:'LAD',name:'Louisiana Downs',   tz:'America/Chicago',     lat:32.5293, lon:-93.7096},
+  {code:'LRL',name:'Laurel Park',       tz:'America/New_York',    lat:39.0993, lon:-76.8388},
+  {code:'CTX',name:'Lone Star Park',    tz:'America/Chicago',     lat:32.9479, lon:-97.0641},
+  {code:'MVR',name:'Mahoning Valley',   tz:'America/New_York',    lat:41.1765, lon:-80.7270},
+  {code:'MTH',name:'Monmouth Park',     tz:'America/New_York',    lat:40.2318, lon:-74.0171},
+  {code:'OP', name:'Oaklawn Park',      tz:'America/Chicago',     lat:34.4850, lon:-93.0571},
+  {code:'OTC',name:'OTC (Palm Beach)',  tz:'America/New_York',    lat:26.7153, lon:-80.0534},
+  {code:'PRX',name:'Parx Racing',       tz:'America/New_York',    lat:40.1390, lon:-75.0107},
+  {code:'PIM',name:'Pimlico',           tz:'America/New_York',    lat:39.3354, lon:-76.6787},
+  {code:'PRM',name:'Prairie Meadows',   tz:'America/Chicago',     lat:41.6271, lon:-93.5313},
+  {code:'RET',name:'Retama Park',       tz:'America/Chicago',     lat:29.5474, lon:-98.3780},
+  {code:'RUI',name:'Ruidoso Downs',     tz:'America/Denver',      lat:33.3373, lon:-105.6724},
+  {code:'SA', name:'Santa Anita',       tz:'America/Los_Angeles', lat:34.1478, lon:-118.0355},
+  {code:'SAR',name:'Saratoga',          tz:'America/New_York',    lat:43.0820, lon:-73.7834},
+  {code:'SOL',name:'Solano',            tz:'America/Los_Angeles', lat:38.2521, lon:-121.9596},
+  {code:'SUN',name:'Sunland Park',      tz:'America/Denver',      lat:31.8057, lon:-106.5763},
+  {code:'TAM',name:'Tampa Bay Downs',   tz:'America/New_York',    lat:28.0717, lon:-82.7135},
+  {code:'TDN',name:'Thistledown',       tz:'America/New_York',    lat:41.4490, lon:-81.5374},
+  {code:'TP', name:'Turfway Park',      tz:'America/New_York',    lat:38.9396, lon:-84.6196},
+  {code:'TUP',name:'Turf Paradise',     tz:'America/Phoenix',     lat:33.5604, lon:-112.0989},
+  {code:'WO', name:'Woodbine',          tz:'America/Toronto',     lat:43.7132, lon:-79.5584},
+  {code:'ZIA',name:'Zia Park',          tz:'America/Denver',      lat:32.7040, lon:-104.3744},
 ];
 
 // ── Per-track profiles ───────────────────────────────────────────────────────
@@ -3971,6 +3984,8 @@ function renderCSVImport(){
     preview.innerHTML = '<span style="color:var(--text);font-weight:600">'+(tObj?tObj.name:code)+'</span>' +
       (bias ? ' &nbsp;<span style="color:#d4a94a;font-size:10px">'+bias+'</span>' : '') +
       (prof ? ' &nbsp;<span style="color:#555;font-size:10px">Jockey elite: '+prof.jThresh[0]+'%+</span>' : '');
+    // Update weather to match newly selected track
+    if (typeof updateWeatherForTrack === 'function') updateWeatherForTrack(code);
   });
 
   // Wire click handlers (can't use getElementById() inside JS string literals)
@@ -4201,6 +4216,8 @@ async function loadCardById(id){
     // Persist jockey/trainer stats for this track
     var _tCode=(saved.cardInfo&&saved.cardInfo.code)?saved.cardInfo.code:null;
     if(_tCode) ingestCardJockStats(saved.races, _tCode);
+    // Update weather to match the loaded track
+    if(_tCode && typeof updateWeatherForTrack === 'function') updateWeatherForTrack(_tCode);
     updateCardHeader();renderRaceTabs();goRace(0);render();
     var st=document.getElementById("save-card-status");
     if(st)st.innerHTML='<span style="color:var(--green)">Loaded: '+card.label+'</span>';
@@ -4609,6 +4626,11 @@ async function loadSelectedCard(){
     }
     if (window.cardInfo) {
       Object.assign(window.cardInfo, cardState.cardInfo);
+    }
+    // Update weather coordinates and re-fetch for the newly loaded track
+    var trackCode = (cardState.cardInfo && cardState.cardInfo.code) || cardState.track;
+    if (trackCode && typeof updateWeatherForTrack === 'function') {
+      updateWeatherForTrack(trackCode);
     }
     if (typeof window.renderRaceTabs === 'function') window.renderRaceTabs();
     if (typeof window.render === 'function') window.render('rankings');
