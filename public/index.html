@@ -711,8 +711,10 @@ function updateWeatherForTrack(code) {
   if (tObj && tObj.lat && tObj.lon) {
     TRACK_LAT = tObj.lat;
     TRACK_LON = tObj.lon;
-    // Build city string from track name for wttr.in fallback
-    TRACK_CITY = (tObj.name || code).replace(/\s+/g, '+');
+  }
+  // Also patch cardInfo.code so fetchLiveWeather picks up the right timezone
+  if (typeof cardInfo !== 'undefined' && cardInfo) {
+    cardInfo.code = code;
   }
   try { fetchLiveWeather(); } catch(e) { console.warn('weather update:', e); }
 }
@@ -721,90 +723,69 @@ function fetchLiveWeather() {
   weatherStatus = 'Fetching...';
   renderTC();
 
-  // Use wttr.in JSON API — works from file:// via standard fetch (CORS open)
-  // Fallback: JSONP injection if fetch blocked
-  var url = 'https://wttr.in/' + TRACK_CITY + '?format=j1';
+  // Resolve timezone for the current track — use TRACK_LIST lookup
+  var _tCode = (typeof cardInfo !== 'undefined' && cardInfo && cardInfo.code) ? cardInfo.code : 'OP';
+  var _tObj  = TRACK_LIST.find(function(t){ return t.code === _tCode; });
+  var _tz    = (_tObj && _tObj.tz) ? _tObj.tz : 'America/Chicago';
 
-  fetch(url)
+  // Use Open-Meteo directly — coordinate-based, no API key, reliable CORS
+  var url = 'https://api.open-meteo.com/v1/forecast' +
+    '?latitude='  + TRACK_LAT +
+    '&longitude=' + TRACK_LON +
+    '&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation,weather_code' +
+    '&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch' +
+    '&timezone=' + encodeURIComponent(_tz);
+
+  fetch(url, {mode: 'cors'})
     .then(function(r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
     })
     .then(function(d) {
-      var cur = d.current_condition[0];
-      var tempF   = parseInt(cur.temp_F);
-      var windMph = parseInt(cur.windspeedMiles);
-      var precip  = parseFloat(cur.precipMM) * 0.0394; // mm → inches
-      var desc    = (cur.weatherDesc[0].value||'').toLowerCase();
-      var humidity = parseInt(cur.humidity);
-
-      // Surface from description + precip
-      var surface = 'fast';
-      if (precip > 0.1 || desc.indexOf('rain') > -1 || desc.indexOf('shower') > -1) {
-        surface = precip > 0.3 ? 'sloppy' : 'good';
-      } else if (desc.indexOf('snow') > -1 || desc.indexOf('sleet') > -1) {
-        surface = 'muddy';
-      } else if (desc.indexOf('drizzle') > -1 || desc.indexOf('mist') > -1) {
-        surface = 'good';
-      } else if (humidity > 90) {
-        surface = 'good';
-      }
-
-      var windSet = windMph > 18 ? 'strong' : windMph > 8 ? 'light' : 'calm';
-
-      tc.surface = surface;
-      tc.wind    = windSet;
-      tc.temp    = String(tempF);
-
-      weatherStatus = 'Updated ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) +
-        ' \u2014 ' + tempF + '\u00b0F, ' + windMph + 'mph, ' + desc +
-        ' \u2192 ' + surface;
-      render();
-    })
-    .catch(function() {
-      // Fetch blocked (file:// origin) — try JSONP fallback via script injection
-      fetchWeatherJSONP();
-    });
-}
-
-function fetchWeatherJSONP() {
-  // wttr.in doesn't support JSONP natively, so fall back to
-  // Open-Meteo via script tag (they support JSONP via callback param)
-  // Actually use a simple iframe-free workaround: just show manual prompt
-  weatherStatus = 'Auto-fetch unavailable from local file \u2014 tap to set manually \u2193';
-  renderTC();
-  // As a bonus, try Open-Meteo once more with no-cors mode just to get temp
-  var url = 'https://api.open-meteo.com/v1/forecast' +
-    '?latitude=' + TRACK_LAT + '&longitude=' + TRACK_LON +
-    '&current=temperature_2m,wind_speed_10m,precipitation,weather_code' +
-    '&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch' +
-    '&timezone=America/Chicago';
-  fetch(url, {mode: 'cors'})
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      var cur = d.current;
+      var cur    = d.current;
       var tempF  = Math.round(cur.temperature_2m);
-      var wind   = cur.wind_speed_10m;
+      var wind   = Math.round(cur.wind_speed_10m);
       var precip = cur.precipitation;
       var code   = cur.weather_code;
+
+      // WMO weather code → surface condition
       var surface = 'fast';
-      if (precip > 0.1) surface = 'sloppy';
-      else if (precip > 0) surface = 'good';
-      else if (code >= 61 && code <= 77) surface = 'muddy';
-      else if (code >= 51 && code <= 57) surface = 'sloppy';
-      else if (code === 45 || code === 48) surface = 'good';
-      var windSet = wind > 18 ? 'strong' : wind > 8 ? 'light' : 'calm';
+      if      (precip > 0.3)                      surface = 'sloppy';
+      else if (precip > 0.05)                     surface = 'good';
+      else if (code >= 71 && code <= 77)          surface = 'muddy';   // snow
+      else if (code >= 61 && code <= 67)          surface = precip > 0 ? 'sloppy' : 'good'; // rain
+      else if (code >= 51 && code <= 57)          surface = 'good';    // drizzle
+      else if (code === 45 || code === 48)        surface = 'good';    // fog
+
+      var windSet  = wind > 18 ? 'strong' : wind > 8 ? 'light' : 'calm';
+
+      // WMO code → human description
+      var wmoDesc = {0:'clear',1:'mainly clear',2:'partly cloudy',3:'overcast',
+        45:'fog',48:'icy fog',51:'light drizzle',53:'drizzle',55:'heavy drizzle',
+        61:'light rain',63:'rain',65:'heavy rain',71:'light snow',73:'snow',75:'heavy snow',
+        77:'snow grains',80:'rain showers',81:'showers',82:'heavy showers',
+        85:'snow showers',86:'heavy snow showers',95:'thunderstorm',96:'thunderstorm w/ hail',
+        99:'thunderstorm w/ heavy hail'};
+      var desc = wmoDesc[code] || ('code ' + code);
+
       tc.surface = surface;
       tc.wind    = windSet;
       tc.temp    = String(tempF);
+
       weatherStatus = 'Updated ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) +
-        ' \u2014 ' + tempF + '\u00b0F, ' + Math.round(wind) + 'mph \u2192 ' + surface;
+        ' \u2014 ' + tempF + '\u00b0F, ' + wind + 'mph, ' + desc +
+        ' \u2192 ' + surface;
       render();
     })
     .catch(function(e) {
       weatherStatus = '\u26a0 Weather unavailable \u2014 set surface manually below';
       renderTC();
     });
+}
+
+// Legacy stub — no longer needed but kept for safety
+function fetchWeatherJSONP() {
+  fetchLiveWeather();
 }
 
 function renderTC(){
