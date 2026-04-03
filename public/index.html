@@ -876,7 +876,7 @@ function renderRankings(){
   // Full bankroll available — cap any single race at 20% max, divide evenly among qualifying races
   var perRaceCap = Math.min(rem() * 0.20, rem() / qualCount);
   // LOW confidence = NO BET regardless of Kelly
-  var ka = (cf === 'low') ? 0 : Math.min(kellyBet(pr[0]||.01, odds, rem()), perRaceCap);
+  var ka = (cf === 'low') ? 0 : Math.round(Math.min(kellyBet(pr[0]||.01, odds, rem()), perRaceCap));
   // Maiden warning — short favorite in field with 3+ debut horses
   var mlDecTop = mlDec(odds);
   var maidenWarn = (sc._debutWarning && mlDecTop <= 2) ?
@@ -1822,7 +1822,7 @@ function renderBankroll(){
   if(sc.length>0){
     var top=sc[0], odds=getOdds(CUR,top.name);
     var _qr=Math.max(1,R.reduce(function(n,r,i){var s=scoreRace(i);if(!s.length)return n;var g=s[0].score-(s[1]?s[1].score:0);return n+(g>=4?1:0);},0));
-    var _kaBR=Math.min(kellyBet(pr[0]||.01,odds,rem()), rem()*0.20);
+    var _kaBR=Math.round(Math.min(kellyBet(pr[0]||.01,odds,rem()), rem()*0.20));
     var ka=_kaBR;
     html+='<div class="card"><div class="ctitle">Bet Recs — Race '+R[CUR].n+'</div>'+
       '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 13px;margin-bottom:8px">'+
