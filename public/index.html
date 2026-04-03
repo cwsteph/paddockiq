@@ -147,6 +147,7 @@ input{font-family:'DM Sans',sans-serif}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="/lib/betting-core.js"></script>
 </head>
 <body>
 
@@ -648,10 +649,12 @@ function softmax(sc){
 }
 
 function kellyBet(prob,ml,bank){
-  var b=mlDec(ml),q=1-prob,f=(b*prob-q)/b*0.5;
-  if(f<=0)return 0;
-  var raw = f*bank;
-  return Math.max(2, Math.round(Math.min(bank*0.20, raw))); // whole dollars, min $2, max 20% of bankroll
+  var dec = BettingCore.mlToDecimal(ml);
+  return BettingCore.recommendedStake(bank, prob, dec, {
+    kellyFraction: 0.50,   // half Kelly (PaddockIQ default)
+    maxBetPct: 0.20,
+    minBet: 2
+  });
 }
 
 function conf(sc){
@@ -1643,7 +1646,13 @@ function renderMR(){
 function renderOdds(){
   var race=R[CUR], scr=scratches[CUR]||{};
   var html='<div class="card" style="margin-bottom:8px">'+'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+'<span class="ctitle" style="margin:0">Scratches & Changes</span>'+'<button onclick="openEquibaseScratches()" style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid #6aabbb;background:#0d1a20;color:#6aabbb;cursor:pointer">Open Equibase Scratches</button>'+'<span style="font-size:10px;color:var(--dim);flex:1">Check official scratches, then tap horse below to toggle</span>'+'</div>'+'<div style="font-size:10px;color:var(--dim);margin-top:6px">Quick scratch by PP# : '+race.horses.map(function(h){var isS=(scratches[CUR]||{})[h.name];return '<button onclick="scratchByPP('+CUR+','+h.pp+')" style="font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid '+(isS?'var(--red)':'var(--border)')+';background:'+(isS?'#2e1010':'transparent')+';color:'+(isS?'var(--red)':'var(--dim)')+';cursor:pointer;margin:2px">'+(isS?'<s>':'')+h.pp+(isS?'</s>':'')+' '+(h.horse?h.horse.disp||h.name:h.name).split(' ')[0]+'</button>';}).join('')+'</div></div>'+'<div class="card"><div class="ctitle">Live Odds — Race '+race.n+'</div>'+
-    '<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Enter current tote odds. Scratch toggles remove horse from all Kelly calculations.</div>'+
+    '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+
+    '<div style="font-size:11px;color:var(--muted);flex:1">Enter current tote odds or fetch live. Scratch toggles remove horse from all Kelly calculations.</div>'+
+    '<button onclick="fetchLiveOdds()" style="font-size:11px;padding:5px 14px;border-radius:20px;border:1px solid var(--green);background:#0d2010;color:var(--green);cursor:pointer;font-weight:600">Fetch Live Odds</button>'+
+    '</div>'+
+    '<div id="live-odds-status" style="font-size:11px;margin-bottom:8px;min-height:16px">' +
+    (_oddsLastFetch ? '<span style="color:var(--dim)">Last fetch: ' + _oddsLastFetch.toLocaleTimeString() + '</span>' : '') +
+    '</div>'+
     '<table class="tbl"><thead><tr>'+
     ['Horse','PP','Morning Line','Current Odds','Movement',''].map(function(h){return'<th>'+h+'</th>';}).join('')+
     '</tr></thead><tbody>';
@@ -1671,6 +1680,69 @@ function renderOdds(){
 
 function setOdds(ri,name,val){if(!liveOdds[ri])liveOdds[ri]={};liveOdds[ri][name]=val;}
 
+// ── Live Odds API Fetch ──
+var _oddsLastFetch = null;
+function fetchLiveOdds(silent) {
+  var trackCode = (typeof cardInfo !== 'undefined' && cardInfo.code) ? cardInfo.code : 'OP';
+  var rd = (typeof cardInfo !== 'undefined' && cardInfo.date) || '';
+  var isoDate = '';
+  if (rd) { var d = new Date(rd); if (!isNaN(d)) isoDate = d.toISOString().slice(0, 10); }
+  if (!isoDate) { if (!silent) alert('No race date set — load a card first.'); return; }
+
+  var statusEl = document.getElementById('live-odds-status');
+  if (statusEl) statusEl.innerHTML = '<span style="color:var(--blue)">Fetching live odds from TVG...</span>';
+
+  fetch('/api/odds?track=' + trackCode + '&date=' + isoDate)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) {
+        if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">' + data.error + '</span>';
+        return;
+      }
+      var updated = 0;
+      R.forEach(function(race, ri) {
+        var raceOdds = data.races[race.n];
+        if (!raceOdds) return;
+        race.horses.forEach(function(h) {
+          // Match by name — try exact, then fuzzy
+          var runner = raceOdds.runners[h.name];
+          if (!runner) {
+            // Fuzzy match: find runner whose name contains our horse name or vice versa
+            var hLow = h.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            var keys = Object.keys(raceOdds.runners);
+            for (var k = 0; k < keys.length; k++) {
+              var rLow = keys[k].toLowerCase().replace(/[^a-z0-9]/g, '');
+              if (rLow === hLow || rLow.indexOf(hLow.substring(0, 6)) >= 0 || hLow.indexOf(rLow.substring(0, 6)) >= 0) {
+                runner = raceOdds.runners[keys[k]];
+                break;
+              }
+            }
+          }
+          if (!runner) return;
+          // Auto-scratch from TVG
+          if (runner.scratched && !scratches[ri]) scratches[ri] = {};
+          if (runner.scratched) scratches[ri][h.name] = true;
+          // Update live odds if available
+          if (runner.live) {
+            if (!liveOdds[ri]) liveOdds[ri] = {};
+            liveOdds[ri][h.name] = runner.live;
+            updated++;
+          }
+        });
+      });
+      _oddsLastFetch = new Date();
+      if (statusEl) {
+        statusEl.innerHTML = '<span style="color:var(--green)">Updated ' + updated + ' odds (' +
+          _oddsLastFetch.toLocaleTimeString() + ')</span>';
+      }
+      if (TAB === 'odds') renderOdds();
+      saveState();
+    })
+    .catch(function(e) {
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">Fetch error: ' + e.message + '</span>';
+    });
+}
+
 // ── Scratch quick-entry helpers ──
 function scratchByPP(rn, pp) {
   var race = R[rn];
@@ -1696,9 +1768,23 @@ function renderBankroll(){
   var pnl=returned-wagered;
   var btype=cf==='high'?'WIN':cf==='medium'?'WIN / PLACE':'NO BET';
   var cfWts={high:.20,medium:.15,low:.08};
+  // Build summary from BettingCore
+  var _coreBets = bets.map(function(b){
+    return { pnl: b.settled?(b.payout||0)-b.amount:0, result: b.settled?((b.payout||0)>b.amount?'WIN':'LOSS'):null,
+             status: b.settled?'SETTLED':'OPEN', amount: b.amount||0 };
+  });
+  var _bkSum = BettingCore.computeBankrollSummary(rem(), bankroll, _coreBets);
+  var _streakStr = _bkSum.streakType!=='none' ? _bkSum.streakType+_bkSum.currentStreak : '—';
+  var _streakClr = _bkSum.streakType==='W'?'var(--green)':_bkSum.streakType==='L'?'var(--red)':'var(--dim)';
   var html='<div class="card-gold"><div class="ctitle">Bankroll Manager</div>'+
     '<div class="stat-grid">';
-  [['Starting','$'+bankroll.toFixed(2),'var(--gold)'],['Remaining','$'+rem().toFixed(2),'var(--green)'],['Wagered','$'+wagered.toFixed(2),'var(--blue)'],['P&L',(pnl>=0?'+':'')+pnl.toFixed(2),pnl>=0?'var(--green)':'var(--red)']].forEach(function(x){
+  [['Starting','$'+bankroll.toFixed(2),'var(--gold)'],
+   ['Remaining','$'+rem().toFixed(2),'var(--green)'],
+   ['Wagered','$'+wagered.toFixed(2),'var(--blue)'],
+   ['P&L',(pnl>=0?'+':'')+pnl.toFixed(2),pnl>=0?'var(--green)':'var(--red)'],
+   ['Win Rate',_bkSum.settledBets>0?_bkSum.winRate.toFixed(0)+'%':'—',_bkSum.winRate>=50?'var(--green)':'var(--dim)'],
+   ['Streak',_streakStr,_streakClr]
+  ].forEach(function(x){
     html+='<div class="stat-box"><div class="stat-l">'+x[0]+'</div><div class="stat-v" style="color:'+x[2]+'">'+x[1]+'</div></div>';
   });
   html+='</div>'+
@@ -1988,10 +2074,15 @@ function fetchTVGResults(raceIdx) {
       // Auto-settle the bet for this race using TVG payoffs
       if (window.bets && Array.isArray(window.bets)) {
         var raceN = window.R[window._tvgRaceIdx || 0] && window.R[window._tvgRaceIdx || 0].n;
+        var rIdx  = window._tvgRaceIdx || 0;
         bets.forEach(function(b) {
           if (b.race !== raceN || b.settled) return;
           var hp = window._tvgPayoffs[b.horse] || {};
           b.settled = true;
+          // Capture closing odds from live odds for CLV
+          var liveStr = (liveOdds[rIdx] && liveOdds[rIdx][b.horse]) || null;
+          if(liveStr) b.closingOdds = BettingCore.mlToDecimal(liveStr);
+          b.result = winner && b.horse === winner.name ? 'WIN' : 'LOSS';
           if (b.type === 'WIN') {
             b.payout = winner && b.horse === winner.name ? (b.amount / 2) * (hp.winPayoff || 0) : 0;
           } else if (b.type === 'WIN/PLACE' || b.type === 'WIN / PLACE') {
@@ -2003,6 +2094,7 @@ function fetchTVGResults(raceIdx) {
             var showed = data.runners.find(function(r){ return r.name===b.horse && r.finishPos<=3; });
             b.payout = showed ? (b.amount/2) * (hp.showPayoff||0) : 0;
           }
+          b.pnl = b.payout - b.amount;
         });
         if (typeof saveState === 'function') saveState();
       }
@@ -2076,10 +2168,357 @@ function submitResults(raceIdx, horses) {
 // ────────────────────────────────────────────────────────────────────────────
 
 function logBet(name,amt){
+  amt = Math.round(amt);  // always whole dollars
   wagered+=amt;
-  bets.push({race:R[CUR].n,horse:name,amount:amt,type:conf(scoreRace(CUR))==='high'?'WIN':'WIN/PLACE',settled:false,payout:0});
+  var mlOdds = getOdds(CUR, name);
+  var sc = scoreRace(CUR);
+  var pr = softmax(sc);
+  var idx = sc.findIndex(function(s){ return s.name === name; });
+  var prob = idx >= 0 ? pr[idx] : 0;
+  bets.push({
+    race:R[CUR].n, horse:name, amount:amt,
+    type: conf(sc)==='high'?'WIN':'WIN/PLACE',
+    settled:false, payout:0,
+    mlOdds: mlOdds,                              // ML odds at bet time (for CLV)
+    decOdds: BettingCore.mlToDecimal(mlOdds),    // decimal odds at bet time
+    closingOdds: null,                           // filled at settle time from live odds
+    modelProb: prob,                             // model win probability
+    edge: prob - BettingCore.decimalToImplied(BettingCore.mlToDecimal(mlOdds))  // edge vs ML
+  });
   render();saveState();
   alert('Bet logged: $'+Math.round(amt)+' on '+name);
+}
+
+// ═══════════════════════════════════════════════════════════
+// AUTO-PIPELINE: Snapshot Picks → Capture Odds → Fetch Results
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Snapshot all pre-race picks to RaceResult (finish_pos=NULL).
+ * Called after card is parsed and saved to Neon.
+ * This creates the "what the algo picked" record BEFORE the race runs.
+ */
+function snapshotPicks(cardId) {
+  if (!cardId) { console.warn('snapshotPicks: no cardId'); return; }
+  var raceDate = (typeof cardInfo !== 'undefined' && cardInfo.date) || new Date().toISOString().slice(0,10);
+
+  R.forEach(function(race, ri) {
+    var sc = scoreRace(ri);
+    if (!sc.length) return;
+    var pr = softmax(sc);
+
+    var results = sc.map(function(s, i) {
+      return {
+        horse_name: s.name,
+        finish_pos: null,  // pre-race — no result yet
+        paddockiq_rank: i + 1,
+        score: s.score,
+        components: s._components || {},
+        morning_line: s.horse ? s.horse.ml : null,
+        model_prob: pr[i] || null,
+        source: 'snapshot'
+      };
+    });
+
+    fetch('/api/results', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ card_id: cardId, race_num: race.n, race_date: raceDate, results: results })
+    }).then(function(r){ return r.json(); }).then(function(data){
+      if(data.ok) console.log('Snapshot R'+race.n+': '+data.saved+' horses saved');
+    }).catch(function(e){ console.warn('Snapshot R'+race.n+' error:', e.message); });
+  });
+
+  console.log('Pre-race snapshot initiated for card #'+cardId);
+}
+
+/**
+ * Race status tracker — manages the auto-pipeline per race.
+ * States: 'pending' → 'odds_captured' → 'results_fetched' → 'settled'
+ */
+var _raceStatus = {};  // raceNum -> { state, mtpCaptured, lastCheck }
+
+function initRaceStatus() {
+  _raceStatus = {};
+  R.forEach(function(race) {
+    _raceStatus[race.n] = { state: 'pending', mtpCaptured: false, lastCheck: 0 };
+  });
+}
+
+/**
+ * Auto-results loop — runs every 60 seconds.
+ * 1. At 3-5 MTP: capture closing odds from TVG live endpoint
+ * 2. After race is official: fetch results, update DB, auto-settle bets
+ */
+function autoResultsLoop() {
+  var trackCode = (typeof cardInfo !== 'undefined' && cardInfo.code) ? cardInfo.code : null;
+  var raceDate = (typeof cardInfo !== 'undefined' && cardInfo.date) || '';
+  var isoDate = '';
+  if (raceDate) { var d = new Date(raceDate); if (!isNaN(d)) isoDate = d.toISOString().slice(0,10); }
+  if (!trackCode || !isoDate) return;
+
+  // Check each race
+  R.forEach(function(race, ri) {
+    var st = _raceStatus[race.n];
+    if (!st || st.state === 'settled') return;
+
+    var now = Date.now();
+    // Throttle checks to every 45 seconds per race
+    if (now - st.lastCheck < 45000) return;
+    st.lastCheck = now;
+
+    if (st.state === 'pending' || !st.mtpCaptured) {
+      // Try to capture live odds — the API returns MTP when available
+      captureClosingOdds(ri, trackCode, isoDate);
+    }
+
+    if (st.state === 'pending' || st.state === 'odds_captured') {
+      // Try to fetch results — if race is official, TVG pastRaces returns runners
+      autoFetchResults(ri, trackCode, isoDate);
+    }
+  });
+}
+
+/**
+ * Capture closing odds at 3-5 MTP.
+ * Uses the live race() query which includes MTP (minutes to post).
+ */
+function captureClosingOdds(raceIdx, trackCode, isoDate) {
+  var race = R[raceIdx];
+  var st = _raceStatus[race.n];
+
+  fetch('/api/odds?track=' + trackCode + '&date=' + isoDate + '&race=' + race.n)
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (!data.ok || !data.races) return;
+      var raceOdds = data.races[race.n];
+      if (!raceOdds) return;
+
+      // Update liveOdds from TVG data
+      var updated = 0;
+      race.horses.forEach(function(h) {
+        var runner = _matchRunner(h.name, raceOdds.runners);
+        if (!runner) return;
+        if (runner.scratched) {
+          if (!scratches[raceIdx]) scratches[raceIdx] = {};
+          scratches[raceIdx][h.name] = true;
+        }
+        if (runner.live) {
+          if (!liveOdds[raceIdx]) liveOdds[raceIdx] = {};
+          liveOdds[raceIdx][h.name] = runner.live;
+          updated++;
+        }
+      });
+
+      // Check MTP — capture at 3-5 minutes
+      var mtp = raceOdds.mtp;
+      if (mtp != null && mtp <= 5 && mtp >= 0 && !st.mtpCaptured) {
+        st.mtpCaptured = true;
+        st.state = 'odds_captured';
+        console.log('R'+race.n+' closing odds captured at MTP '+mtp+' ('+updated+' horses)');
+
+        // Save closing odds to DB
+        _saveClosingOddsToDb(raceIdx, trackCode, isoDate);
+      }
+    })
+    .catch(function(){});
+}
+
+/** Fuzzy match horse name to TVG runner list */
+function _matchRunner(horseName, runners) {
+  if (!runners) return null;
+  if (runners[horseName]) return runners[horseName];
+  var hLow = horseName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  var keys = Object.keys(runners);
+  for (var k = 0; k < keys.length; k++) {
+    var rLow = keys[k].toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (rLow === hLow || rLow.indexOf(hLow.substring(0, 6)) >= 0 || hLow.indexOf(rLow.substring(0, 6)) >= 0) {
+      return runners[keys[k]];
+    }
+  }
+  return null;
+}
+
+/** Save closing odds snapshot to RaceResult DB */
+function _saveClosingOddsToDb(raceIdx, trackCode, isoDate) {
+  var race = R[raceIdx];
+  var cardId = window._loadedCardId;
+  if (!cardId) return;
+
+  var sc = scoreRace(raceIdx);
+  var results = sc.map(function(s, i) {
+    var closingStr = (liveOdds[raceIdx] && liveOdds[raceIdx][s.name]) || null;
+    return {
+      horse_name: s.name,
+      finish_pos: null,
+      paddockiq_rank: i + 1,
+      score: s.score,
+      components: s._components || {},
+      closing_odds: closingStr,
+      morning_line: s.horse ? s.horse.ml : null,
+      source: 'odds_capture'
+    };
+  });
+
+  fetch('/api/results', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ card_id: cardId, race_num: race.n, race_date: isoDate, results: results })
+  }).catch(function(e){ console.warn('Closing odds save R'+race.n+':', e.message); });
+}
+
+/**
+ * Auto-fetch results from TVG after race is official.
+ * Fills finish positions, payoffs, and marks winner.
+ */
+function autoFetchResults(raceIdx, trackCode, isoDate) {
+  var race = R[raceIdx];
+  var st = _raceStatus[race.n];
+  var cardId = window._loadedCardId;
+  if (!cardId) return;
+
+  fetch('/api/results/fetch?date=' + isoDate + '&race=' + race.n + '&track=' + trackCode)
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      if (data.error || !data.runners || !data.runners.length) return;
+
+      // We have results! Build the DB update
+      var sc = scoreRace(raceIdx);
+      var pr = softmax(sc);
+      var winner = data.runners.find(function(r){ return r.finishPos === 1; });
+
+      var results = sc.map(function(s, i) {
+        var tvgRunner = _matchTVGRunner(s.name, data.runners);
+        var finishPos = tvgRunner ? tvgRunner.finishPos : null;
+        var closingStr = (liveOdds[raceIdx] && liveOdds[raceIdx][s.name]) || null;
+
+        // Check if there's a logged bet for this horse
+        var matchBet = (window.bets || []).find(function(b) {
+          return b.race === race.n && b.horse === s.name;
+        });
+
+        return {
+          horse_name: s.name,
+          finish_pos: finishPos,
+          paddockiq_rank: i + 1,
+          score: s.score,
+          components: s._components || {},
+          morning_line: s.horse ? s.horse.ml : null,
+          closing_odds: closingStr,
+          model_prob: pr[i] || null,
+          bet_amount: matchBet ? matchBet.amount : null,
+          bet_type: matchBet ? matchBet.type : null,
+          bet_payout: matchBet ? matchBet.payout : null,
+          win_payoff: tvgRunner ? tvgRunner.winPayoff : null,
+          place_payoff: tvgRunner ? tvgRunner.placePayoff : null,
+          show_payoff: tvgRunner ? tvgRunner.showPayoff : null,
+          source: 'auto'
+        };
+      });
+
+      // Save to DB
+      fetch('/api/results', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ card_id: cardId, race_num: race.n, race_date: isoDate, results: results })
+      }).then(function(r){ return r.json(); }).then(function(res){
+        if (res.ok) console.log('Auto-results R'+race.n+': '+res.saved+' horses saved');
+      });
+
+      // Auto-settle bets for this race
+      _autoSettleRace(raceIdx, data, winner);
+
+      st.state = 'settled';
+
+      // Show toast
+      var topPick = sc[0];
+      var topFinish = _matchTVGRunner(topPick.name, data.runners);
+      var winnerName = winner ? winner.name : '?';
+      var pickFinish = topFinish ? topFinish.finishPos : '?';
+      _showAutoToast('R'+race.n+' Official', 'Winner: '+winnerName+' | Our #1 ('+topPick.name+'): '+_ordinal(pickFinish));
+
+      // Refresh UI if on P&L tab
+      if (TAB === 'pnl') renderPnL();
+      if (TAB === 'rankings') render();
+    })
+    .catch(function(){});
+}
+
+/** Match our horse name to TVG runner by fuzzy name */
+function _matchTVGRunner(horseName, runners) {
+  var hLow = horseName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return runners.find(function(r) {
+    if (r.scratched) return false;
+    var rLow = r.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return rLow === hLow ||
+           rLow.indexOf(hLow.substring(0, Math.min(hLow.length, 8))) >= 0 ||
+           hLow.indexOf(rLow.substring(0, Math.min(rLow.length, 8))) >= 0;
+  }) || null;
+}
+
+/** Auto-settle bets for a race using TVG results */
+function _autoSettleRace(raceIdx, data, winner) {
+  var race = R[raceIdx];
+  var newRet = 0;
+
+  // Store payoffs
+  window._tvgPayoffs = window._tvgPayoffs || {};
+  data.runners.forEach(function(r) {
+    window._tvgPayoffs[r.name] = {
+      winPayoff: r.winPayoff || 0,
+      placePayoff: r.placePayoff || 0,
+      showPayoff: r.showPayoff || 0
+    };
+  });
+
+  bets.forEach(function(b) {
+    if (b.race !== race.n || b.settled) return;
+    b.settled = true;
+
+    // Capture closing odds for CLV
+    var liveStr = (liveOdds[raceIdx] && liveOdds[raceIdx][b.horse]) || null;
+    if (liveStr) b.closingOdds = BettingCore.mlToDecimal(liveStr);
+
+    // Match horse to TVG runner for payoff
+    var tvgRunner = _matchTVGRunner(b.horse, data.runners);
+    var hp = tvgRunner ? (window._tvgPayoffs[tvgRunner.name] || {}) : {};
+    var isWinner = tvgRunner && tvgRunner.finishPos === 1;
+
+    b.result = isWinner ? 'WIN' : 'LOSS';
+
+    if (b.type === 'WIN') {
+      b.payout = isWinner ? (b.amount / 2) * (hp.winPayoff || 0) : 0;
+    } else if (b.type === 'WIN/PLACE' || b.type === 'WIN / PLACE') {
+      var placed = tvgRunner && tvgRunner.finishPos <= 2;
+      b.payout = (isWinner ? (b.amount / 4) * (hp.winPayoff || 0) : 0) +
+                 (placed ? (b.amount / 4) * (hp.placePayoff || 0) : 0);
+    } else {
+      var showed = tvgRunner && tvgRunner.finishPos <= 3;
+      b.payout = showed ? (b.amount / 2) * (hp.showPayoff || 0) : 0;
+    }
+    b.pnl = b.payout - b.amount;
+    newRet += b.payout;
+  });
+
+  if (newRet > 0 || bets.some(function(b){ return b.race === race.n && b.settled; })) {
+    returned += newRet;
+    saveState();
+  }
+}
+
+function _ordinal(n) {
+  if (n == null || n === '?') return '?';
+  var s = ['th','st','nd','rd'], v = n % 100;
+  return n + (s[(v-20)%10] || s[v] || s[0]);
+}
+
+function _showAutoToast(title, msg) {
+  var toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0d0d18;border:1px solid var(--green);border-radius:10px;padding:12px 18px;z-index:9999;max-width:340px;box-shadow:0 4px 20px rgba(0,0,0,.5)';
+  toast.innerHTML = '<div style="font-family:Bebas Neue,sans-serif;font-size:14px;color:var(--gold);margin-bottom:4px">'+title+'</div>' +
+    '<div style="font-size:12px;color:var(--text)">'+msg+'</div>';
+  document.body.appendChild(toast);
+  setTimeout(function(){ toast.style.opacity='0'; toast.style.transition='opacity .5s'; setTimeout(function(){ toast.remove(); }, 600); }, 6000);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2156,6 +2595,23 @@ function renderPnL(){
   loadDayHistory();
   var pnl=returned-wagered, roi=wagered>0?(pnl/wagered*100).toFixed(1):null;
 
+  // ── Build normalized bet records for BettingCore ──
+  var coreBets = bets.map(function(b){
+    return {
+      pnl:     b.settled ? (b.payout||0) - b.amount : 0,
+      result:  b.settled ? ((b.payout||0) > b.amount ? 'WIN' : (b.payout||0) === b.amount ? 'PUSH' : 'LOSS') : null,
+      status:  b.settled ? 'SETTLED' : 'OPEN',
+      edge:    b.edge || null,
+      odds:    b.decOdds || null,
+      closingOdds: b.closingOdds || null,
+      amount:  b.amount || 0
+    };
+  });
+  var summary = BettingCore.computeBankrollSummary(rem(), bankroll, coreBets);
+
+  // ── Multi-day drawdown ──
+  var dayDD = BettingCore.computeDayDrawdown(dayHistory, bankroll);
+
   // ── 1. Today's summary stats ──
   var html='<div class="card"><div class="ctitle">Today\'s P&L</div>'+
     '<div class="stat-grid">';
@@ -2170,6 +2626,37 @@ function renderPnL(){
     '<button onclick="closeDayAndSave()" style="margin-top:10px;font-size:12px;padding:5px 14px;border-radius:20px;border:1px solid var(--green);background:#0d2010;color:var(--green);cursor:pointer">📅 Close Day & Save to History</button>'+
     '<button onclick="exportResultsLog()" style="margin-top:10px;margin-left:8px;font-size:12px;padding:5px 14px;border-radius:20px;border:1px solid #6aabbb;background:#0d1a20;color:#6aabbb;cursor:pointer">📥 Export Results Log (CSV)</button>'+
   '</div>';
+
+  // ── 1b. Advanced Analytics (from BettingCore) ──
+  var streakStr = summary.streakType !== 'none'
+    ? summary.streakType + summary.currentStreak
+    : '—';
+  var streakColor = summary.streakType === 'W' ? 'var(--green)' : summary.streakType === 'L' ? 'var(--red)' : 'var(--dim)';
+  var clvStr = summary.clvAvg !== 0 ? (summary.clvAvg >= 0 ? '+' : '') + summary.clvAvg.toFixed(2) + '%' : '—';
+  var clvColor = summary.clvAvg > 0 ? 'var(--green)' : summary.clvAvg < 0 ? 'var(--red)' : 'var(--dim)';
+  // Use multi-day drawdown if we have history, else today's drawdown
+  var ddAmt = dayHistory.length > 0 ? dayDD.maxDrawdown : summary.maxDrawdown;
+  var ddPct = dayHistory.length > 0 ? dayDD.maxDrawdownPct : summary.maxDrawdownPct;
+
+  html += '<div class="card"><div class="ctitle">Betting Analytics</div>' +
+    '<div class="stat-grid">';
+  [
+    ['Win Rate', summary.settledBets > 0 ? summary.winRate.toFixed(1) + '%' : '—', summary.winRate >= 50 ? 'var(--green)' : summary.winRate > 0 ? 'var(--red)' : 'var(--dim)'],
+    ['Record', summary.settledBets > 0 ? summary.wins + 'W-' + summary.losses + 'L' + (summary.pushes ? '-' + summary.pushes + 'P' : '') : '—', 'var(--text)'],
+    ['Streak', streakStr, streakColor],
+    ['Max Drawdown', ddAmt > 0 ? '-$' + ddAmt.toFixed(2) + ' (' + ddPct.toFixed(1) + '%)' : '—', ddAmt > 0 ? 'var(--red)' : 'var(--dim)'],
+    ['Avg Edge', summary.avgEdge !== 0 ? (summary.avgEdge >= 0 ? '+' : '') + summary.avgEdge.toFixed(2) + '%' : '—', summary.avgEdge > 0 ? 'var(--green)' : 'var(--dim)'],
+    ['CLV', clvStr, clvColor]
+  ].forEach(function(x){
+    html += '<div class="stat-box"><div class="stat-l">' + x[0] + '</div><div class="stat-v" style="color:' + x[2] + '">' + x[1] + '</div></div>';
+  });
+  html += '</div>';
+  // CLV explainer
+  html += '<div style="font-size:10px;color:var(--dim);margin-top:8px;line-height:1.5">' +
+    '<b style="color:var(--muted)">CLV (Closing Line Value):</b> Compares your ML odds at bet time vs live odds at post. ' +
+    'Positive CLV = you consistently get better prices than the closing line. ' +
+    'Enter live odds on the Odds tab before settling to track this.' +
+  '</div></div>';
 
   // ── 2. TODAY — race-by-race chart ──
   // Build per-race P&L from bets array
@@ -2440,6 +2927,10 @@ function settleRace(){
   bets.forEach(function(b){
     if(b.race===raceN&&!b.settled){
       b.settled=true;
+      // Capture closing odds from live odds (if entered) for CLV tracking
+      var liveOddsStr = (liveOdds[raceIdx] && liveOdds[raceIdx][b.horse]) || null;
+      if(liveOddsStr) b.closingOdds = BettingCore.mlToDecimal(liveOddsStr);
+      b.result = b.horse===winner ? 'WIN' : 'LOSS';
       var won    = b.horse===winner && winPay>0;
       var placed = b.horse===winner && placePay>0;
       if(b.type==='WIN'){
@@ -2451,6 +2942,7 @@ function settleRace(){
         // PLACE/SHOW
         b.payout = placed?((b.amount/2)/2)*placePay:0;
       }
+      b.pnl = b.payout - b.amount;
       newRet+=b.payout;
     }
   });
@@ -3863,6 +4355,14 @@ function clearTodayState(){
   }, 600000);
   // Auto-save every 2 minutes
   setInterval(saveState, 120000);
+  // Auto-fetch live odds every 3 minutes (silent — no alerts)
+  setInterval(function(){ fetchLiveOdds(true); }, 180000);
+  // Initial odds fetch after 5 seconds
+  setTimeout(function(){ fetchLiveOdds(true); }, 5000);
+  // Auto-results loop — check every 60 seconds for finished races
+  setInterval(autoResultsLoop, 60000);
+  // Initialize race status if we have a loaded card
+  setTimeout(function(){ if(window._loadedCardId) initRaceStatus(); }, 3000);
 })();
 
 // ═══════════════════════════════════════════════════════════
@@ -4089,14 +4589,20 @@ async function processCSVFiles(files) {
       // For multiple files, load the last one — user can switch via dropdown
       if (i === files.length - 1) {
         loadCSVCard(cardState);
-        if (savedId) window._loadedCardId = savedId;
+        if (savedId) {
+          window._loadedCardId = savedId;
+          // Auto-snapshot pre-race picks to DB
+          setTimeout(function(){ snapshotPicks(savedId); }, 1500);
+          // Start auto-results loop
+          initRaceStatus();
+        }
         loadedAny = true;
       }
 
       if (statusEl) {
         statusEl.style.color = 'var(--green)';
         statusEl.innerHTML = savedId
-          ? '✅ '+cardState.races.length+' races · '+totalHorses+' horses · saved id:'+savedId
+          ? '✅ '+cardState.races.length+' races · '+totalHorses+' horses · saved id:'+savedId+' · picks snapshotted'
           : '⚠️ Loaded but not saved';
       }
 
@@ -4194,6 +4700,8 @@ async function loadCardById(id){
     }
     if(saved.scratches)scratches=saved.scratches;
     window._loadedCardId=id;
+    // Initialize auto-pipeline for this card
+    initRaceStatus();
     // Persist jockey/trainer stats for this track
     var _tCode=(saved.cardInfo&&saved.cardInfo.code)?saved.cardInfo.code:null;
     if(_tCode) ingestCardJockStats(saved.races, _tCode);

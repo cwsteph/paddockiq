@@ -58,37 +58,53 @@ export async function POST(req: NextRequest) {
       const { horse_name, finish_pos, paddockiq_rank, score, components } = r;
       const { spd=0, frm=0, cls=0, pce=0, jck=0, trn=0, wk=0, trend=0, ml=0 } = components || {};
       const won = finish_pos === 1;
-      const bet_amount   = r.bet_amount   ?? null;
-      const bet_type     = r.bet_type     ?? null;
-      const bet_payout   = r.bet_payout   ?? null;
-      const win_payoff   = r.win_payoff   ?? null;
-      const place_payoff = r.place_payoff ?? null;
-      const show_payoff  = r.show_payoff  ?? null;
+      const bet_amount    = r.bet_amount    ?? null;
+      const bet_type      = r.bet_type      ?? null;
+      const bet_payout    = r.bet_payout    ?? null;
+      const win_payoff    = r.win_payoff    ?? null;
+      const place_payoff  = r.place_payoff  ?? null;
+      const show_payoff   = r.show_payoff   ?? null;
+      const closing_odds  = r.closing_odds  ?? null;
+      const morning_line  = r.morning_line  ?? null;
+      const model_prob    = r.model_prob    ?? null;
+      const source        = r.source        ?? 'manual';
 
       await prisma.$executeRaw`
         INSERT INTO "RaceResult"
           (card_id, race_num, race_date, horse_name, finish_pos, paddockiq_rank,
            score, spd, frm, cls, pce, jck, trn, wk, trend, ml, won,
-           bet_amount, bet_type, bet_payout, win_payoff, place_payoff, show_payoff)
+           bet_amount, bet_type, bet_payout, win_payoff, place_payoff, show_payoff,
+           closing_odds, morning_line, model_prob, source)
         VALUES
           (${card_id}, ${race_num}, ${race_date}, ${horse_name}, ${finish_pos},
            ${paddockiq_rank}, ${score}, ${spd}, ${frm}, ${cls}, ${pce},
            ${jck}, ${trn}, ${wk}, ${trend}, ${ml}, ${won},
-           ${bet_amount}, ${bet_type}, ${bet_payout}, ${win_payoff}, ${place_payoff}, ${show_payoff})
+           ${bet_amount}, ${bet_type}, ${bet_payout}, ${win_payoff}, ${place_payoff}, ${show_payoff},
+           ${closing_odds}, ${morning_line}, ${model_prob}, ${source})
         ON CONFLICT (card_id, race_num, horse_name) DO UPDATE SET
-          finish_pos      = EXCLUDED.finish_pos,
-          paddockiq_rank  = EXCLUDED.paddockiq_rank,
-          score           = EXCLUDED.score,
-          spd=EXCLUDED.spd, frm=EXCLUDED.frm, cls=EXCLUDED.cls,
-          pce=EXCLUDED.pce, jck=EXCLUDED.jck, trn=EXCLUDED.trn,
-          wk=EXCLUDED.wk,   trend=EXCLUDED.trend, ml=EXCLUDED.ml,
-          won             = EXCLUDED.won,
-          bet_amount      = EXCLUDED.bet_amount,
-          bet_type        = EXCLUDED.bet_type,
-          bet_payout      = EXCLUDED.bet_payout,
-          win_payoff      = EXCLUDED.win_payoff,
-          place_payoff    = EXCLUDED.place_payoff,
-          show_payoff     = EXCLUDED.show_payoff,
+          finish_pos      = COALESCE(EXCLUDED.finish_pos, "RaceResult".finish_pos),
+          paddockiq_rank  = COALESCE(EXCLUDED.paddockiq_rank, "RaceResult".paddockiq_rank),
+          score           = COALESCE(EXCLUDED.score, "RaceResult".score),
+          spd=COALESCE(EXCLUDED.spd, "RaceResult".spd),
+          frm=COALESCE(EXCLUDED.frm, "RaceResult".frm),
+          cls=COALESCE(EXCLUDED.cls, "RaceResult".cls),
+          pce=COALESCE(EXCLUDED.pce, "RaceResult".pce),
+          jck=COALESCE(EXCLUDED.jck, "RaceResult".jck),
+          trn=COALESCE(EXCLUDED.trn, "RaceResult".trn),
+          wk=COALESCE(EXCLUDED.wk, "RaceResult".wk),
+          trend=COALESCE(EXCLUDED.trend, "RaceResult".trend),
+          ml=COALESCE(EXCLUDED.ml, "RaceResult".ml),
+          won             = COALESCE(EXCLUDED.won, "RaceResult".won),
+          bet_amount      = COALESCE(EXCLUDED.bet_amount, "RaceResult".bet_amount),
+          bet_type        = COALESCE(EXCLUDED.bet_type, "RaceResult".bet_type),
+          bet_payout      = COALESCE(EXCLUDED.bet_payout, "RaceResult".bet_payout),
+          win_payoff      = COALESCE(EXCLUDED.win_payoff, "RaceResult".win_payoff),
+          place_payoff    = COALESCE(EXCLUDED.place_payoff, "RaceResult".place_payoff),
+          show_payoff     = COALESCE(EXCLUDED.show_payoff, "RaceResult".show_payoff),
+          closing_odds    = COALESCE(EXCLUDED.closing_odds, "RaceResult".closing_odds),
+          morning_line    = COALESCE(EXCLUDED.morning_line, "RaceResult".morning_line),
+          model_prob      = COALESCE(EXCLUDED.model_prob, "RaceResult".model_prob),
+          source          = EXCLUDED.source,
           updated_at      = NOW()
       `;
     }

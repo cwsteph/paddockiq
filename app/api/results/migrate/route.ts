@@ -50,7 +50,21 @@ export async function GET() {
       CREATE INDEX IF NOT EXISTS idx_raceresult_won ON "RaceResult" (won);
     `;
 
-    return NextResponse.json({ ok: true, message: "RaceResult table ready" });
+    // Add closing odds columns (safe to run multiple times — IF NOT EXISTS)
+    await prisma.$executeRaw`
+      ALTER TABLE "RaceResult" ADD COLUMN IF NOT EXISTS closing_odds TEXT;
+    `;
+    await prisma.$executeRaw`
+      ALTER TABLE "RaceResult" ADD COLUMN IF NOT EXISTS morning_line TEXT;
+    `;
+    await prisma.$executeRaw`
+      ALTER TABLE "RaceResult" ADD COLUMN IF NOT EXISTS model_prob NUMERIC;
+    `;
+    await prisma.$executeRaw`
+      ALTER TABLE "RaceResult" ADD COLUMN IF NOT EXISTS snapshot_at TIMESTAMPTZ;
+    `;
+
+    return NextResponse.json({ ok: true, message: "RaceResult table ready (with closing odds columns)" });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: msg }, { status: 500 });

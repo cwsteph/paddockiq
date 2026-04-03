@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>BettingIQ — Unified Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="/lib/betting-core.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080810;--bg2:#0d0d18;--bg3:#111120;--border:#1e1e30;
+  --gold:#d4af37;--gold2:#f0c850;--green:#4ec97e;--blue:#7b8df8;
+  --red:#e05555;--purple:#b48cf8;--teal:#4ecdc4;
+  --text:#e8e4d8;--muted:#888;--dim:#444;
+  --racing:#d4af37;--tennis:#4ec97e;
+}
+body{background:var(--bg);font-family:'DM Sans',sans-serif;color:var(--text);font-size:14px;min-height:100vh}
+.bebas{font-family:'Bebas Neue',sans-serif;letter-spacing:2px}
+.mono{font-family:'IBM Plex Mono',monospace}
+
+/* Header */
+#hdr{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+#hdr h1{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:3px;color:var(--gold)}
+#hdr h1 span{color:var(--green)}
+
+/* Layout */
+#main{max-width:1200px;margin:0 auto;padding:20px}
+
+/* Cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:14px}
+.card-accent{border-color:var(--gold);background:linear-gradient(135deg,#0d0d18 60%,#1a1810)}
+.ctitle{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:var(--gold);margin-bottom:12px}
+
+/* Stat grid */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.stat-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;text-align:center}
+.stat-l{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:4px}
+.stat-v{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px}
+
+/* Two-column layout */
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:768px){.cols{grid-template-columns:1fr}}
+
+/* Sport card */
+.sport-badge{display:inline-block;font-size:10px;font-weight:600;letter-spacing:1px;padding:3px 10px;border-radius:12px;text-transform:uppercase}
+.sport-badge.racing{background:#2a2010;color:var(--racing);border:1px solid var(--racing)}
+.sport-badge.tennis{background:#0d2010;color:var(--tennis);border:1px solid var(--tennis)}
+
+/* Config bar */
+.config{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;margin-bottom:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.config label{font-size:11px;color:var(--dim)}
+.config input{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 10px;font-size:12px;font-family:'IBM Plex Mono',monospace;width:320px}
+.config button{font-size:11px;padding:5px 16px;border-radius:20px;border:1px solid var(--green);background:#0d2010;color:var(--green);cursor:pointer;font-weight:600}
+.config button:hover{background:#1a3a20}
+
+/* Activity feed */
+.feed-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #0d0d18;font-size:12px}
+.feed-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.feed-sport{font-size:10px;color:var(--dim);min-width:52px}
+.feed-desc{flex:1;color:var(--muted);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.feed-pnl{font-weight:600;min-width:64px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px}
+
+/* Status indicators */
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.status-ok{background:var(--green)}
+.status-err{background:var(--red)}
+.status-wait{background:var(--gold);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Loading */
+.loading{color:var(--dim);font-size:12px;padding:20px;text-align:center}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <h1>BETTING<span>IQ</span> — PORTFOLIO</h1>
+  <div style="display:flex;gap:12px;align-items:center">
+    <span id="status-racing"><span class="status-dot status-wait"></span><span style="font-size:11px;color:var(--dim)">Racing</span></span>
+    <span id="status-tennis"><span class="status-dot status-wait"></span><span style="font-size:11px;color:var(--dim)">Tennis</span></span>
+    <button onclick="refreshAll()" style="font-size:11px;padding:5px 14px;border-radius:20px;border:1px solid var(--blue);background:#0d1828;color:var(--blue);cursor:pointer">Refresh</button>
+  </div>
+</div>
+
+<div id="main">
+
+<!-- Config -->
+<div class="config">
+  <label>PaddockIQ API:</label>
+  <input id="url-racing" type="text" value="" placeholder="http://localhost:3000"/>
+  <label>RallyIQ API:</label>
+  <input id="url-tennis" type="text" value="" placeholder="http://localhost:3001"/>
+  <button onclick="saveConfig();refreshAll()">Connect</button>
+</div>
+
+<!-- Portfolio summary (filled by JS) -->
+<div id="portfolio-summary"></div>
+
+<!-- Two sport cards side by side -->
+<div class="cols" id="sport-cards"></div>
+
+<!-- Combined chart -->
+<div class="card" id="chart-card" style="display:none">
+  <div class="ctitle">Portfolio Bankroll Curve</div>
+  <canvas id="portfolio-chart" style="width:100%;height:260px;max-height:260px"></canvas>
+</div>
+
+<!-- Activity feed -->
+<div class="card" id="feed-card" style="display:none">
+  <div class="ctitle">Recent Activity</div>
+  <div id="activity-feed"></div>
+</div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+var racingData = null;
+var tennisData = null;
+var portfolioChart = null;
+
+// Config persistence
+function loadConfig() {
+  try {
+    var c = JSON.parse(localStorage.getItem('bettingiq_config') || '{}');
+    document.getElementById('url-racing').value = c.racing || '';
+    document.getElementById('url-tennis').value = c.tennis || '';
+  } catch(e) {}
+}
+function saveConfig() {
+  var c = {
+    racing: document.getElementById('url-racing').value.replace(/\/+$/, ''),
+    tennis: document.getElementById('url-tennis').value.replace(/\/+$/, '')
+  };
+  localStorage.setItem('bettingiq_config', JSON.stringify(c));
+}
+function getUrls() {
+  return {
+    racing: document.getElementById('url-racing').value.replace(/\/+$/, ''),
+    tennis: document.getElementById('url-tennis').value.replace(/\/+$/, '')
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
+// DATA FETCHING
+// ═══════════════════════════════════════════════════════════
+function setStatus(id, ok) {
+  var el = document.getElementById(id);
+  var dot = el.querySelector('.status-dot');
+  dot.className = 'status-dot ' + (ok === true ? 'status-ok' : ok === false ? 'status-err' : 'status-wait');
+}
+
+async function fetchSport(sport) {
+  var urls = getUrls();
+  var url = sport === 'racing' ? urls.racing : urls.tennis;
+  if (!url) return null;
+  var statusId = sport === 'racing' ? 'status-racing' : 'status-tennis';
+  setStatus(statusId, null);
+  try {
+    var resp = await fetch(url + '/api/dashboard');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    var data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    setStatus(statusId, true);
+    return data;
+  } catch(e) {
+    console.warn(sport + ' fetch failed:', e.message);
+    setStatus(statusId, false);
+    return null;
+  }
+}
+
+async function refreshAll() {
+  var results = await Promise.all([fetchSport('racing'), fetchSport('tennis')]);
+  racingData = results[0];
+  tennisData = results[1];
+
+  // Also try to load PaddockIQ localStorage data as supplement
+  if (!racingData) {
+    racingData = loadLocalPaddockIQ();
+  }
+
+  renderDashboard();
+}
+
+// Fallback: read PaddockIQ localStorage if on same origin
+function loadLocalPaddockIQ() {
+  try {
+    var hist = JSON.parse(localStorage.getItem('paddockiq_history') || '[]');
+    var state = JSON.parse(localStorage.getItem('paddockiq_state') || '{}');
+    if (!hist.length && !state.bankroll) return null;
+
+    var current = state.bankroll || 100;
+    var totalWagered = hist.reduce(function(s,d){return s+(d.wagered||0);},0);
+    var totalNet = hist.reduce(function(s,d){return s+(d.net||0);},0);
+    var totalWins = hist.reduce(function(s,d){return s+(d.wins||0);},0);
+    var totalBets = hist.reduce(function(s,d){return s+(d.bets||0);},0);
+
+    var dd = BettingCore.computeDayDrawdown(hist, 100);
+
+    return {
+      sport:'racing', app:'PaddockIQ (local)',
+      starting:100, current:current,
+      summary:{
+        current:current, starting:100,
+        totalPnl: current-100,
+        roi: ((current-100)/100)*100,
+        winRate: totalBets>0?(totalWins/totalBets)*100:0,
+        wins:totalWins, losses:totalBets-totalWins, pushes:0,
+        totalBets:totalBets, openBets:0, settledBets:totalBets,
+        totalWagered:totalWagered,
+        avgEdge:0, avgOdds:0,
+        maxDrawdown:dd.maxDrawdown, maxDrawdownPct:dd.maxDrawdownPct,
+        currentStreak:0, streakType:'none', clvAvg:0
+      },
+      snapshots: hist.map(function(d){return {date:d.date, balance:d.bankroll||0};}),
+      recentBets:[]
+    };
+  } catch(e) { return null; }
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDERING
+// ═══════════════════════════════════════════════════════════
+function renderDashboard() {
+  renderPortfolioSummary();
+  renderSportCards();
+  renderChart();
+  renderFeed();
+}
+
+function renderPortfolioSummary() {
+  var el = document.getElementById('portfolio-summary');
+  var rs = racingData ? racingData.summary : null;
+  var ts = tennisData ? tennisData.summary : null;
+
+  if (!rs && !ts) {
+    el.innerHTML = '<div class="card" style="text-align:center;padding:40px"><div style="font-size:14px;color:var(--dim)">Configure your API URLs above and click Connect</div></div>';
+    return;
+  }
+
+  // Combine
+  var totalStart = (rs ? rs.starting : 0) + (ts ? ts.starting : 0);
+  var totalCurrent = (rs ? rs.current : 0) + (ts ? ts.current : 0);
+  var totalPnl = totalCurrent - totalStart;
+  var totalRoi = totalStart > 0 ? (totalPnl / totalStart) * 100 : 0;
+  var totalWins = (rs ? rs.wins : 0) + (ts ? ts.wins : 0);
+  var totalLosses = (rs ? rs.losses : 0) + (ts ? ts.losses : 0);
+  var totalBets = (rs ? rs.totalBets : 0) + (ts ? ts.totalBets : 0);
+  var totalSettled = (rs ? rs.settledBets||0 : 0) + (ts ? ts.settledBets||0 : 0);
+  var winRate = totalSettled > 0 ? (totalWins / totalSettled) * 100 : 0;
+
+  // Worst drawdown across both
+  var worstDD = Math.max(rs ? rs.maxDrawdown : 0, ts ? ts.maxDrawdown : 0);
+  var worstDDPct = Math.max(rs ? rs.maxDrawdownPct : 0, ts ? ts.maxDrawdownPct : 0);
+
+  var pnlColor = totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
+  var roiColor = totalRoi >= 0 ? 'var(--green)' : 'var(--red)';
+
+  var html = '<div class="card card-accent"><div class="ctitle">Portfolio Overview</div>';
+  html += '<div class="stat-grid">';
+  [
+    ['Total Bankroll', '$' + totalCurrent.toFixed(2), 'var(--gold)'],
+    ['Combined P&L', (totalPnl>=0?'+':'') + totalPnl.toFixed(2), pnlColor],
+    ['ROI', totalRoi.toFixed(1) + '%', roiColor],
+    ['Win Rate', totalSettled > 0 ? winRate.toFixed(1) + '%' : '—', winRate >= 50 ? 'var(--green)' : winRate > 0 ? 'var(--red)' : 'var(--dim)'],
+    ['Record', totalWins + 'W-' + totalLosses + 'L', 'var(--text)'],
+    ['Max Drawdown', worstDD > 0 ? '-$' + worstDD.toFixed(2) + ' (' + worstDDPct.toFixed(1) + '%)' : '—', worstDD > 0 ? 'var(--red)' : 'var(--dim)'],
+    ['Open Bets', '' + ((rs?rs.openBets:0) + (ts?ts.openBets:0)), 'var(--blue)'],
+    ['Total Bets', '' + totalBets, 'var(--muted)']
+  ].forEach(function(x){
+    html += '<div class="stat-box"><div class="stat-l">' + x[0] + '</div><div class="stat-v" style="color:' + x[2] + '">' + x[1] + '</div></div>';
+  });
+  html += '</div></div>';
+  el.innerHTML = html;
+}
+
+function renderSportCards() {
+  var el = document.getElementById('sport-cards');
+  var html = '';
+
+  [
+    { data: racingData, sport: 'racing', label: 'Horse Racing', icon: '\ud83c\udfc7', accent: 'var(--racing)' },
+    { data: tennisData, sport: 'tennis', label: 'Tennis', icon: '\ud83c\udfbe', accent: 'var(--tennis)' }
+  ].forEach(function(cfg) {
+    var d = cfg.data;
+    html += '<div class="card">';
+    html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">';
+    html += '<span style="font-size:20px">' + cfg.icon + '</span>';
+    html += '<span class="ctitle" style="margin-bottom:0;color:' + cfg.accent + '">' + cfg.label + '</span>';
+    html += '<span class="sport-badge ' + cfg.sport + '">' + (d ? d.app : 'Disconnected') + '</span>';
+    html += '</div>';
+
+    if (!d) {
+      html += '<div style="font-size:12px;color:var(--dim);padding:16px 0">Not connected — enter API URL above</div>';
+      html += '</div>';
+      return;
+    }
+
+    var s = d.summary;
+    var pnlC = s.totalPnl >= 0 ? 'var(--green)' : 'var(--red)';
+    html += '<div class="stat-grid">';
+    [
+      ['Bankroll', '$' + s.current.toFixed(2), cfg.accent],
+      ['P&L', (s.totalPnl>=0?'+':'') + s.totalPnl.toFixed(2), pnlC],
+      ['ROI', s.roi.toFixed(1) + '%', s.roi >= 0 ? 'var(--green)' : 'var(--red)'],
+      ['Win Rate', s.settledBets > 0 ? s.winRate.toFixed(1) + '%' : '—', s.winRate >= 50 ? 'var(--green)' : 'var(--dim)'],
+      ['Streak', s.streakType !== 'none' ? s.streakType + s.currentStreak : '—',
+       s.streakType === 'W' ? 'var(--green)' : s.streakType === 'L' ? 'var(--red)' : 'var(--dim)'],
+      ['Drawdown', s.maxDrawdown > 0 ? '-$' + s.maxDrawdown.toFixed(2) : '—', s.maxDrawdown > 0 ? 'var(--red)' : 'var(--dim)']
+    ].forEach(function(x) {
+      html += '<div class="stat-box"><div class="stat-l">' + x[0] + '</div><div class="stat-v" style="font-size:18px;color:' + x[2] + '">' + x[1] + '</div></div>';
+    });
+    html += '</div>';
+
+    // CLV if available
+    if (s.clvAvg && s.clvAvg !== 0) {
+      html += '<div style="margin-top:8px;font-size:11px;color:var(--dim)">CLV Avg: <span style="color:' +
+        (s.clvAvg > 0 ? 'var(--green)' : 'var(--red)') + '">' +
+        (s.clvAvg >= 0 ? '+' : '') + s.clvAvg.toFixed(2) + '%</span></div>';
+    }
+
+    html += '</div>';
+  });
+
+  el.innerHTML = html;
+}
+
+function renderChart() {
+  var chartCard = document.getElementById('chart-card');
+
+  // Merge snapshots from both sources
+  var points = [];
+  [racingData, tennisData].forEach(function(d) {
+    if (!d || !d.snapshots) return;
+    d.snapshots.forEach(function(s) {
+      points.push({
+        date: new Date(s.date),
+        sport: d.sport,
+        balance: s.balance
+      });
+    });
+  });
+
+  if (points.length === 0) {
+    chartCard.style.display = 'none';
+    return;
+  }
+  chartCard.style.display = '';
+
+  // Sort by date
+  points.sort(function(a,b) { return a.date - b.date; });
+
+  // Build per-sport series
+  var racingPts = points.filter(function(p){return p.sport==='racing';});
+  var tennisPts = points.filter(function(p){return p.sport==='tennis';});
+
+  // Build combined series (sum of latest known balance for each sport)
+  var allDates = points.map(function(p){return p.date.toISOString().slice(0,10);});
+  var uniqueDates = allDates.filter(function(d,i,a){return a.indexOf(d)===i;}).sort();
+
+  var lastR = racingData ? racingData.starting : 0;
+  var lastT = tennisData ? tennisData.starting : 0;
+  var combinedSeries = [];
+  var racingSeries = [];
+  var tennisSeries = [];
+
+  uniqueDates.forEach(function(date) {
+    var rPt = racingPts.filter(function(p){return p.date.toISOString().slice(0,10)===date;});
+    var tPt = tennisPts.filter(function(p){return p.date.toISOString().slice(0,10)===date;});
+    if (rPt.length) lastR = rPt[rPt.length-1].balance;
+    if (tPt.length) lastT = tPt[tPt.length-1].balance;
+    racingSeries.push(lastR);
+    tennisSeries.push(lastT);
+    combinedSeries.push(lastR + lastT);
+  });
+
+  // Render chart
+  var canvas = document.getElementById('portfolio-chart');
+  if (portfolioChart) portfolioChart.destroy();
+
+  var datasets = [];
+  if (racingData) {
+    datasets.push({
+      label: 'Racing',
+      data: racingSeries,
+      borderColor: 'var(--racing)',
+      backgroundColor: 'rgba(212,175,55,0.1)',
+      fill: false,
+      pointRadius: 2,
+      borderWidth: 2,
+      tension: 0.3
+    });
+  }
+  if (tennisData) {
+    datasets.push({
+      label: 'Tennis',
+      data: tennisSeries,
+      borderColor: 'var(--tennis)',
+      backgroundColor: 'rgba(78,201,126,0.1)',
+      fill: false,
+      pointRadius: 2,
+      borderWidth: 2,
+      tension: 0.3
+    });
+  }
+  if (racingData && tennisData) {
+    datasets.push({
+      label: 'Combined',
+      data: combinedSeries,
+      borderColor: 'var(--purple)',
+      backgroundColor: 'rgba(180,140,248,0.08)',
+      fill: true,
+      pointRadius: 3,
+      borderWidth: 2,
+      tension: 0.3,
+      borderDash: [6, 3]
+    });
+  }
+
+  portfolioChart = new Chart(canvas, {
+    type: 'line',
+    data: { labels: uniqueDates, datasets: datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#aaa', font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) { return ctx.dataset.label + ': $' + ctx.parsed.y.toFixed(2); }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#666', font: { size: 10 }, maxTicksLimit: 12 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: {
+          ticks: { color: '#888', font: { size: 11 }, callback: function(v) { return '$' + v; } },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        }
+      }
+    }
+  });
+}
+
+function renderFeed() {
+  var feedCard = document.getElementById('feed-card');
+  var feedEl = document.getElementById('activity-feed');
+
+  var items = [];
+  [racingData, tennisData].forEach(function(d) {
+    if (!d || !d.recentBets) return;
+    d.recentBets.forEach(function(b) {
+      items.push({
+        date: new Date(b.date),
+        sport: d.sport,
+        sportLabel: d.sport === 'racing' ? 'Racing' : 'Tennis',
+        desc: b.desc,
+        result: b.result,
+        pnl: b.pnl || 0
+      });
+    });
+  });
+
+  if (items.length === 0) {
+    feedCard.style.display = 'none';
+    return;
+  }
+  feedCard.style.display = '';
+
+  // Sort by date desc
+  items.sort(function(a,b) { return b.date - a.date; });
+  items = items.slice(0, 30);
+
+  var html = '';
+  items.forEach(function(item) {
+    var dotColor = item.result === 'WIN' ? 'var(--green)' : item.result === 'LOSS' ? 'var(--red)' : 'var(--dim)';
+    var pnlColor = item.pnl > 0 ? 'var(--green)' : item.pnl < 0 ? 'var(--red)' : 'var(--dim)';
+    var sportColor = item.sport === 'racing' ? 'var(--racing)' : 'var(--tennis)';
+    var dateStr = item.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    html += '<div class="feed-row">';
+    html += '<div class="feed-dot" style="background:' + dotColor + '"></div>';
+    html += '<div class="feed-sport" style="color:' + sportColor + '">' + item.sportLabel + '</div>';
+    html += '<div class="feed-desc">' + item.desc + '</div>';
+    html += '<div class="feed-pnl" style="color:' + pnlColor + '">' + (item.pnl >= 0 ? '+' : '') + item.pnl.toFixed(2) + '</div>';
+    html += '<div style="font-size:10px;color:var(--dim);min-width:50px;text-align:right">' + dateStr + '</div>';
+    html += '</div>';
+  });
+
+  feedEl.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+loadConfig();
+
+// Auto-detect: if on same origin as PaddockIQ, pre-fill that URL
+(function() {
+  var racingInput = document.getElementById('url-racing');
+  var tennisInput = document.getElementById('url-tennis');
+  if (!racingInput.value && window.location.origin !== 'null') {
+    racingInput.value = window.location.origin;
+  }
+  // Try to load from localStorage config
+  try {
+    var c = JSON.parse(localStorage.getItem('bettingiq_config') || '{}');
+    if (c.racing) racingInput.value = c.racing;
+    if (c.tennis) tennisInput.value = c.tennis;
+  } catch(e) {}
+})();
+
+// Auto-refresh on load
+refreshAll();
+// Refresh every 5 minutes
+setInterval(refreshAll, 5 * 60 * 1000);
+</script>
+</body>
+</html>
