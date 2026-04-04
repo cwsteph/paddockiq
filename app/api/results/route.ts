@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { card_id, race_num, race_date, results } = body;
+    const { card_id, race_num, race_date, results, track: trackCode } = body;
 
     if (!card_id || !race_num || !race_date || !Array.isArray(results)) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -68,19 +68,20 @@ export async function POST(req: NextRequest) {
       const morning_line  = r.morning_line  ?? null;
       const model_prob    = r.model_prob    ?? null;
       const source        = r.source        ?? 'manual';
+      const track         = trackCode       ?? null;
 
       await prisma.$executeRaw`
         INSERT INTO "RaceResult"
           (card_id, race_num, race_date, horse_name, finish_pos, paddockiq_rank,
            score, spd, frm, cls, pce, jck, trn, wk, trend, ml, won,
            bet_amount, bet_type, bet_payout, win_payoff, place_payoff, show_payoff,
-           closing_odds, morning_line, model_prob, source)
+           closing_odds, morning_line, model_prob, source, track)
         VALUES
-          (${card_id}, ${race_num}, ${race_date}, ${horse_name}, ${finish_pos},
+          (${card_id}, ${race_num}, ${race_date}::date, ${horse_name}, ${finish_pos},
            ${paddockiq_rank}, ${score}, ${spd}, ${frm}, ${cls}, ${pce},
            ${jck}, ${trn}, ${wk}, ${trend}, ${ml}, ${won},
            ${bet_amount}, ${bet_type}, ${bet_payout}, ${win_payoff}, ${place_payoff}, ${show_payoff},
-           ${closing_odds}, ${morning_line}, ${model_prob}, ${source})
+           ${closing_odds}, ${morning_line}, ${model_prob}, ${source}, ${track})
         ON CONFLICT (card_id, race_num, horse_name) DO UPDATE SET
           finish_pos      = COALESCE(EXCLUDED.finish_pos, "RaceResult".finish_pos),
           paddockiq_rank  = COALESCE(EXCLUDED.paddockiq_rank, "RaceResult".paddockiq_rank),
@@ -105,6 +106,7 @@ export async function POST(req: NextRequest) {
           morning_line    = COALESCE(EXCLUDED.morning_line, "RaceResult".morning_line),
           model_prob      = COALESCE(EXCLUDED.model_prob, "RaceResult".model_prob),
           source          = EXCLUDED.source,
+          track           = COALESCE(EXCLUDED.track, "RaceResult".track),
           updated_at      = NOW()
       `;
     }

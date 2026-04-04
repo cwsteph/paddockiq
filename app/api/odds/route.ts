@@ -18,6 +18,7 @@ const PAST_QUERY = `
   query PastOdds($trackCode: String, $date: String, $raceNumber: String) {
     pastRaces(profile: "hpws", trackCode: $trackCode, date: $date, raceNumber: $raceNumber) {
       number
+      surface { defaultCondition code }
       bettingInterests {
         biNumber
         morningLineOdds { numerator denominator }
@@ -96,6 +97,7 @@ export async function GET(req: NextRequest) {
     }
 
     const result: Record<number, RaceOdds> = {};
+    let trackCondition: string | null = null;
 
     // Strategy: try live query first for specific race, then fall back to pastRaces
     if (raceNum) {
@@ -128,6 +130,7 @@ export async function GET(req: NextRequest) {
         for (const race of pastGql.data?.pastRaces || []) {
           if (race.bettingInterests?.length) {
             result[race.number] = { runners: parseBettingInterests(race.bettingInterests) };
+            if (!trackCondition && race.surface?.defaultCondition) trackCondition = race.surface.defaultCondition;
           }
         }
       }
@@ -149,6 +152,7 @@ export async function GET(req: NextRequest) {
         for (const race of gql.data.pastRaces) {
           if (race.bettingInterests?.length) {
             result[race.number] = { runners: parseBettingInterests(race.bettingInterests) };
+            if (!trackCondition && race.surface?.defaultCondition) trackCondition = race.surface.defaultCondition;
           }
         }
       }
@@ -184,6 +188,7 @@ export async function GET(req: NextRequest) {
       track: trackCode,
       date,
       races: result,
+      trackCondition,
       fetchedAt: new Date().toISOString(),
     });
 
