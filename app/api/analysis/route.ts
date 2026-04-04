@@ -49,7 +49,7 @@ export async function GET() {
       return {
         cardId: first.card_id,
         raceNum: first.race_num,
-        raceDate: typeof first.race_date === 'string' ? first.race_date.slice(0, 10) : (first.race_date instanceof Date ? first.race_date.toISOString().slice(0, 10) : String(first.race_date).slice(0, 10)),
+        raceDate: String(first.race_date ?? '').slice(0, 10),
         track: first.track || "??",
         topPick: topPick ? {
           name: topPick.horse_name,
