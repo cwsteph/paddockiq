@@ -175,12 +175,19 @@ input{font-family:'DM Sans',sans-serif}
   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
     <select id="hdr-card-sel" onchange="if(this.value)loadCardById(parseInt(this.value))" style="background:var(--bg2);border:1px solid var(--border);color:var(--gold);border-radius:6px;padding:4px 8px;font-size:11px;font-family:'DM Sans',sans-serif;max-width:200px;cursor:pointer"><option value="">Loading cards…</option></select>
     <span class="pill on-g" id="br-badge">$100.00 Bankroll</span>
-    <div id="tracks-today-toggle" style="display:flex;align-items:center;gap:3px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:2px 3px;">
-      <span style="font-size:9px;color:var(--dim);padding:0 4px;">TRACKS</span>
-      <button onclick="setTracksToday(1)" class="tt-btn" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--gold);font-size:11px;font-weight:700;cursor:pointer;padding:0;background:var(--gold);color:#000;">1</button>
-      <button onclick="setTracksToday(2)" class="tt-btn" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);font-size:11px;font-weight:700;cursor:pointer;padding:0;background:transparent;color:var(--dim);">2</button>
-      <button onclick="setTracksToday(3)" class="tt-btn" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);font-size:11px;font-weight:700;cursor:pointer;padding:0;background:transparent;color:var(--dim);">3</button>
-      <button onclick="setTracksToday(4)" class="tt-btn" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);font-size:11px;font-weight:700;cursor:pointer;padding:0;background:transparent;color:var(--dim);">4</button>
+    <div id="betting-today-wrap" style="position:relative;">
+      <button id="betting-today-btn" onclick="toggleBettingDropdown()" style="background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 12px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--gold);font-family:'DM Sans',sans-serif;">
+        <span style="font-size:9px;color:var(--dim);">BETTING</span>
+        <span id="betting-today-label" style="font-weight:700;">1 Track</span>
+        <span style="font-size:8px;color:var(--dim);">&#9660;</span>
+      </button>
+      <div id="betting-today-dropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--bg2);border:1px solid var(--gold);border-radius:10px;padding:10px 12px;min-width:220px;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,0.5);">
+        <div style="font-size:10px;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Betting on today</div>
+        <div id="betting-today-checks" style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto;"></div>
+        <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;">
+          <div id="betting-today-summary" style="font-size:11px;color:var(--muted);"></div>
+        </div>
+      </div>
     </div>
     <span class="pill on" id="race-badge">Race 1</span>
   </div>
@@ -2603,28 +2610,93 @@ function updateBR(){
   bankroll=v;render();saveState();updateTracksToggle();
 }
 
-function setTracksToday(n){
-  tracksToday=n;
-  updateTracksToggle();
+var bettingTracks=[]; // track codes selected for today
+
+function toggleBettingDropdown(){
+  var dd=document.getElementById('betting-today-dropdown');
+  if(!dd)return;
+  var isOpen=dd.style.display!=='none';
+  dd.style.display=isOpen?'none':'block';
+  if(!isOpen) buildBettingChecklist();
+  // Close on outside click
+  if(!isOpen){
+    setTimeout(function(){
+      document.addEventListener('click',_closeBettingDD,{once:true,capture:true});
+    },50);
+  }
+}
+function _closeBettingDD(e){
+  var wrap=document.getElementById('betting-today-wrap');
+  if(wrap&&!wrap.contains(e.target)){
+    document.getElementById('betting-today-dropdown').style.display='none';
+  } else {
+    // Re-attach if clicked inside
+    setTimeout(function(){
+      document.addEventListener('click',_closeBettingDD,{once:true,capture:true});
+    },50);
+  }
+}
+
+function buildBettingChecklist(){
+  var container=document.getElementById('betting-today-checks');
+  if(!container)return;
+  // Show popular tracks + current track at top
+  var popular=['KEE','OP','CD','SA','GP','BEL','AQU','SAR','DMR','TAM','FG','LRL','MTH','TP','PIM','WO','PEN','PRX','CT'];
+  var currentCode=(cardInfo&&cardInfo.code)||'';
+  // Put current track first if not in list
+  if(currentCode&&popular.indexOf(currentCode)<0) popular.unshift(currentCode);
+
+  var html='';
+  popular.forEach(function(code){
+    var tObj=TRACK_LIST.find(function(t){return t.code===code;});
+    if(!tObj)return;
+    var checked=bettingTracks.indexOf(code)>=0;
+    var isCurrent=code===currentCode;
+    html+='<label style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;'+(checked?'background:rgba(212,175,55,0.1);':'')+'" onmouseover="this.style.background=\'rgba(255,255,255,0.05)\'" onmouseout="this.style.background=\''+(checked?'rgba(212,175,55,0.1)':'')+'\'">'+
+      '<input type="checkbox" '+(checked?'checked':'')+' onchange="toggleBettingTrack(\''+code+'\')" style="accent-color:var(--gold);width:16px;height:16px;cursor:pointer;">'+
+      '<span style="font-weight:'+(isCurrent?'700':'500')+';color:'+(isCurrent?'var(--gold)':'var(--text)')+';font-size:12px;">'+code+'</span>'+
+      '<span style="font-size:10px;color:var(--dim);flex:1;">'+tObj.name+'</span>'+
+      (isCurrent?'<span style="font-size:8px;color:var(--gold);background:#1a1a10;border:1px solid var(--gold);padding:1px 5px;border-radius:3px;">CURRENT</span>':'')+
+    '</label>';
+  });
+  container.innerHTML=html;
+  updateBettingSummary();
+}
+
+function toggleBettingTrack(code){
+  var idx=bettingTracks.indexOf(code);
+  if(idx>=0) bettingTracks.splice(idx,1);
+  else bettingTracks.push(code);
+  tracksToday=Math.max(1,bettingTracks.length);
+  updateBettingSummary();
+  buildBettingChecklist(); // refresh check states
   saveState();render();
 }
 
-function updateTracksToggle(){
-  var btns=document.querySelectorAll('#tracks-today-toggle .tt-btn');
-  btns.forEach(function(b,i){
-    if(i+1===tracksToday){
-      b.style.background='var(--gold)';b.style.color='#000';b.style.borderColor='var(--gold)';
-    } else {
-      b.style.background='transparent';b.style.color='var(--dim)';b.style.borderColor='var(--border)';
-    }
-  });
-  // Update bankroll badge to show per-track allocation
+function updateBettingSummary(){
+  var label=document.getElementById('betting-today-label');
+  var summary=document.getElementById('betting-today-summary');
   var badge=document.getElementById('br-badge');
+  var n=Math.max(1,bettingTracks.length);
+  tracksToday=n;
+
+  if(label){
+    if(bettingTracks.length===0) label.textContent='1 Track';
+    else if(bettingTracks.length<=3) label.textContent=bettingTracks.join(' + ');
+    else label.textContent=bettingTracks.length+' Tracks';
+  }
+  if(summary){
+    var perTrack=Math.round(bankroll/n);
+    var kelly=perTrack>=500?'Quarter Kelly (conservative)':perTrack>=100?'Half Kelly (standard)':'Aggressive Kelly (fun money)';
+    summary.innerHTML='<b>$'+perTrack+'</b> per track · '+kelly;
+  }
   if(badge){
-    var perTrack=Math.round(bankroll/tracksToday);
-    badge.textContent=tracksToday>1?'$'+bankroll+' ($'+perTrack+'/track)':'$'+bankroll.toFixed(2)+' Bankroll';
+    var perTrack=Math.round(bankroll/n);
+    badge.textContent=n>1?'$'+bankroll+' ($'+perTrack+'/track)':'$'+bankroll.toFixed(2)+' Bankroll';
   }
 }
+
+function updateTracksToggle(){ updateBettingSummary(); }
 
 // ── RESULTS LOGGER ──────────────────────────────────────────────────────────
 var _resultsModal = null;
@@ -5793,6 +5865,7 @@ function saveState(){
       bets:bets,
       tc:tc,
       tracksToday:tracksToday,
+      bettingTracks:bettingTracks,
       apiKey:ppApiKey,
       proxyUrl:PROXY_URL,
       races:racesData,
@@ -5846,6 +5919,7 @@ function applyLoadedState(state){
   if(state.tc)        Object.assign(tc, state.tc);
   if(state.scratches) scratches = state.scratches;
   if(state.tracksToday) tracksToday = state.tracksToday;
+  if(state.bettingTracks) bettingTracks = state.bettingTracks;
   if(state.ppApiKey)  ppApiKey  = state.ppApiKey;
 }
 
@@ -5874,6 +5948,7 @@ function loadState(){
     if(state.bets)bets=state.bets;
     if(state.tc)tc=state.tc;
     if(state.tracksToday)tracksToday=state.tracksToday;
+    if(state.bettingTracks)bettingTracks=state.bettingTracks;
     if(state.apiKey)ppApiKey=state.apiKey;
     if(state.proxyUrl)PROXY_URL=state.proxyUrl;
     if(state.cardInfo){
