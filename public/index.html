@@ -2301,6 +2301,11 @@ function fetchLiveOdds(silent) {
             if (!scratches[ri]) scratches[ri] = {};
             if (!scratches[ri][h.name]) { scratches[ri][h.name] = true; newScratches++; }
           }
+          // Populate morning line from TVG if horse still has default 5-1
+          if (runner.ml && (!h.ml || h.ml === '5-1' || h.ml === '4-1')) {
+            h.ml = runner.ml;
+            updated++;
+          }
           // Update live odds if available
           if (runner.live) {
             if (!liveOdds[ri]) liveOdds[ri] = {};
@@ -5802,8 +5807,8 @@ function clearTodayState(){
   setInterval(saveState, 120000);
   // Auto-fetch live odds every 3 minutes (silent — no alerts)
   setInterval(function(){ fetchLiveOdds(true); }, 180000);
-  // Initial odds fetch after 5 seconds
-  setTimeout(function(){ fetchLiveOdds(true); fetchTVGCommentary(); }, 5000);
+  // Initial odds + ML fetch after 3 seconds (populates morning lines from TVG)
+  setTimeout(function(){ fetchLiveOdds(true); fetchTVGCommentary(); }, 3000);
   // Auto-results loop — check every 60 seconds for finished races
   setInterval(autoResultsLoop, 60000);
   // Initialize race status if we have a loaded card
@@ -6172,6 +6177,8 @@ async function loadCardById(id){
     // Update weather to match the loaded track
     if(_tCode && typeof updateWeatherForTrack === 'function') updateWeatherForTrack(_tCode);
     updateCardHeader();renderRaceTabs();goRace(0);render();
+    // Fetch TVG odds immediately to populate morning lines (fixes 5-1 default issue)
+    setTimeout(function(){ fetchLiveOdds(true); }, 1000);
     var st=document.getElementById("save-card-status");
     if(st)st.innerHTML='<span style="color:var(--green)">Loaded: '+card.label+'</span>';
     document.querySelectorAll(".ntab").forEach(function(b){if(b.textContent.indexOf("Rankings")>-1)b.click();});
