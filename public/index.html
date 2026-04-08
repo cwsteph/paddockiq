@@ -2158,32 +2158,71 @@ function renderExotics(){
     });
   });
 
-  var totalExa=allRaces.reduce(function(s,r){return s+r.exaCost;},0);
-  var totalTri=allRaces.reduce(function(s,r){return s+r.triCost;},0);
+  // ── Rank races by exotic value ──
+  // Score: confidence * gap * field separation * value potential
+  allRaces.forEach(function(rc){
+    var confMult = rc.exoticConf==='strong'?3:rc.exoticConf==='good'?2:1;
+    var gapScore = Math.min(rc.gap, 15);
+    // Value: if top pick has decent odds, exacta pays more
+    var topOdds = rc.pr[0]>0 ? (1/rc.pr[0]) : 3;
+    var valueMult = topOdds >= 5 ? 1.5 : topOdds >= 3 ? 1.2 : 1.0;
+    // Separation: clear top 2-3 = better exacta structure
+    var sepScore = rc.sc.length>=3 ? (rc.sc[0].score-rc.sc[2].score) : rc.gap;
+    rc.exoticScore = Math.round(confMult * gapScore * valueMult + sepScore);
+  });
+  allRaces.sort(function(a,b){return b.exoticScore-a.exoticScore;});
 
-  // ── Header summary ──
-  var html='<div class="card-gold"><div class="ctitle">Exotic Bets</div>'+
-    '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Algorithm-filtered: '+allRaces.length+' playable races'+(skipped.length?' · Skipped R'+skipped.join(', R')+' (low confidence)':'')+'</div>'+
+  // Top recommendations vs rest
+  var topExotics = allRaces.slice(0, Math.min(3, allRaces.length));
+  var otherExotics = allRaces.slice(3);
+
+  var totalExa=topExotics.reduce(function(s,r){return s+r.exaCost;},0);
+  var totalTri=topExotics.reduce(function(s,r){return s+r.triCost;},0);
+
+  // ── Header with recommendations ──
+  var html='<div class="card-gold"><div class="ctitle">Exotic Bet Picks</div>'+
+    '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Algorithm recommends <b style="color:var(--gold)">'+topExotics.length+' best exotic races</b> out of '+allRaces.length+' playable'+(skipped.length?' · Skipped R'+skipped.join(', R')+' (low confidence)':'')+'</div>'+
     '<div class="stat-grid">'+
-      '<div class="stat-box"><div class="stat-l">Playable</div><div class="stat-v">'+allRaces.length+' / '+R.length+'</div></div>'+
-      '<div class="stat-box"><div class="stat-l">Exacta Total</div><div class="stat-v" style="color:var(--blue)">$'+totalExa+'</div></div>'+
-      '<div class="stat-box"><div class="stat-l">Trifecta Total</div><div class="stat-v" style="color:#b48cf8">$'+totalTri+'</div></div>'+
-      '<div class="stat-box"><div class="stat-l">Card Total</div><div class="stat-v" style="color:var(--gold)">$'+(totalExa+totalTri)+'</div></div>'+
+      '<div class="stat-box"><div class="stat-l">Recommended</div><div class="stat-v" style="color:var(--gold)">'+topExotics.length+' Races</div></div>'+
+      '<div class="stat-box"><div class="stat-l">Exacta Cost</div><div class="stat-v" style="color:var(--blue)">$'+totalExa+'</div></div>'+
+      '<div class="stat-box"><div class="stat-l">Trifecta Cost</div><div class="stat-v" style="color:#b48cf8">$'+totalTri+'</div></div>'+
+      '<div class="stat-box"><div class="stat-l">Total Exotics</div><div class="stat-v" style="color:var(--green)">$'+(totalExa+totalTri)+'</div></div>'+
     '</div></div>';
 
-  // ── Race rows (condensed) ──
-  allRaces.forEach(function(rc){
+  // ── Top Picks (featured) ──
+  if(topExotics.length){
+    html+='<div style="font-size:11px;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 6px;padding:0 4px">Top Exotic Plays</div>';
+  }
+  topExotics.forEach(function(rc, rank){
+    var medal = rank===0?'🥇':rank===1?'🥈':'🥉';
+    rc._featured = true;
+    rc._medal = medal;
+  });
+
+  // ── Render featured races ──
+  topExotics.forEach(function(rc){ _renderExoticRace(rc); });
+
+  // ── Other playable (collapsed) ──
+  if(otherExotics.length){
+    html+='<div style="margin-top:12px"><details><summary style="font-size:11px;color:var(--dim);cursor:pointer;padding:8px 4px">'+otherExotics.length+' more playable races (lower confidence)</summary><div style="margin-top:8px">';
+    otherExotics.forEach(function(rc){ rc._featured=false; });
+  }
+
+  // Build race cards into html string
+  function _renderExoticRace(rc){
     var race=rc.race;
     var confColor=rc.exoticConf==='strong'?'var(--green)':rc.exoticConf==='good'?'var(--gold)':'var(--dim)';
     var confLabel=rc.exoticConf==='strong'?'STRONG':rc.exoticConf==='good'?'GOOD':'MARGINAL';
+    var borderStyle=rc._featured?'border-left:3px solid var(--gold);':'';
 
-    html+='<div class="card" style="margin-bottom:8px;padding:12px 14px">'+
+    html+='<div class="card" style="margin-bottom:8px;padding:12px 14px;'+borderStyle+'">'+
       // Header row
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">'+
+        (rc._medal?'<span style="font-size:16px">'+rc._medal+'</span>':'')+
         '<span class="bebas" style="font-size:15px;color:var(--gold);background:#1a1a10;border:1px solid var(--gold);padding:1px 8px;border-radius:4px">R'+race.n+'</span>'+
         '<span style="font-size:11px;color:var(--muted)">'+race.d+' · '+race.ty+'</span>'+
         '<span style="font-size:9px;font-weight:700;color:'+confColor+';background:rgba(0,0,0,0.3);border:1px solid '+confColor+';padding:2px 8px;border-radius:3px">'+confLabel+'</span>'+
-        '<span style="font-size:11px;color:var(--dim);margin-left:auto">Gap: '+rc.gap+' pts</span>'+
+        '<span style="font-size:11px;color:var(--dim);margin-left:auto">Gap: '+rc.gap+' · Score: '+rc.exoticScore+'</span>'+
       '</div>'+
       // Horses — compact inline
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">';
@@ -2216,7 +2255,17 @@ function renderExotics(){
       '</div>'+
       '<div style="font-size:11px;color:var(--muted);margin-top:6px">'+rc.thesis+'</div>'+
     '</div>';
-  });
+  }
+
+  // Render featured
+  topExotics.forEach(_renderExoticRace);
+
+  // Render others in collapsible
+  if(otherExotics.length){
+    html+='<details style="margin-top:8px"><summary style="font-size:11px;color:var(--dim);cursor:pointer;padding:8px 4px">'+otherExotics.length+' more playable races</summary><div style="margin-top:8px">';
+    otherExotics.forEach(_renderExoticRace);
+    html+='</div></details>';
+  }
 
   if(!allRaces.length){
     html+='<div class="card" style="color:var(--dim);text-align:center;padding:20px">No playable exotic races. All races have low model confidence.</div>';
