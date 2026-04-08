@@ -175,6 +175,13 @@ input{font-family:'DM Sans',sans-serif}
   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
     <select id="hdr-card-sel" onchange="if(this.value)loadCardById(parseInt(this.value))" style="background:var(--bg2);border:1px solid var(--border);color:var(--gold);border-radius:6px;padding:4px 8px;font-size:11px;font-family:'DM Sans',sans-serif;max-width:200px;cursor:pointer"><option value="">Loading cards…</option></select>
     <span class="pill on-g" id="br-badge">$100.00 Bankroll</span>
+    <div id="tracks-today-toggle" style="display:flex;align-items:center;gap:3px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:2px 3px;">
+      <span style="font-size:9px;color:var(--dim);padding:0 4px;">TRACKS</span>
+      <button onclick="setTracksToday(1)" class="tt-btn" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--gold);font-size:11px;font-weight:700;cursor:pointer;padding:0;background:var(--gold);color:#000;">1</button>
+      <button onclick="setTracksToday(2)" class="tt-btn" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);font-size:11px;font-weight:700;cursor:pointer;padding:0;background:transparent;color:var(--dim);">2</button>
+      <button onclick="setTracksToday(3)" class="tt-btn" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);font-size:11px;font-weight:700;cursor:pointer;padding:0;background:transparent;color:var(--dim);">3</button>
+      <button onclick="setTracksToday(4)" class="tt-btn" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);font-size:11px;font-weight:700;cursor:pointer;padding:0;background:transparent;color:var(--dim);">4</button>
+    </div>
     <span class="pill on" id="race-badge">Race 1</span>
   </div>
 </div>
@@ -2455,17 +2462,7 @@ function renderBankroll(){
     '<button class="btn on" onclick="updateBR()">Update</button>'+
     '<button onclick="saveState();alert(\'State saved!\')" style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid #4ea84e;background:#0d2010;color:#4ea84e;cursor:pointer;margin-left:4px">Save Now</button>'+
     '<button onclick="clearTodayState()" style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer;margin-left:4px">Reset Day</button>'+
-    '</div>'+
-    '<div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
-      '<div class="slabel" style="margin-bottom:0">Tracks Today</div>'+
-      '<div style="display:flex;gap:4px">'+
-        [1,2,3,4].map(function(n){
-          return '<button onclick="tracksToday='+n+';document.querySelectorAll(\'.tt-btn\').forEach(function(b){b.style.background=\'\';b.style.color=\'\';});this.style.background=\'var(--gold)\';this.style.color=\'#000\';saveState();render();" class="tt-btn" style="padding:4px 12px;border-radius:20px;border:1px solid var(--gold);cursor:pointer;font-size:12px;font-weight:600;'+(tracksToday===n?'background:var(--gold);color:#000':'background:transparent;color:var(--gold)')+'">'+n+'</button>';
-        }).join('')+
-      '</div>'+
-      '<span style="font-size:11px;color:var(--dim)">Split: $'+Math.round(bankroll/tracksToday)+'/track · Kelly: '+(bankroll/tracksToday>=500?'Quarter':(bankroll/tracksToday>=100?'Half':'Aggressive'))+'</span>'+
-    '</div>'+
-    '</div>'+
+    '</div></div>'+
 
     '<div class="card" style="margin-bottom:12px">'+
       '<div style="font-size:13px;font-weight:600;color:var(--txt);margin-bottom:6px">📁 Google Drive Auto-Export</div>'+
@@ -2603,7 +2600,30 @@ function renderBankroll(){
 
 function updateBR(){
   var v=parseFloat(document.getElementById('br-inp').value)||100;
-  bankroll=v;render();saveState();
+  bankroll=v;render();saveState();updateTracksToggle();
+}
+
+function setTracksToday(n){
+  tracksToday=n;
+  updateTracksToggle();
+  saveState();render();
+}
+
+function updateTracksToggle(){
+  var btns=document.querySelectorAll('#tracks-today-toggle .tt-btn');
+  btns.forEach(function(b,i){
+    if(i+1===tracksToday){
+      b.style.background='var(--gold)';b.style.color='#000';b.style.borderColor='var(--gold)';
+    } else {
+      b.style.background='transparent';b.style.color='var(--dim)';b.style.borderColor='var(--border)';
+    }
+  });
+  // Update bankroll badge to show per-track allocation
+  var badge=document.getElementById('br-badge');
+  if(badge){
+    var perTrack=Math.round(bankroll/tracksToday);
+    badge.textContent=tracksToday>1?'$'+bankroll+' ($'+perTrack+'/track)':'$'+bankroll.toFixed(2)+' Bankroll';
+  }
 }
 
 // ── RESULTS LOGGER ──────────────────────────────────────────────────────────
@@ -5971,6 +5991,7 @@ function clearTodayState(){
   setTimeout(function(){ if(window._loadedCardId) initRaceStatus(); }, 3000);
   // Safety net: re-render race tabs after card auto-load should be done
   setTimeout(function(){
+    try{ updateTracksToggle(); }catch(e){}
     if(R.some(function(r){return r.horses&&r.horses.length>0;})){
       try{ renderRaceTabs(); render(); updateCardHeader(); }catch(e){}
     }
