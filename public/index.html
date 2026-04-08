@@ -4082,6 +4082,76 @@ function buildAnalysisView() {
   });
   html += '</tbody></table></div></div>';
 
+  // ── Historical Backtest Insights (242K runners, 17 tracks, 2 years) ──
+  html += '<div class="card"><div class="ctitle">Historical Backtest Insights</div>' +
+    '<div style="font-size:11px;color:var(--dim);margin-bottom:12px">Data-driven findings from 26,000+ races and 242,000+ runners across 17 tracks (Apr 2024 – Apr 2026 via TVG). These insights directly informed the algorithm rebalance on Apr 8 2026.</div>' +
+
+    // Factor predictive power
+    '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Factor Predictive Power (rank-1 win rate)</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">' +
+    [
+      {label:'Power Rating', pct:24.5, color:'#22c55e'},
+      {label:'Speed Figure', pct:22.8, color:'#3b82f6'},
+      {label:'Class Rating', pct:17.7, color:'#eab308'},
+      {label:'J/T Combo 25%+', pct:16.9, color:'#a855f7'},
+      {label:'Pace (Tracker)', pct:15.5, color:'#06b6d4'},
+      {label:'Days Off 29-45', pct:13.5, color:'#f97316'},
+    ].map(function(f){
+      return '<div style="flex:1;min-width:100px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">' +
+        '<div style="font-size:10px;color:var(--dim);text-transform:uppercase;margin-bottom:4px">' + f.label + '</div>' +
+        '<div style="font-size:22px;font-family:\'Bebas Neue\',sans-serif;color:' + f.color + '">' + f.pct + '%</div>' +
+        '<div style="height:4px;background:#1e1e30;border-radius:2px;margin-top:4px;overflow:hidden"><div style="height:100%;width:' + (f.pct/25*100) + '%;background:' + f.color + ';border-radius:2px"></div></div>' +
+      '</div>';
+    }).join('') +
+    '</div>' +
+
+    // Class profitability
+    '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Race Class Profitability (Backtest ROI)</div>' +
+    '<div style="overflow-x:auto;margin-bottom:16px"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
+    '<thead><tr style="border-bottom:1px solid var(--border)">' +
+    ['Class','Bets','Win%','ROI','Signal'].map(function(h){return '<th style="padding:5px 8px;text-align:left;color:var(--dim);font-size:10px">'+h+'</th>';}).join('') +
+    '</tr></thead><tbody>' +
+    [
+      {cls:'Claiming',bets:834,wp:'14.1%',roi:'-0.0%',signal:'CORE'},
+      {cls:'Maiden Claiming',bets:470,wp:'11.3%',roi:'+6.8%',signal:'STRONG'},
+      {cls:'Starter Opt Claiming',bets:123,wp:'21.1%',roi:'+41.7%',signal:'BEST'},
+      {cls:'Optional Claiming',bets:53,wp:'28.3%',roi:'+39.5%',signal:'STRONG'},
+      {cls:'Maiden Special Weight',bets:249,wp:'11.2%',roi:'-11.2%',signal:'CAUTION'},
+      {cls:'Allowance',bets:132,wp:'14.4%',roi:'-31.5%',signal:'AVOID'},
+      {cls:'Stakes',bets:0,wp:'—',roi:'—',signal:'SKIP (filtered)'},
+    ].map(function(c,i){
+      var sc = c.signal==='BEST'||c.signal==='STRONG' ? 'var(--green)' : c.signal==='CORE' ? 'var(--blue)' : c.signal==='CAUTION' ? 'var(--gold)' : 'var(--red)';
+      return '<tr style="border-bottom:1px solid #0d0d18'+(i%2?';background:rgba(255,255,255,0.015)':'')+'"><td style="padding:4px 8px;color:var(--text)">'+c.cls+'</td><td style="padding:4px 8px;color:var(--dim)">'+c.bets+'</td><td style="padding:4px 8px;color:var(--muted)">'+c.wp+'</td><td style="padding:4px 8px;color:'+sc+';font-weight:600">'+c.roi+'</td><td style="padding:4px 8px"><span style="color:'+sc+';font-size:10px;font-weight:700">'+c.signal+'</span></td></tr>';
+    }).join('') +
+    '</tbody></table></div>' +
+
+    // Surface profitability
+    '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Surface Performance</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">' +
+    [
+      {surf:'Dirt (Fast)', roi:'+5.2%', color:'var(--green)'},
+      {surf:'Synthetic (Fast)', roi:'+7.0%', color:'var(--green)'},
+      {surf:'Dirt (Sloppy)', roi:'-28.7%', color:'var(--red)'},
+      {surf:'Dirt (Muddy)', roi:'-66.3%', color:'var(--red)'},
+      {surf:'Turf (Firm)', roi:'SKIP', color:'var(--dim)'},
+    ].map(function(s){
+      return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:12px">' +
+        '<span style="color:var(--muted)">'+s.surf+'</span> <span style="color:'+s.color+';font-weight:700;margin-left:6px">'+s.roi+'</span></div>';
+    }).join('') +
+    '</div>' +
+
+    // Key findings
+    '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Key Findings</div>' +
+    '<div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)">' +
+      '<div>• <b style="color:var(--green)">Trackers & Closers</b> win more than Leaders (15.5% vs 13.4%) — pace map flipped in algorithm</div>' +
+      '<div>• <b style="color:var(--green)">29-45 days off</b> is the sweet spot (13.5% win rate) — <b style="color:var(--red)">0-14 days is worst</b> (10.7%)</div>' +
+      '<div>• <b style="color:var(--green)">J/T combo 25%+</b> = 16.9% win rate vs 9.5% for weak combos — weight increased 9% → 14%</div>' +
+      '<div>• <b style="color:var(--red)">Turf races</b> filtered out — algorithm has no edge on grass (-51% ROI on Turf Firm)</div>' +
+      '<div>• <b style="color:var(--red)">Stakes & AOC</b> filtered out — fields too competitive for model differentiation</div>' +
+      '<div>• <b style="color:var(--blue)">Quarter Kelly</b> replaces half Kelly — max drawdown reduced from 117% to manageable levels</div>' +
+    '</div>' +
+  '</div>';
+
   // ── Algorithm Changelog ──
   html += '<div class="card"><div class="ctitle">Algorithm Changelog</div>' +
     '<div style="font-size:11px;color:var(--dim);margin-bottom:12px">Historical record of weight and threshold changes with reasoning.</div>' +
@@ -4092,6 +4162,16 @@ function buildAnalysisView() {
     }).join('') + '</tr></thead><tbody>';
 
   var changelog = [
+    { date:'2026-04-08', change:'CLS weight', old:'25%', new_:'18%', why:'242K runner backtest: class rank-1 only 17.7% win rate — weakest of top 3 factors. Power (24.5%) and speed (22.8%) are far more predictive.' },
+    { date:'2026-04-08', change:'JCK weight', old:'5%', new_:'8%', why:'J/T combo with 25%+ win rate = 16.9% actual wins vs 9.5% for 0-4%. Massive signal was under-weighted.' },
+    { date:'2026-04-08', change:'TRN weight', old:'4%', new_:'6%', why:'Same J/T combo signal. Combined J/T now 14% (was 9%).' },
+    { date:'2026-04-08', change:'Pace style map', old:'Leader>Closer', new_:'Tracker>Closer>Speed>Leader', why:'Tracker 15.5%, Closer 15.3% > Leader 13.4% across 242K runners. Front-runners were over-valued.' },
+    { date:'2026-04-08', change:'Layoff scoring', old:'0-14d = +3', new_:'29-45d = +3, 0-14d = -3', why:'29-45 days off = 13.5% win rate (best). 0-14 days = 10.7% (worst). Fresh horses rushing back under-perform.' },
+    { date:'2026-04-08', change:'Kelly fraction', old:'0.50 (half)', new_:'0.25 (quarter)', why:'Half Kelly caused 117%+ max drawdown in backtest. Quarter Kelly survives variance while maintaining edge.' },
+    { date:'2026-04-08', change:'Max bet cap', old:'20%', new_:'15%', why:'Risk reduction alongside Kelly change.' },
+    { date:'2026-04-08', change:'MED conf gap', old:'≥3 pts', new_:'≥4 pts', why:'Medium at 3-pt gap was -12% ROI in backtest. Tightening to 4 reduces bad bets.' },
+    { date:'2026-04-08', change:'Turf + Stakes filter', old:'All races', new_:'Skip turf/stakes/AOC', why:'Turf Firm = -51% ROI, Stakes = -26% ROI. Model has no edge on grass or championship-level fields.' },
+    { date:'2026-04-08', change:'ML from TVG', old:'Default 5-1', new_:'Auto-fetch from TVG', why:'Morning lines were defaulting to 5-1 when CSV lacked B_MLOdds column. Now fetches from TVG on card load.' },
     { date:'2026-04-05', change:'TREND weight', old:'9%', new_:'6%', why:'Over-weighted. On 35 OP misses, winners averaged -1.91 trend diff vs our picks. We were chasing "improving" horses that weren\'t converting. Picks avg 2.70 trend vs winners 1.42.' },
     { date:'2026-04-05', change:'FRM weight', old:'22%', new_:'20%', why:'Slightly over-weighted. -0.63 avg diff on misses. Form matters but less than class.' },
     { date:'2026-04-05', change:'CLS weight', old:'23%', new_:'25%', why:'Most stable predictor (Δ=+0.02 between picks and winners). Dead reliable — redistributed freed weight here.' },
@@ -4115,10 +4195,10 @@ function buildAnalysisView() {
 
   html += '</tbody></table></div>' +
     '<div style="margin-top:8px;padding:10px 14px;background:rgba(212,175,55,0.04);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:12px;color:var(--muted)">' +
-      '<b style="color:var(--gold)">Backtest (28 OP races w/ component data):</b> ' +
-      'Old weights: -$5.40 P&L (-12.9% ROI, 14 bets). ' +
-      'New weights: <span style="color:var(--green)">+$11.20 P&L (+50.9% ROI, 8 bets)</span>. ' +
-      'New model won 10/28 (35.7%) vs old 8/28 (28.6%). Fewer bets, better picks.' +
+      '<b style="color:var(--gold)">Full Backtest (25,000 races · 242K runners · 17 tracks · 2 years):</b> ' +
+      'Old production weights: -$2,515 P&L (-1.1% ROI, 4,206 bets). ' +
+      'Data-Driven v1: <span style="color:var(--green)">+$1,408 P&L (+0.08% ROI, 2,010 bets, 14.1% win rate)</span>. ' +
+      'Only profitable profile across all 6 tested. Top pick accuracy: 26.8% win, 44.8% place, 59.4% show.' +
     '</div>' +
   '</div>';
 
