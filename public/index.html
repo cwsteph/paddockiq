@@ -2124,6 +2124,17 @@ function renderExotics(){
   var el=document.getElementById('tab-exotics');
   if(!el) return;
 
+  // If tracks are selected in "Betting Today" and current track isn't one of them, show message
+  var currentTrack=(cardInfo&&cardInfo.code)||'';
+  if(bettingTracks.length>0 && currentTrack && bettingTracks.indexOf(currentTrack)<0){
+    el.innerHTML='<div class="card" style="text-align:center;padding:30px">'+
+      '<div style="font-size:16px;color:var(--dim);margin-bottom:8px">Not betting this track today</div>'+
+      '<div style="font-size:12px;color:var(--muted)">You selected <b style="color:var(--gold)">'+bettingTracks.join(', ')+'</b> in the Betting dropdown. Switch to one of those cards to see exotic picks.</div>'+
+      '<div style="margin-top:12px"><button onclick="toggleBettingTrack(\''+currentTrack+'\')" style="background:#1a1508;border:1px solid var(--gold);color:var(--gold);border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:600">Add '+currentTrack+' to today\'s tracks</button></div>'+
+    '</div>';
+    return;
+  }
+
   var allRaces=[], skipped=[];
 
   R.forEach(function(race, ri){
