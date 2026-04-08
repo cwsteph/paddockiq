@@ -6352,6 +6352,8 @@ async function processCSVFiles(files) {
 
   // Refresh saved cards dropdown after all files processed
   await loadSavedCardList();
+  // Force re-render to make sure everything shows
+  try{ renderRaceTabs(); render(); updateCardHeader(); }catch(e){}
 
   // If multiple files, add a "load a different one" hint
   if (files.length > 1 && loadedAny) {
@@ -6405,13 +6407,21 @@ async function loadSavedCardList(){
     if(hdrSel){
       var loadedId=window._loadedCardId||0;
       var current=cards.filter(function(c){return c.raceDate>=today;});
+      var past=cards.filter(function(c){return c.raceDate<today;}).slice(-10);
       var opts='';
       current.forEach(function(c){
         var flag=c.raceDate===today?' ● TODAY':'';
         var short=c.track+' '+c.raceDate.slice(5)+flag;
         opts+='<option value="'+c.id+'"'+(c.id===loadedId?' selected':'')+'>'+short+'</option>';
       });
-      hdrSel.innerHTML=opts||'<option value="">No cards for today</option>';
+      if(past.length){
+        opts+='<option disabled>── past ──</option>';
+        past.reverse().forEach(function(c){
+          var short=c.track+' '+c.raceDate.slice(5);
+          opts+='<option value="'+c.id+'"'+(c.id===loadedId?' selected':'')+'>'+short+'</option>';
+        });
+      }
+      hdrSel.innerHTML=opts||'<option value="">No cards found</option>';
     }
 
     // Only auto-load if no card is currently loaded
