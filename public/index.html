@@ -6817,7 +6817,7 @@ async function loadSelectedCard(){
 
       return {
         n: parseInt(rn),
-        t: (ri.R_PostTime || '') + ' CT',
+        t: (ri.R_PostTime || '') + ' ' + (function(){ var tz=(cardInfo&&cardInfo.tz)||''; if(tz.indexOf('New_York')>=0||tz.indexOf('Indiana')>=0) return 'ET'; if(tz.indexOf('Los_Angeles')>=0||tz.indexOf('Phoenix')>=0) return 'PT'; if(tz.indexOf('Denver')>=0) return 'MT'; return 'CT'; })(),
         d: dist + 'F ' + (ri.R_Surface === 'T' ? 'Turf' : 'Dirt'),
         ty: ri.R_LongClass || ri.R_Class || '',
         grade: (function(){
