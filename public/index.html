@@ -4832,10 +4832,16 @@ function rebuildRacesFromEquibase(eqData){
   try{ savedDate = (JSON.parse(localStorage.getItem('paddockiq_state')||'{}')||{}).cardInfo && JSON.parse(localStorage.getItem('paddockiq_state')||'{}').cardInfo.date || ''; }catch(e){}
   var isSameDay = !savedDate || savedDate === today;
 
-  // Build lookup of existing horse data
+  // Build lookup of existing horse data — only reuse if same track
+  // Prevents OP Race 4 horses from leaking into KEE Race 4 on track switch
   var existingHorses = {};
   var existingRaces  = {};
-  R.forEach(function(r){ existingHorses[r.n] = r.horses; existingRaces[r.n] = r; });
+  var existingTrack = (cardInfo && cardInfo.code) || '';
+  var eqTrack = (eqData.track || '').toUpperCase();
+  var sameTrack = !existingTrack || !eqTrack || existingTrack === eqTrack;
+  if(sameTrack){
+    R.forEach(function(r){ existingHorses[r.n] = r.horses; existingRaces[r.n] = r; });
+  }
 
   // Equibase races = today's definitive race list
   var eqRaceNums = eqData.races.map(function(er){return er.n;});
@@ -4858,9 +4864,9 @@ function rebuildRacesFromEquibase(eqData){
   var today = cardInfo.date || new Date().toLocaleDateString('en-CA',{timeZone:'America/Chicago'});
   var savedDate = (function(){ try{ var st=JSON.parse(localStorage.getItem('paddockiq_state')||'{}'); return (st.cardInfo||{}).date||''; }catch(e){return '';} })();
   var isSameDay = (savedDate === today);
-  // Add back completed races (RESULTS on Equibase) from same day only
+  // Add back completed races (RESULTS on Equibase) from same day + same track only
   // Cap at R20 max to prevent garbage race numbers from date-parsing bugs
-  if(isSameDay){
+  if(isSameDay && sameTrack){
     R.forEach(function(r){
       if(r.n > 0 && r.n <= 20 && eqRaceNums.indexOf(r.n) < 0){
         mergedRaces.push({
