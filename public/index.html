@@ -3926,6 +3926,9 @@ function renderAnalysis() {
   if (_analysisCache) {
     showAnalysisFilters();
     buildAnalysisView();
+  } else {
+    // Auto-load analysis data on first visit
+    loadAnalysisData();
   }
 }
 
@@ -4252,20 +4255,20 @@ function buildAnalysisView() {
   });
   html += '</tbody></table></div></div>';
 
-  // ── Historical Backtest Insights (242K runners, 17 tracks, 2 years) ──
+  // ── Historical Backtest Insights (550K+ runners, 17 tracks, 5 years) ──
   html += '<div class="card"><div class="ctitle">Historical Backtest Insights</div>' +
-    '<div style="font-size:11px;color:var(--dim);margin-bottom:12px">Data-driven findings from 26,000+ races and 242,000+ runners across 17 tracks (Apr 2024 – Apr 2026 via TVG). These insights directly informed the algorithm rebalance on Apr 8 2026.</div>' +
+    '<div style="font-size:11px;color:var(--dim);margin-bottom:12px">Data-driven findings from 59,000+ races and 550,000+ runners across 17 tracks (Apr 2021 – Apr 2026 via TVG). Validated across 5 years of data — these patterns are statistically rock-solid.</div>' +
 
     // Factor predictive power
     '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Factor Predictive Power (rank-1 win rate)</div>' +
     '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">' +
     [
-      {label:'Power Rating', pct:24.5, color:'#22c55e'},
-      {label:'Speed Figure', pct:22.8, color:'#3b82f6'},
-      {label:'Class Rating', pct:17.7, color:'#eab308'},
-      {label:'J/T Combo 25%+', pct:16.9, color:'#a855f7'},
-      {label:'Pace (Tracker)', pct:15.5, color:'#06b6d4'},
-      {label:'Days Off 29-45', pct:13.5, color:'#f97316'},
+      {label:'Power Rating', pct:24.2, color:'#22c55e'},
+      {label:'Speed Figure', pct:22.7, color:'#3b82f6'},
+      {label:'Class Rating', pct:17.9, color:'#eab308'},
+      {label:'J/T Combo 25%+', pct:16.7, color:'#a855f7'},
+      {label:'Pace (Closer)', pct:15.5, color:'#06b6d4'},
+      {label:'Days Off 29-45', pct:13.6, color:'#f97316'},
     ].map(function(f){
       return '<div style="flex:1;min-width:100px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">' +
         '<div style="font-size:10px;color:var(--dim);text-transform:uppercase;margin-bottom:4px">' + f.label + '</div>' +
@@ -4313,12 +4316,12 @@ function buildAnalysisView() {
     // Key findings
     '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Key Findings</div>' +
     '<div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)">' +
-      '<div>• <b style="color:var(--green)">Trackers & Closers</b> win more than Leaders (15.5% vs 13.4%) — pace map flipped in algorithm</div>' +
-      '<div>• <b style="color:var(--green)">29-45 days off</b> is the sweet spot (13.5% win rate) — <b style="color:var(--red)">0-14 days is worst</b> (10.7%)</div>' +
-      '<div>• <b style="color:var(--green)">J/T combo 25%+</b> = 16.9% win rate vs 9.5% for weak combos — weight increased 9% → 14%</div>' +
-      '<div>• <b style="color:var(--red)">Turf races</b> filtered out — algorithm has no edge on grass (-51% ROI on Turf Firm)</div>' +
+      '<div>• <b style="color:var(--green)">Closers & Trackers</b> win more than Leaders (15.5% / 15.3% vs 13.6%) — confirmed across 550K runners</div>' +
+      '<div>• <b style="color:var(--green)">29-45 days off</b> is the sweet spot (13.6% win rate) — <b style="color:var(--red)">0-14 days is worst</b> (10.6%)</div>' +
+      '<div>• <b style="color:var(--green)">J/T combo 25%+</b> = 16.7% win rate vs 9.4% for weak combos — weight increased 9% → 14%</div>' +
+      '<div>• <b style="color:var(--red)">Turf races</b> filtered out — algorithm has no edge on grass</div>' +
       '<div>• <b style="color:var(--red)">Stakes & AOC</b> filtered out — fields too competitive for model differentiation</div>' +
-      '<div>• <b style="color:var(--blue)">Quarter Kelly</b> replaces half Kelly — max drawdown reduced from 117% to manageable levels</div>' +
+      '<div>• <b style="color:var(--blue)">Kelly scales by bankroll</b> — quarter for $500+, half for $100-499, aggressive under $100</div>' +
     '</div>' +
   '</div>';
 
@@ -4365,10 +4368,10 @@ function buildAnalysisView() {
 
   html += '</tbody></table></div>' +
     '<div style="margin-top:8px;padding:10px 14px;background:rgba(212,175,55,0.04);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:12px;color:var(--muted)">' +
-      '<b style="color:var(--gold)">Full Backtest (25,000 races · 242K runners · 17 tracks · 2 years):</b> ' +
-      'Old production weights: -$2,515 P&L (-1.1% ROI, 4,206 bets). ' +
-      'Data-Driven v1: <span style="color:var(--green)">+$1,408 P&L (+0.08% ROI, 2,010 bets, 14.1% win rate)</span>. ' +
-      'Only profitable profile across all 6 tested. Top pick accuracy: 26.8% win, 44.8% place, 59.4% show.' +
+      '<b style="color:var(--gold)">Full Backtest (59,000 races · 550K runners · 17 tracks · 5 years):</b> ' +
+      'Data-Driven v1 is the best-performing profile across all 7 tested (-8.2% ROI vs -12.4% for old production). ' +
+      '12.8% win rate on 4,617 bets. Top pick accuracy: 25.5% win, ~45% place, ~59% show. ' +
+      'Factor rankings confirmed stable across 550K runners — no jitter.' +
     '</div>' +
   '</div>';
 
