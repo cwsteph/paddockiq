@@ -5916,7 +5916,11 @@ function clearTodayState(){
       scheduleAutoExport();
     }, 2000);
     // Auto-load today's card from server if no card in state
-    setTimeout(function(){ if(typeof loadSavedCardList!=="undefined") loadSavedCardList().catch(function(){}); }, 500);
+    setTimeout(function(){
+      if(typeof loadSavedCardList!=="undefined") loadSavedCardList().then(function(){
+        try{ renderRaceTabs(); render(); updateCardHeader(); }catch(e){}
+      }).catch(function(){});
+    }, 1500);
     try{ renderRaceTabs(); }catch(e){}
     try{ render(); }catch(e){}
   }).catch(function(e){
@@ -5965,6 +5969,12 @@ function clearTodayState(){
   setInterval(autoResultsLoop, 60000);
   // Initialize race status if we have a loaded card
   setTimeout(function(){ if(window._loadedCardId) initRaceStatus(); }, 3000);
+  // Safety net: re-render race tabs after card auto-load should be done
+  setTimeout(function(){
+    if(R.some(function(r){return r.horses&&r.horses.length>0;})){
+      try{ renderRaceTabs(); render(); updateCardHeader(); }catch(e){}
+    }
+  }, 4000);
 })();
 
 // ═══════════════════════════════════════════════════════════
