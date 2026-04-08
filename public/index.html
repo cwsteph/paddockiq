@@ -230,8 +230,9 @@ var R=[
 var PP_COLORS={1:{bg:"#CC0000",t:"#fff"},2:{bg:"#ffffff",t:"#111"},3:{bg:"#1a4fd6",t:"#fff"},4:{bg:"#f5c518",t:"#000"},5:{bg:"#2d8a2d",t:"#fff"},6:{bg:"#1a1a1a",t:"#fff"},7:{bg:"#e85c0d",t:"#fff"},8:{bg:"#e84d8a",t:"#fff"},9:{bg:"#1abfbf",t:"#000"},10:{bg:"#7b3fa0",t:"#fff"},11:{bg:"#888888",t:"#fff"},12:{bg:"#a8e63d",t:"#000"}};
 var CUR=0, TAB='rankings';
 var DEFAULT_BANKROLL=100;
-var APP_VERSION='2.1'; // bump this to clear stale saved state
+var APP_VERSION='2.2'; // bump to clear stale state (multi-track + kelly scaling)
 var bankroll=DEFAULT_BANKROLL, wagered=0, returned=0;
+var tracksToday=1; // number of tracks betting on today — splits bankroll allocation
 var scratches={
   0:{"Itzel":true},
   2:{"Tartaria":true},
@@ -666,9 +667,16 @@ function softmax(sc){
 
 function kellyBet(prob,ml,bank){
   var dec = BettingCore.mlToDecimal(ml);
+  // Scale Kelly fraction by bankroll size — small bankrolls need to be more aggressive
+  // Multi-track: allocate proportional share of bankroll to this track
+  var effectiveBank = tracksToday > 1 ? bank / tracksToday : bank;
+  var kf = effectiveBank >= 500 ? 0.25 :  // grinding mode
+           effectiveBank >= 100 ? 0.50 :  // day at the track
+           0.75;                           // fun money
+  var maxPct = effectiveBank >= 500 ? 0.15 : 0.20;
   return BettingCore.recommendedStake(bank, prob, dec, {
-    kellyFraction: 0.25,   // quarter Kelly (backtest: half Kelly caused 100%+ drawdowns)
-    maxBetPct: 0.15,       // 20%->15% max per race
+    kellyFraction: kf,
+    maxBetPct: maxPct,
     minBet: 2
   });
 }
@@ -2398,7 +2406,17 @@ function renderBankroll(){
     '<button class="btn on" onclick="updateBR()">Update</button>'+
     '<button onclick="saveState();alert(\'State saved!\')" style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid #4ea84e;background:#0d2010;color:#4ea84e;cursor:pointer;margin-left:4px">Save Now</button>'+
     '<button onclick="clearTodayState()" style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer;margin-left:4px">Reset Day</button>'+
-    '</div></div>'+
+    '</div>'+
+    '<div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
+      '<div class="slabel" style="margin-bottom:0">Tracks Today</div>'+
+      '<div style="display:flex;gap:4px">'+
+        [1,2,3,4].map(function(n){
+          return '<button onclick="tracksToday='+n+';document.querySelectorAll(\'.tt-btn\').forEach(function(b){b.style.background=\'\';b.style.color=\'\';});this.style.background=\'var(--gold)\';this.style.color=\'#000\';saveState();render();" class="tt-btn" style="padding:4px 12px;border-radius:20px;border:1px solid var(--gold);cursor:pointer;font-size:12px;font-weight:600;'+(tracksToday===n?'background:var(--gold);color:#000':'background:transparent;color:var(--gold)')+'">'+n+'</button>';
+        }).join('')+
+      '</div>'+
+      '<span style="font-size:11px;color:var(--dim)">Split: $'+Math.round(bankroll/tracksToday)+'/track · Kelly: '+(bankroll/tracksToday>=500?'Quarter':(bankroll/tracksToday>=100?'Half':'Aggressive'))+'</span>'+
+    '</div>'+
+    '</div>'+
 
     '<div class="card" style="margin-bottom:12px">'+
       '<div style="font-size:13px;font-weight:600;color:var(--txt);margin-bottom:6px">📁 Google Drive Auto-Export</div>'+
@@ -5705,6 +5723,7 @@ function saveState(){
       scratches:scratches,
       bets:bets,
       tc:tc,
+      tracksToday:tracksToday,
       apiKey:ppApiKey,
       proxyUrl:PROXY_URL,
       races:racesData,
@@ -5757,6 +5776,7 @@ function applyLoadedState(state){
   if(state.bets)      bets      = state.bets;
   if(state.tc)        Object.assign(tc, state.tc);
   if(state.scratches) scratches = state.scratches;
+  if(state.tracksToday) tracksToday = state.tracksToday;
   if(state.ppApiKey)  ppApiKey  = state.ppApiKey;
 }
 
@@ -5784,6 +5804,7 @@ function loadState(){
     if(state.scratches)scratches=state.scratches;
     if(state.bets)bets=state.bets;
     if(state.tc)tc=state.tc;
+    if(state.tracksToday)tracksToday=state.tracksToday;
     if(state.apiKey)ppApiKey=state.apiKey;
     if(state.proxyUrl)PROXY_URL=state.proxyUrl;
     if(state.cardInfo){
@@ -5845,6 +5866,8 @@ function clearTodayState(){
       startScratchTimer();
       scheduleAutoExport();
     }, 2000);
+    // Auto-load today's card from server if no card in state
+    setTimeout(function(){ if(typeof loadSavedCardList!=="undefined") loadSavedCardList().catch(function(){}); }, 500);
     try{ renderRaceTabs(); }catch(e){}
     try{ render(); }catch(e){}
   }).catch(function(e){
