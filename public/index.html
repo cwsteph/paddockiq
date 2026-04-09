@@ -7287,8 +7287,35 @@ async function loadSelectedCard(){
 
     const raceNums = [...new Set(rows.map(r => r._race))].sort((a,b) => +a - +b);
     const dateStr  = rows[0].R_RCDate || '';          // "4/2/2026"
-    const trackCode = rows[0].R_RCTrack || 'OP';
-    const trackName = rows[0].R_TrackName || 'Oaklawn Park';
+    // Detect track from multiple possible CSV fields
+    const _rawTrack = rows[0].R_RCTrack || rows[0].R_Track || rows[0].R_TrackCode || rows[0].TrackCode || '';
+    // Try to match raw track name to a TRACK_LIST entry
+    var _detectedCode = _rawTrack;
+    var _detectedName = rows[0].R_TrackName || rows[0].R_RCTrackName || '';
+    if (!_detectedCode && _detectedName) {
+      // Try matching track name to TRACK_LIST
+      var _tLow = _detectedName.toLowerCase();
+      var _found = TRACK_LIST.find(function(t){ return t.name.toLowerCase() === _tLow || t.name.toLowerCase().indexOf(_tLow) >= 0 || _tLow.indexOf(t.name.toLowerCase()) >= 0; });
+      if (_found) _detectedCode = _found.code;
+    }
+    // If still no code, try to detect from race data — check if any horse past-race tracks give a hint
+    if (!_detectedCode) {
+      var _trackHints = {};
+      rows.slice(0, 20).forEach(function(r) {
+        for (var ti = 1; ti <= 3; ti++) {
+          var trk = r['HR_Track_' + ti];
+          if (trk) _trackHints[trk] = (_trackHints[trk] || 0) + 1;
+        }
+      });
+      // Most common track in past races is likely the current track
+      var _topTrack = Object.entries(_trackHints).sort(function(a,b){ return b[1]-a[1]; })[0];
+      if (_topTrack) {
+        var _tMatch = TRACK_LIST.find(function(t){ return t.code === _topTrack[0] || t.name.toLowerCase().indexOf(_topTrack[0].toLowerCase()) >= 0; });
+        if (_tMatch) { _detectedCode = _tMatch.code; _detectedName = _tMatch.name; }
+      }
+    }
+    const trackCode = _detectedCode || 'OP';
+    const trackName = _detectedName || (TRACK_LIST.find(function(t){return t.code===trackCode;})||{}).name || 'Oaklawn Park';
 
     // Convert "4/2/2026" → "2026-04-02"
     let isoDate = dateStr;
@@ -7334,8 +7361,8 @@ async function loadSelectedCard(){
     });
 
     return {
-      track: trackCode, trackName, date: isoDate, tz: 'America/Chicago',
-      cardInfo: { track: trackName, code: trackCode, numRaces: races.length, date: isoDate, tz: 'America/Chicago' },
+      track: trackCode, trackName, date: isoDate, tz: (TRACK_LIST.find(function(t){return t.code===trackCode;})||{}).tz || 'America/Chicago',
+      cardInfo: { track: trackName, code: trackCode, numRaces: races.length, date: isoDate, tz: (TRACK_LIST.find(function(t){return t.code===trackCode;})||{}).tz || 'America/Chicago' },
       races, dispDate
     };
   }
