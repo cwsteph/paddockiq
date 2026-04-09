@@ -2237,7 +2237,8 @@ function renderExotics(){
       '<div class="stat-box"><div class="stat-l">Total Exotics</div><div class="stat-v" style="color:var(--green)">$'+(totalExa+totalTri)+'</div></div>'+
     '</div></div>';
 
-  // ── Top Picks (featured) ──
+  // ── Top Picks (featured) — sorted by race number ──
+  topExotics.sort(function(a,b){return a.race.n-b.race.n;});
   if(topExotics.length){
     html+='<div style="font-size:11px;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin:12px 0 6px;padding:0 4px">Top Exotic Plays</div>';
   }
@@ -2246,15 +2247,6 @@ function renderExotics(){
     rc._featured = true;
     rc._medal = medal;
   });
-
-  // ── Render featured races ──
-  topExotics.forEach(function(rc){ _renderExoticRace(rc); });
-
-  // ── Other playable (collapsed) ──
-  if(otherExotics.length){
-    html+='<div style="margin-top:12px"><details><summary style="font-size:11px;color:var(--dim);cursor:pointer;padding:8px 4px">'+otherExotics.length+' more playable races (lower confidence)</summary><div style="margin-top:8px">';
-    otherExotics.forEach(function(rc){ rc._featured=false; });
-  }
 
   // Build race cards into html string
   function _renderExoticRace(rc){
@@ -2311,9 +2303,11 @@ function renderExotics(){
   // Render featured
   topExotics.forEach(_renderExoticRace);
 
-  // Render others in collapsible
+  // Render others in collapsible — sorted by race number
   if(otherExotics.length){
-    html+='<details style="margin-top:8px"><summary style="font-size:11px;color:var(--dim);cursor:pointer;padding:8px 4px">'+otherExotics.length+' more playable races</summary><div style="margin-top:8px">';
+    otherExotics.sort(function(a,b){return a.race.n-b.race.n;});
+    otherExotics.forEach(function(rc){ rc._featured=false; rc._medal=null; });
+    html+='<details style="margin-top:8px"><summary style="font-size:11px;color:var(--dim);cursor:pointer;padding:8px 4px">'+otherExotics.length+' more playable races (other options)</summary><div style="margin-top:8px">';
     otherExotics.forEach(_renderExoticRace);
     html+='</div></details>';
   }
@@ -2661,7 +2655,19 @@ function renderNews(){
         '<span style="font-size:10px;color:var(--dim);margin-left:auto">'+horses.length+' runners</span>'+
       '</div>';
 
-    horses.forEach(function(h,i){
+    // Only show horses with something notable to say
+    var notableHorses=horses.filter(function(h){
+      var sireData=h.sire?SIRE_INFO[h.sire]:null;
+      var nn=(h.notes||'').toLowerCase();
+      return sireData || // known sire in our database
+        (h.earnings && h.earnings >= 100) || // $100K+ earner
+        (h.wins && h.wins >= 5) || // proven winner
+        nn.indexOf('stakes')>-1 || nn.indexOf('grade')>-1 || // stakes experience
+        nn.indexOf('new trainer')>-1; // barn change
+    });
+    if(!notableHorses.length) return; // skip race entirely if nothing interesting
+
+    notableHorses.forEach(function(h,i){
       var pc=PP_COLORS[h.pp]||{bg:'#555',t:'#fff'};
       var sireData=h.sire?SIRE_INFO[h.sire]:null;
 
@@ -2677,40 +2683,34 @@ function renderNews(){
 
       // Build career summary (non-handicapping — just facts)
       var career='';
-      if(h.starts>0){
+      if(h.starts>0 && (h.wins>=3 || h.earnings>=50)){
         career=h.wins+' win'+(h.wins!==1?'s':'')+' from '+h.starts+' start'+(h.starts!==1?'s':'');
         if(h.earnings) career+=' · Earned $'+(h.earnings>=1?Math.round(h.earnings)+'K':Math.round(h.earnings*1000));
       }
 
-      html+='<div style="padding:6px 0'+(i<horses.length-1?';border-bottom:1px solid rgba(255,255,255,0.03)':'')+'">'+
+      html+='<div style="padding:6px 0'+(i<notableHorses.length-1?';border-bottom:1px solid rgba(255,255,255,0.03)':'')+'">'+
         '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">'+
           '<span style="display:inline-flex;align-items:center;justify-content:center;background:'+pc.bg+';color:'+pc.t+';font-size:13px;font-weight:800;min-width:26px;height:24px;border-radius:4px;border:1px solid rgba(255,255,255,0.15)">'+h.pp+'</span>'+
           '<span style="font-size:13px;font-weight:600;color:var(--text)">'+(h.disp||h.name)+'</span>'+
           '<span style="font-size:10px;color:var(--dim);margin-left:auto">'+(h.ml||'')+'</span>'+
         '</div>';
 
-      // Breeding line
-      if(breedLine){
-        html+='<div style="font-size:11px;color:var(--muted);line-height:1.5;margin-left:34px">'+breedLine+'</div>';
-      }
-
-      // Sire background (the interesting part)
+      // Breeding line + sire background together
       if(sireData){
         html+='<div style="font-size:10px;color:var(--blue);line-height:1.5;margin-left:34px;margin-top:2px;padding:4px 8px;background:rgba(100,150,255,0.04);border-radius:4px">'+
+          (breedLine?'<div style="color:var(--muted);margin-bottom:2px">'+breedLine+'</div>':'')+
           '<span style="color:var(--gold);font-weight:600">'+h.sire+'</span> — '+sireData.note+
           (sireData.farm?' <span style="color:var(--dim)">Stands at '+sireData.farm+'</span>':'')+
           (sireData.fee&&sireData.fee!=='Deceased'&&sireData.fee!=='Pensioned'?' <span style="color:var(--dim)">(Stud fee: '+sireData.fee+')</span>':'')+
         '</div>';
+      } else if(breedLine){
+        html+='<div style="font-size:11px;color:var(--muted);line-height:1.5;margin-left:34px">'+breedLine+'</div>';
       }
 
-      // Connections
-      if(connParts.length){
-        html+='<div style="font-size:11px;color:var(--muted);margin-left:34px;margin-top:2px">'+connParts.join(' · ')+'</div>';
-      }
-
-      // Career facts
-      if(career){
-        html+='<div style="font-size:10px;color:var(--dim);margin-left:34px;margin-top:1px">'+career+'</div>';
+      // Connections + career on one line
+      var infoLine=connParts.concat(career?[career]:[]).join(' · ');
+      if(infoLine){
+        html+='<div style="font-size:10px;color:var(--dim);margin-left:34px;margin-top:2px">'+infoLine+'</div>';
       }
 
       html+='</div>';
@@ -4358,6 +4358,8 @@ function _fuzzyNameMatch(a, b) {
 
 var _analysisCache = null;   // cached /api/analysis response
 var _analysisFilter = 'all'; // 'all' or track code
+var _analysisDateFrom = '';  // date filter start
+var _analysisDateTo = '';    // date filter end
 
 function renderAnalysis() {
   var el = document.getElementById('tab-analysis');
@@ -4524,7 +4526,15 @@ function showAnalysisFilters() {
     var count = _analysisCache.races.filter(function(r) { return r.track === t; }).length;
     pills += '<button class="pill ' + (_analysisFilter === t ? 'on' : '') + '" onclick="_analysisFilter=\'' + t + '\';buildAnalysisView();showAnalysisFilters()">' + t + ' (' + count + ')</button>';
   });
-  filterEl.innerHTML = '<div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 4px">' + pills + '</div>';
+  // Date range filters
+  var dateHtml = '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;padding:0 4px">' +
+    '<span style="font-size:10px;color:var(--dim)">Date Range:</span>' +
+    '<input type="date" id="analysis-date-from" value="'+_analysisDateFrom+'" onchange="_analysisDateFrom=this.value;buildAnalysisView()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 6px;font-size:11px">' +
+    '<span style="color:var(--dim)">to</span>' +
+    '<input type="date" id="analysis-date-to" value="'+_analysisDateTo+'" onchange="_analysisDateTo=this.value;buildAnalysisView()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 6px;font-size:11px">' +
+    (_analysisDateFrom||_analysisDateTo?'<button onclick="_analysisDateFrom=\'\';_analysisDateTo=\'\';buildAnalysisView();showAnalysisFilters()" style="font-size:10px;color:var(--red);background:none;border:1px solid var(--red);border-radius:4px;padding:2px 8px;cursor:pointer">Clear</button>':'') +
+  '</div>';
+  filterEl.innerHTML = '<div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 4px">' + pills + '</div>' + dateHtml;
 }
 
 function buildAnalysisView() {
@@ -4533,6 +4543,9 @@ function buildAnalysisView() {
 
   var allRaces = _analysisCache.races;
   var races = _analysisFilter === 'all' ? allRaces : allRaces.filter(function(r) { return r.track === _analysisFilter; });
+  // Apply date filters
+  if(_analysisDateFrom) races = races.filter(function(r){ return (r.raceDate||'').slice(0,10) >= _analysisDateFrom; });
+  if(_analysisDateTo) races = races.filter(function(r){ return (r.raceDate||'').slice(0,10) <= _analysisDateTo; });
 
   if (!races.length) {
     container.innerHTML = '<div class="card" style="color:var(--dim);text-align:center;padding:20px">No races for this filter.</div>';
@@ -4708,73 +4721,115 @@ function buildAnalysisView() {
   });
   html += '</tbody></table></div></div>';
 
-  // ── Historical Backtest Insights (550K+ runners, 17 tracks, 5 years) ──
+  // ── Historical Backtest Insights (609K runners, 17 tracks, 5 years) ──
   html += '<div class="card"><div class="ctitle">Historical Backtest Insights</div>' +
-    '<div style="font-size:11px;color:var(--dim);margin-bottom:12px">Data-driven findings from 59,000+ races and 550,000+ runners across 17 tracks (Apr 2021 – Apr 2026 via TVG). Validated across 5 years of data — these patterns are statistically rock-solid.</div>' +
+    '<div style="font-size:11px;color:var(--dim);margin-bottom:12px">Data from <b style="color:var(--text)">609,234 runners</b> across <b style="color:var(--text)">66,187 races</b> at <b style="color:var(--text)">17 tracks</b> (Apr 2021 – Apr 2026 via TVG). These patterns are validated across 5 years and statistically rock-solid.</div>' +
 
-    // Factor predictive power
-    '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Factor Predictive Power (rank-1 win rate)</div>' +
+    // Headline stats
+    '<div class="stat-grid" style="margin-bottom:16px">' +
+      '<div class="stat-box"><div class="stat-l">Total Runners</div><div class="stat-v" style="color:var(--gold)">609,234</div></div>' +
+      '<div class="stat-box"><div class="stat-l">Total Races</div><div class="stat-v" style="color:var(--blue)">66,187</div></div>' +
+      '<div class="stat-box"><div class="stat-l">Tracks</div><div class="stat-v">17</div></div>' +
+      '<div class="stat-box"><div class="stat-l">Favorite Win %</div><div class="stat-v" style="color:var(--green)">36.4%</div></div>' +
+    '</div>' +
+
+    // Running style win rates — from 609K runners
+    '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Running Style Win Rates (609K runners)</div>' +
     '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">' +
     [
-      {label:'Power Rating', pct:24.2, color:'#22c55e'},
-      {label:'Speed Figure', pct:22.7, color:'#3b82f6'},
-      {label:'Class Rating', pct:17.9, color:'#eab308'},
-      {label:'J/T Combo 25%+', pct:16.7, color:'#a855f7'},
-      {label:'Pace (Closer)', pct:15.5, color:'#06b6d4'},
-      {label:'Days Off 29-45', pct:13.6, color:'#f97316'},
+      {label:'Leader', pct:16.3, n:'82,762', color:'#22c55e'},
+      {label:'Closer', pct:15.6, n:'28,707', color:'#3b82f6'},
+      {label:'Tracker', pct:15.5, n:'68,686', color:'#06b6d4'},
+      {label:'Speed', pct:14.7, n:'74,674', color:'#eab308'},
+      {label:'Midpack', pct:10.8, n:'96,162', color:'#f97316'},
+      {label:'Plodder', pct:9.0, n:'113,826', color:'#ef4444'},
     ].map(function(f){
-      return '<div style="flex:1;min-width:100px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">' +
+      return '<div style="flex:1;min-width:95px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">' +
         '<div style="font-size:10px;color:var(--dim);text-transform:uppercase;margin-bottom:4px">' + f.label + '</div>' +
         '<div style="font-size:22px;font-family:\'Bebas Neue\',sans-serif;color:' + f.color + '">' + f.pct + '%</div>' +
-        '<div style="height:4px;background:#1e1e30;border-radius:2px;margin-top:4px;overflow:hidden"><div style="height:100%;width:' + (f.pct/25*100) + '%;background:' + f.color + ';border-radius:2px"></div></div>' +
+        '<div style="height:4px;background:#1e1e30;border-radius:2px;margin-top:4px;overflow:hidden"><div style="height:100%;width:' + (f.pct/17*100) + '%;background:' + f.color + ';border-radius:2px"></div></div>' +
+        '<div style="font-size:9px;color:var(--dim);margin-top:3px">' + f.n + '</div>' +
       '</div>';
     }).join('') +
     '</div>' +
 
-    // Class profitability
-    '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Race Class Profitability (Backtest ROI)</div>' +
-    '<div style="overflow-x:auto;margin-bottom:16px"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
-    '<thead><tr style="border-bottom:1px solid var(--border)">' +
-    ['Class','Bets','Win%','ROI','Signal'].map(function(h){return '<th style="padding:5px 8px;text-align:left;color:var(--dim);font-size:10px">'+h+'</th>';}).join('') +
-    '</tr></thead><tbody>' +
+    // Layoff analysis
+    '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Days Off Sweet Spot</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">' +
     [
-      {cls:'Claiming',bets:834,wp:'14.1%',roi:'-0.0%',signal:'CORE'},
-      {cls:'Maiden Claiming',bets:470,wp:'11.3%',roi:'+6.8%',signal:'STRONG'},
-      {cls:'Starter Opt Claiming',bets:123,wp:'21.1%',roi:'+41.7%',signal:'BEST'},
-      {cls:'Optional Claiming',bets:53,wp:'28.3%',roi:'+39.5%',signal:'STRONG'},
-      {cls:'Maiden Special Weight',bets:249,wp:'11.2%',roi:'-11.2%',signal:'CAUTION'},
-      {cls:'Allowance',bets:132,wp:'14.4%',roi:'-31.5%',signal:'AVOID'},
-      {cls:'Stakes',bets:0,wp:'—',roi:'—',signal:'SKIP (filtered)'},
-    ].map(function(c,i){
-      var sc = c.signal==='BEST'||c.signal==='STRONG' ? 'var(--green)' : c.signal==='CORE' ? 'var(--blue)' : c.signal==='CAUTION' ? 'var(--gold)' : 'var(--red)';
-      return '<tr style="border-bottom:1px solid #0d0d18'+(i%2?';background:rgba(255,255,255,0.015)':'')+'"><td style="padding:4px 8px;color:var(--text)">'+c.cls+'</td><td style="padding:4px 8px;color:var(--dim)">'+c.bets+'</td><td style="padding:4px 8px;color:var(--muted)">'+c.wp+'</td><td style="padding:4px 8px;color:'+sc+';font-weight:600">'+c.roi+'</td><td style="padding:4px 8px"><span style="color:'+sc+';font-size:10px;font-weight:700">'+c.signal+'</span></td></tr>';
-    }).join('') +
-    '</tbody></table></div>' +
-
-    // Surface profitability
-    '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Surface Performance</div>' +
-    '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">' +
-    [
-      {surf:'Dirt (Fast)', roi:'+5.2%', color:'var(--green)'},
-      {surf:'Synthetic (Fast)', roi:'+7.0%', color:'var(--green)'},
-      {surf:'Dirt (Sloppy)', roi:'-28.7%', color:'var(--red)'},
-      {surf:'Dirt (Muddy)', roi:'-66.3%', color:'var(--red)'},
-      {surf:'Turf (Firm)', roi:'SKIP', color:'var(--dim)'},
-    ].map(function(s){
-      return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:12px">' +
-        '<span style="color:var(--muted)">'+s.surf+'</span> <span style="color:'+s.color+';font-weight:700;margin-left:6px">'+s.roi+'</span></div>';
+      {label:'29-45d', pct:13.7, n:'115,295', color:'#22c55e', note:'BEST'},
+      {label:'46-90d', pct:13.3, n:'77,321', color:'#3b82f6', note:'GOOD'},
+      {label:'15-28d', pct:12.7, n:'186,843', color:'#eab308', note:'OK'},
+      {label:'90d+', pct:12.3, n:'47,776', color:'#f97316', note:'RISKY'},
+      {label:'0-14d', pct:11.3, n:'62,411', color:'#ef4444', note:'WORST'},
+    ].map(function(f){
+      return '<div style="flex:1;min-width:100px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">' +
+        '<div style="font-size:10px;color:var(--dim);text-transform:uppercase;margin-bottom:4px">' + f.label + '</div>' +
+        '<div style="font-size:22px;font-family:\'Bebas Neue\',sans-serif;color:' + f.color + '">' + f.pct + '%</div>' +
+        '<div style="font-size:9px;color:' + f.color + ';font-weight:700;margin-top:2px">' + f.note + '</div>' +
+        '<div style="font-size:9px;color:var(--dim);margin-top:1px">' + f.n + ' runners</div>' +
+      '</div>';
     }).join('') +
     '</div>' +
 
-    // Key findings
+    // Per-track favorite win rates
+    '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Favorite Win % by Track (66K races)</div>' +
+    '<div style="overflow-x:auto;margin-bottom:16px"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
+    '<thead><tr style="border-bottom:1px solid var(--border)">' +
+    ['Track','Races','Fav Win%','Rating'].map(function(h){return '<th style="padding:5px 8px;text-align:left;color:var(--dim);font-size:10px">'+h+'</th>';}).join('') +
+    '</tr></thead><tbody>' +
+    [
+      {trk:'SA',races:'4,354',pct:40.7},{trk:'PEN',races:'4,657',pct:39.7},{trk:'MTH',races:'2,607',pct:38.7},
+      {trk:'FG',races:'3,632',pct:38.7},{trk:'TAM',races:'4,160',pct:38.5},{trk:'PIM',races:'1,127',pct:37.4},
+      {trk:'DMR',races:'2,099',pct:37.4},{trk:'GP',races:'9,700',pct:36.5},{trk:'BEL',races:'3,404',pct:36.2},
+      {trk:'CD',races:'3,664',pct:36.1},{trk:'KEE',races:'1,565',pct:36.0},{trk:'AQU',races:'3,905',pct:36.0},
+      {trk:'LRL',races:'8,557',pct:35.3},{trk:'SAR',races:'2,134',pct:34.6},{trk:'OP',races:'3,226',pct:34.4},
+      {trk:'WO',races:'5,619',pct:33.0},{trk:'TP',races:'2,790',pct:30.8},
+    ].map(function(t,i){
+      var c=t.pct>=38?'var(--green)':t.pct>=35?'var(--blue)':'var(--gold)';
+      var rating=t.pct>=38?'CHALKY':t.pct>=35?'NORMAL':'COMPETITIVE';
+      return '<tr style="border-bottom:1px solid #0d0d18'+(i%2?';background:rgba(255,255,255,0.015)':'')+'"><td style="padding:4px 8px;color:var(--text);font-weight:600">'+t.trk+'</td><td style="padding:4px 8px;color:var(--dim)">'+t.races+'</td><td style="padding:4px 8px;color:'+c+';font-weight:600">'+t.pct+'%</td><td style="padding:4px 8px;font-size:10px;color:'+c+'">'+rating+'</td></tr>';
+    }).join('') +
+    '</tbody></table></div>' +
+
+    // Race class distribution
+    '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Race Class Distribution (66K races)</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">' +
+    [
+      {cls:'Claiming',n:19498,color:'var(--blue)'},{cls:'Maiden Clm',n:11068,color:'var(--muted)'},
+      {cls:'MSW',n:8385,color:'#a855f7'},{cls:'AOC',n:7219,color:'var(--gold)'},
+      {cls:'Stakes',n:5393,color:'#ef4444'},{cls:'Allowance',n:4791,color:'#06b6d4'},
+      {cls:'SOC',n:2641,color:'var(--green)'},{cls:'Starter Alw',n:2070,color:'#f97316'},
+    ].map(function(c){
+      var pct=(c.n/66187*100).toFixed(0);
+      return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px">' +
+        '<span style="color:'+c.color+';font-weight:600">'+c.cls+'</span> <span style="color:var(--dim)">'+c.n.toLocaleString()+' ('+pct+'%)</span></div>';
+    }).join('') +
+    '</div>' +
+
+    // Surface breakdown
+    '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Surface Breakdown</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">' +
+    [
+      {surf:'Dirt', n:'37,176', pct:56, color:'var(--green)'},
+      {surf:'Turf', n:'16,199', pct:24, color:'#ef4444'},
+      {surf:'Synthetic', n:'10,104', pct:15, color:'var(--blue)'},
+      {surf:'Other', n:'2,708', pct:4, color:'var(--dim)'},
+    ].map(function(s){
+      return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:12px">' +
+        '<span style="color:var(--text);font-weight:600">'+s.surf+'</span> <span style="color:'+s.color+';font-weight:700;margin-left:4px">'+s.n+'</span> <span style="color:var(--dim)">('+s.pct+'%)</span></div>';
+    }).join('') +
+    '</div>' +
+
+    // Key findings — updated with 609K data
     '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Key Findings</div>' +
     '<div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)">' +
-      '<div>• <b style="color:var(--green)">Closers & Trackers</b> win more than Leaders (15.5% / 15.3% vs 13.6%) — confirmed across 550K runners</div>' +
-      '<div>• <b style="color:var(--green)">29-45 days off</b> is the sweet spot (13.6% win rate) — <b style="color:var(--red)">0-14 days is worst</b> (10.6%)</div>' +
-      '<div>• <b style="color:var(--green)">J/T combo 25%+</b> = 16.7% win rate vs 9.4% for weak combos — weight increased 9% → 14%</div>' +
-      '<div>• <b style="color:var(--red)">Turf races</b> filtered out — algorithm has no edge on grass</div>' +
-      '<div>• <b style="color:var(--red)">Stakes & AOC</b> filtered out — fields too competitive for model differentiation</div>' +
-      '<div>• <b style="color:var(--blue)">Kelly scales by bankroll</b> — quarter for $500+, half for $100-499, aggressive under $100</div>' +
+      '<div>• <b style="color:var(--green)">Leaders win most</b> at 16.3%, but Closers (15.6%) & Trackers (15.5%) are close — and on larger sample sizes. Plodders (9.0%) are money pits.</div>' +
+      '<div>• <b style="color:var(--green)">29-45 days off</b> is the sweet spot (13.7% win rate across 115K runners) — <b style="color:var(--red)">0-14 days is worst</b> (11.3%) — horses rushed back underperform.</div>' +
+      '<div>• <b style="color:var(--green)">Favorites win 36.4%</b> overall but vary wildly by track: SA 40.7% (chalky) vs TP 30.8% (competitive). Adjust expectations per venue.</div>' +
+      '<div>• <b style="color:var(--red)">Turf races</b> (24% of card) are filtered — algorithm is calibrated for dirt/synthetic.</div>' +
+      '<div>• <b style="color:var(--blue)">Claiming & SOC</b> are the best class types for model edge. MSW is toughest (debut horses = unknowns).</div>' +
+      '<div>• <b style="color:var(--blue)">Kelly scales by bankroll</b> — quarter for $500+, half for $100-499, aggressive under $100.</div>' +
     '</div>' +
   '</div>';
 
@@ -4821,10 +4876,10 @@ function buildAnalysisView() {
 
   html += '</tbody></table></div>' +
     '<div style="margin-top:8px;padding:10px 14px;background:rgba(212,175,55,0.04);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:12px;color:var(--muted)">' +
-      '<b style="color:var(--gold)">Full Backtest (59,000 races · 550K runners · 17 tracks · 5 years):</b> ' +
-      'Data-Driven v1 is the best-performing profile across all 7 tested (-8.2% ROI vs -12.4% for old production). ' +
-      '12.8% win rate on 4,617 bets. Top pick accuracy: 25.5% win, ~45% place, ~59% show. ' +
-      'Factor rankings confirmed stable across 550K runners — no jitter.' +
+      '<b style="color:var(--gold)">Full Backtest (66,187 races · 609,234 runners · 17 tracks · 5 years):</b> ' +
+      'Data-Driven v1 is the best-performing profile across all 7 tested. ' +
+      'Favorites win 36.4% overall. Leaders (16.3%) edge Closers (15.6%) in raw win%, but Closers/Trackers offer better value at higher odds. ' +
+      '29-45 days off is the proven sweet spot. Factor rankings confirmed stable across 609K runners.' +
     '</div>' +
   '</div>';
 
