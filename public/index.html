@@ -205,6 +205,7 @@ input{font-family:'DM Sans',sans-serif}
     <button class="ntab" onclick="goTab('odds')">📡 Odds</button>
     <button class="ntab" onclick="goTab('pnl')">💰 P&L</button>
     <button class="ntab" onclick="goTab('analysis')">📈 Analysis</button>
+    <button class="ntab" onclick="goTab('news')">📰 News</button>
     <button class="ntab" onclick="goTab('csvimport')" style="color:#7ecfff;border-bottom-color:transparent">📥 Card Import</button>
 
     <button class="ntab" onclick="goTab('settings')" style="color:var(--dim);border-bottom-color:transparent">⚙️ Settings</button>
@@ -216,6 +217,7 @@ input{font-family:'DM Sans',sans-serif}
   <div id="tab-exotics" style="display:none"></div>
   <div id="tab-pnl" style="display:none"></div>
   <div id="tab-analysis" style="display:none;--dim:#777;--muted:#aaa;font-size:13px"></div>
+  <div id="tab-news" style="display:none"></div>
   <div id="tab-csvimport" style="display:none"></div>
   <div id="tab-settings" style="display:none"></div>
 </div>
@@ -489,7 +491,7 @@ function scoreRace(ri){
       paceScore = 45;
     }
     var e1e2Score = paceScore * 0.06;
-    var nn=h.notes.toLowerCase();
+    var nn=(h.notes||'').toLowerCase();
     // FORM: 5-tier keyword system
     var frm_raw=50;
     var months=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
@@ -654,6 +656,8 @@ function scoreRace(ri){
     var final=Math.min(120,Math.round((base+tb)*km));
     var trendDir=wkBeyersRaw&&wkBeyersRaw.length>=2?(wkBeyersRaw[0]-wkBeyersRaw[1]):0;
     results.push({name:h.name,horse:h,score:final,base:Math.round(base),tb:Math.round(tb*10)/10,km:km,kaciOn:km>1,newTrnBonus:newTrnBonus,extremeDropBonus:extremeDropBonus,wkScore:wkScore,wkLabel:wkLabel,distFitAdj:distFitAdj,stakesBonus:stakesBonus,
+      spdRaw:Math.round(spd*10)/10, frmRaw:Math.round(frm*10)/10, clsRaw:Math.round(cls*10)/10, pceRaw:Math.round(pce*10)/10,
+      trendScore:trendScore, bulletBonus:bulletBonus, lasixFirst:lasixFirst, blinkFirst:blinkFirst,
       _components:{spd:Math.round(spd*10)/10,frm:Math.round(frm*10)/10,cls:Math.round(cls*10)/10,pce:Math.round(pce*10)/10,jck:Math.round(jck*10)/10,trn:Math.round(trn*10)/10,wk:Math.round((bulletBonus||0)*10)/10,trend:Math.round(beyerTrend*10)/10,ml:Math.round((e1e2Score||0)*10)/10}});
   });
   // If CSV card, override final score with _csvScore but keep computed components for analysis
@@ -824,12 +828,13 @@ function goTab(t){
   TAB=t;
   document.querySelectorAll('.ntab').forEach(function(b){b.classList.remove('on');});
   event.target.classList.add('on');
-  ['rankings','pace','multirace','exotics','odds','pnl','analysis','csvimport','settings'].forEach(function(id){
+  ['rankings','pace','multirace','exotics','odds','pnl','analysis','news','csvimport','settings'].forEach(function(id){
     document.getElementById('tab-'+id).style.display=(id===t?'':'none');
   });
   if(t==='csvimport') renderCSVImport();
   else if(t==='settings') renderSettings();
   else if(t==='analysis') renderAnalysis();
+  else if(t==='news') renderNews();
   else render();
 }
 
@@ -849,6 +854,7 @@ function render(){
   else if(TAB==='odds')renderOdds();
   else if(TAB==='pnl')renderPnL();
   else if(TAB==='analysis')renderAnalysis();
+  else if(TAB==='news')renderNews();
   document.getElementById('br-badge').textContent='$'+rem().toFixed(2)+' Bankroll';
 }
 
@@ -1091,10 +1097,17 @@ function renderRankings(){
         (function(){
           var parts=[];
           var c=top._components||{};
-          var strengths=[{k:'spd',l:'speed figures',v:c.spd||0},{k:'frm',l:'current form',v:c.frm||0},{k:'cls',l:'class',v:c.cls||0},{k:'pce',l:'pace',v:c.pce||0},{k:'jck',l:'jockey',v:c.jck||0},{k:'trn',l:'trainer',v:c.trn||0}].sort(function(a,b){return b.v-a.v;});
-          // Key strengths
-          if(strengths[0].v>2){
-            parts.push('Scores highest on <b style="color:var(--blue)">'+strengths[0].l+'</b>'+(strengths[1].v>1.5?' and <b style="color:var(--blue)">'+strengths[1].l+'</b>':'')+'.');
+          // Compare components RELATIVE to the field average
+          var _keys2=['spd','frm','cls','pce','jck','trn'];
+          var _labels2={spd:'speed figures',frm:'current form',cls:'class',pce:'pace',jck:'jockey',trn:'trainer'};
+          var _avg2={};
+          _keys2.forEach(function(k2){var s2=0;sc.forEach(function(x){s2+=(x._components&&x._components[k2])||0;});_avg2[k2]=s2/Math.max(1,sc.length);});
+          var strengths=_keys2.map(function(k2){return {k:k2,l:_labels2[k2],v:(c[k2]||0)-_avg2[k2]};}).sort(function(a,b){return b.v-a.v;});
+          // Key strengths — only highlight if actually above the field
+          if(strengths[0].v>0.5){
+            parts.push('Stands out on <b style="color:var(--blue)">'+strengths[0].l+'</b>'+(strengths[1].v>0.3?' and <b style="color:var(--blue)">'+strengths[1].l+'</b>':'')+'.');
+          } else if(strengths[0].v>0){
+            parts.push('Slight edge in <b style="color:var(--blue)">'+strengths[0].l+'</b>.');
           }
           // Beyers
           var bf=top.horse.beyerFigs||[];
@@ -1223,9 +1236,9 @@ function renderRankings(){
       '<div class="hcard-row" onclick="toggleExp('+CUR+',\''+s.name+'\')" >'+
       '<div class="bebas" style="font-size:22px;color:'+nc+';min-width:22px;line-height:1">'+(i+1)+'</div>'+
       '<div style="flex:1;min-width:0">'+
-        '<div style="display:flex;align-items:center;gap:5px;min-width:0">'+
+        '<div style="display:flex;align-items:center;gap:6px;min-width:0">'+
+        (function(){var pc=PP_COLORS[s.horse.pp]||{bg:'#555',t:'#fff'};return '<span style="display:inline-flex;align-items:center;justify-content:center;background:'+pc.bg+';color:'+pc.t+';font-size:15px;font-weight:800;min-width:30px;height:26px;border-radius:4px;flex-shrink:0;border:2px solid rgba(255,255,255,0.2)">'+s.horse.pp+'</span>';})()+
         '<span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.horse.disp||s.name)+'</span>'+
-        (function(){var pc=PP_COLORS[s.horse.pp]||{bg:'#555',t:'#fff'};return '<span style="background:'+pc.bg+';color:'+pc.t+';font-size:10px;font-weight:700;padding:1px 7px;border-radius:3px;flex-shrink:0;border:1px solid rgba(255,255,255,0.15)">'+s.horse.pp+'</span>';})()+
         '</div>'+
         flagPills(s.horse,race.n)+
         whyBadge(s)+
@@ -1285,7 +1298,7 @@ function renderRankings(){
       })()+
       '</div>'+
       (isExp?'<div class="hcard-detail">'+
-        (i>0?generateThesis(s, pr[i], i, race, CUR):'')+
+        (i>0?generateThesis(s, pr[i], i, race, CUR, sc):'')+
         ((s.horse.notes)?'<div style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:6px"><span style="color:var(--dim);font-size:9px;text-transform:uppercase;letter-spacing:.5px">DRF:</span> '+s.horse.notes+'</div>':'')+
         (function(){
           var tc = tvgCommentary[CUR] && tvgCommentary[CUR][s.name];
@@ -1554,7 +1567,7 @@ function fetchTVGCommentary() {
  * Generate a betting thesis for a horse based on model scores, odds, and context.
  * Returns HTML string with narrative + key stats.
  */
-function generateThesis(s, prob, rank, race, raceIdx) {
+function generateThesis(s, prob, rank, race, raceIdx, allScored) {
   if (!s || !s.horse) return '';
   var h = s.horse;
   var odds = getOdds(raceIdx, s.name);
@@ -1564,15 +1577,21 @@ function generateThesis(s, prob, rank, race, raceIdx) {
   var edgePct = (edge * 100).toFixed(1);
   var c = s._components || {};
 
-  // Determine dominant strength
-  var strengths = [
-    { k: 'spd', label: 'speed figures', v: c.spd || 0 },
-    { k: 'frm', label: 'current form', v: c.frm || 0 },
-    { k: 'cls', label: 'class advantage', v: c.cls || 0 },
-    { k: 'pce', label: 'pace scenario', v: c.pce || 0 },
-    { k: 'jck', label: 'jockey', v: c.jck || 0 },
-    { k: 'trn', label: 'trainer stats', v: c.trn || 0 }
-  ].sort(function(a, b) { return b.v - a.v; });
+  // Determine dominant strength RELATIVE to the field average
+  var keys = ['spd','frm','cls','pce','jck','trn'];
+  var labels = {spd:'speed figures',frm:'current form',cls:'class advantage',pce:'pace scenario',jck:'jockey',trn:'trainer stats'};
+  var fieldAvg = {};
+  var fieldN = (allScored && allScored.length) || 1;
+  keys.forEach(function(k){
+    var sum = 0;
+    if(allScored && allScored.length){
+      allScored.forEach(function(x){ sum += (x._components && x._components[k]) || 0; });
+    }
+    fieldAvg[k] = sum / fieldN;
+  });
+  var strengths = keys.map(function(k){
+    return { k: k, label: labels[k], v: (c[k]||0) - fieldAvg[k] };
+  }).sort(function(a, b) { return b.v - a.v; });
   var top1 = strengths[0], top2 = strengths[1];
 
   // Build narrative
@@ -1585,11 +1604,15 @@ function generateThesis(s, prob, rank, race, raceIdx) {
     parts.push('<b style="color:var(--muted)">Contender (#' + (rank + 1) + ').</b>');
   }
 
-  // Key strength
-  if (top1.v > 2) {
-    parts.push('Scores highest on <b style="color:var(--blue)">' + top1.label + '</b>');
-    if (top2.v > 1.5) parts[parts.length - 1] += ' and <b style="color:var(--blue)">' + top2.label + '</b>';
+  // Key strength — only mention if this horse is meaningfully ABOVE the field average
+  if (top1.v > 0.5) {
+    parts.push('Stands out on <b style="color:var(--blue)">' + top1.label + '</b>');
+    if (top2.v > 0.3) parts[parts.length - 1] += ' and <b style="color:var(--blue)">' + top2.label + '</b>';
     parts[parts.length - 1] += '.';
+  } else if (top1.v > 0) {
+    parts.push('Slight edge in <b style="color:var(--blue)">' + top1.label + '</b>.');
+  } else {
+    parts.push('No standout factors vs the field.');
   }
 
   // Beyer context
@@ -2259,9 +2282,12 @@ function renderExotics(){
       var odds=getOdds(rc.ri,s.name);
       var bg=isExa?'#0d1020':isTri?'#10081a':'var(--bg2)';
       var bd=isExa?'#4a5a8a':isTri?'#4a3a6a':'var(--border)';
+      var ppNum=s.horse?s.horse.pp:'?';
+      var ppC=PP_COLORS[ppNum]||{bg:'#555',t:'#fff'};
       html+='<div style="background:'+bg+';border:1px solid '+bd+';border-radius:6px;padding:5px 10px;min-width:0">'+
-        '<div style="font-size:12px;font-weight:600;color:'+nc+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(i+1)+'. '+(s.horse?s.horse.disp||s.name:s.name)+'</div>'+
-        '<div style="font-size:11px;color:var(--muted)">'+s.score+' pts · <span style="color:var(--blue)">'+odds+'</span> · '+(rc.pr[i]?(rc.pr[i]*100).toFixed(0)+'%':'—')+'</div>'+
+        '<div style="display:flex;align-items:center;gap:6px"><span style="display:inline-flex;align-items:center;justify-content:center;background:'+ppC.bg+';color:'+ppC.t+';font-size:14px;font-weight:800;min-width:28px;height:28px;border-radius:4px;border:2px solid rgba(255,255,255,0.2);flex-shrink:0">'+ppNum+'</span>'+
+        '<div><div style="font-size:12px;font-weight:600;color:'+nc+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.horse?s.horse.disp||s.name:s.name)+'</div>'+
+        '<div style="font-size:11px;color:var(--muted)">'+s.score+' pts · <span style="color:var(--blue)">'+odds+'</span> · '+(rc.pr[i]?(rc.pr[i]*100).toFixed(0)+'%':'—')+'</div></div></div>'+
       '</div>';
     });
     html+='</div>'+
@@ -2269,12 +2295,12 @@ function renderExotics(){
       '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">'+
         '<div style="background:#0d1020;border:1px solid #4a5a8a;border-radius:6px;padding:5px 12px;flex:1;min-width:180px">'+
           '<span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">EXA BOX '+rc.exaHorses.length+'H</span> '+
-          '<span style="font-size:13px;color:var(--blue);font-weight:700">'+rc.exaHorses.map(function(s2){return (s2.horse?s2.horse.disp||s2.name:s2.name).split(' ')[0];}).join(' / ')+'</span>'+
+          '<span style="font-size:13px;color:var(--blue);font-weight:700">'+rc.exaHorses.map(function(s2){var pp2=s2.horse?s2.horse.pp:'?';var pc2=PP_COLORS[pp2]||{bg:'#555',t:'#fff'};return '<span style="display:inline-flex;align-items:center;justify-content:center;background:'+pc2.bg+';color:'+pc2.t+';font-size:12px;font-weight:800;min-width:22px;height:20px;border-radius:3px;margin:0 1px;vertical-align:middle">'+pp2+'</span> '+(s2.horse?s2.horse.disp||s2.name:s2.name).split(' ')[0];}).join(' / ')+'</span>'+
           ' <span style="font-size:11px;color:var(--text)">$'+rc.exaCost+'</span>'+
         '</div>'+
         '<div style="background:#10081a;border:1px solid #6a5a8a;border-radius:6px;padding:5px 12px;flex:1;min-width:180px">'+
           '<span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">TRI BOX 4H</span> '+
-          '<span style="font-size:13px;color:#b48cf8;font-weight:700">'+rc.triHorses.map(function(s2){return (s2.horse?s2.horse.disp||s2.name:s2.name).split(' ')[0];}).join(' / ')+'</span>'+
+          '<span style="font-size:13px;color:#b48cf8;font-weight:700">'+rc.triHorses.map(function(s2){var pp2=s2.horse?s2.horse.pp:'?';var pc2=PP_COLORS[pp2]||{bg:'#555',t:'#fff'};return '<span style="display:inline-flex;align-items:center;justify-content:center;background:'+pc2.bg+';color:'+pc2.t+';font-size:12px;font-weight:800;min-width:22px;height:20px;border-radius:3px;margin:0 1px;vertical-align:middle">'+pp2+'</span> '+(s2.horse?s2.horse.disp||s2.name:s2.name).split(' ')[0];}).join(' / ')+'</span>'+
           ' <span style="font-size:11px;color:var(--text)">$'+rc.triCost+'</span>'+
         '</div>'+
       '</div>'+
@@ -2295,6 +2321,428 @@ function renderExotics(){
   if(!allRaces.length){
     html+='<div class="card" style="color:var(--dim);text-align:center;padding:20px">No playable exotic races. All races have low model confidence.</div>';
   }
+
+  el.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════
+// NEWS — Track Info, Horse Highlights & Quick Tips
+// ═══════════════════════════════════════════════════════════
+var TRACK_TIPS = {
+  'OP':  { city:'Hot Springs, AR', venue:'Oaklawn Racing Casino Resort',
+           sigDrink:'The Oaklawn Oaks — bourbon, mint, and honey. Available at all bars.',
+           dressCode:'Casual. No dress code enforced in the grandstand or clubhouse. Jeans and boots are the norm. Dress up on Arkansas Derby day if you\'re in the boxes.',
+           admission:'General admission $5 (free on select days). Clubhouse $10.',
+           boxSeats:'Reserved box seats from $25/seat on regular days, $75+ for stakes days. Call the box office a week out.',
+           jockeyClub:'The Oaklawn Jockey Club on the 3rd floor is invite-only for owners and high-value accounts. Ask Guest Services about day passes during the spring meet.',
+           dining:[
+             {name:'The Bugler', type:'Quick Counter', note:'Cash-only. Corned beef sandwich is legendary — fast line, grab it between races.'},
+             {name:'Post Parade Pub', type:'Bar & Grill', note:'2nd floor, best stretch view in the house. Burgers and cold beer.'},
+             {name:'Silks Dining', type:'Fine Dining', note:'Trackside white-tablecloth. Reservations recommended on stakes days.'},
+             {name:'Winner\'s Circle Bar', type:'Bar', note:'Ground floor near the paddock. $2 beer specials on Fridays.'}
+           ],
+           tips:['Free parking lot fills by 11AM on big days — try the $5 garage for quicker exit','The player\'s club card gets you 10% off food venues inside','The casino floor is connected — quick access between races','The new hotel tower has rooms overlooking the finish line — book months ahead for April','Walk the paddock before every race — it\'s right behind the grandstand and uncrowded'],
+           info:'Oaklawn runs a winter/spring meet (Dec-May) and has undergone a $100M+ expansion including a hotel tower, event center, and expanded gaming floor. The main track is a 1-mile dirt oval with a 6-furlong chute. Known for competitive claiming races and as a key stop on the Kentucky Derby prep trail. The Arkansas Derby (G1) is the signature event, with past winners including Smarty Jones, Curlin, and Super Stock.'},
+  'KEE': { city:'Lexington, KY', venue:'Keeneland Race Course',
+           sigDrink:'Bourbon & Branch Water — the classic Kentucky pour. Keeneland also serves a great Mint Julep at the track bars.',
+           dressCode:'Smart casual encouraged but not required. The Keeneland Club has a jacket-required dress code. Lots of sundresses and sport coats on weekends — it\'s a scene.',
+           admission:'General admission is FREE — one of the best deals in all of racing. Parking $5.',
+           boxSeats:'Reserved seats $15-25. Box seats by reservation only — season priority goes to members. Individual boxes sometimes available race week.',
+           jockeyClub:'The Keeneland Club is a private membership club with a waitlist. Premium hospitality packages available for groups on stakes days.',
+           dining:[
+             {name:'Track Kitchen', type:'Cafeteria', note:'The bread pudding is legendary. Open at dawn for backstretch workers and early birds. Cash-heavy crowd, authentic atmosphere.'},
+             {name:'Keeneland Mercantile', type:'Bourbon Bar', note:'Great bourbon selection and light bites. Perfect for post-racing.'},
+             {name:'The Equestrian Room', type:'Fine Dining', note:'Clubhouse level. White-tablecloth with trackside views. Reservations essential.'},
+             {name:'Paddock Bar', type:'Bar', note:'Outdoor bar overlooking the paddock. Best spot on a nice day.'}
+           ],
+           tips:['Get to the paddock early — Keeneland\'s is the most beautiful in America and the saddling area is intimate','The backside is open for morning workouts — arrive by 7AM for breakfast at the Track Kitchen','Keeneland sales weeks draw the biggest names in the sport — even non-buyers should walk the barn area','Spring meet is only 16 days — plan ahead, it sells out','Lexington has incredible bourbon distillery tours — combine with a race day for the full experience'],
+           info:'Keeneland runs short but elite spring (April) and fall (October) meets on a 1-1/16 mile dirt oval. Also home to one of the world\'s premier thoroughbred auction houses where yearlings have sold for $10M+. The Blue Grass Stakes (G1) is the signature Derby prep. Past runners include Secretariat, Alydar, and more recently, Justify trained here before the Triple Crown. The grounds are a designated National Historic Landmark.'},
+  'CD':  { city:'Louisville, KY', venue:'Churchill Downs',
+           sigDrink:'The Mint Julep — bourbon, simple syrup, crushed ice, and fresh mint. THE signature drink of American horse racing, born here.',
+           dressCode:'Casual for grandstand on regular days. Derby week: big hats, fascinators, bowties, and seersucker are tradition. Millionaires Row and Turf Club have jacket-required dress codes on select days.',
+           admission:'General admission $5 on regular days. Derby Day $80+ general admission. Reserved seats $20-60.',
+           boxSeats:'Reserved boxes from $50/seat on regular days. Derby Day boxes are $5,000+ per seat and often committed years in advance.',
+           jockeyClub:'The Turf Club on the 4th floor requires membership or guest invitation. The Mansion at Churchill Downs is the ultra-premium experience. Millionaires Row packages available through the box office for stakes days.',
+           dining:[
+             {name:'Matt Winn\'s Steakhouse', type:'Fine Dining', note:'Inside the track. Prime steaks with a view. Reservations essential, especially spring meet.'},
+             {name:'The Oaks Lily Bar', type:'Cocktail Bar', note:'Signature Oaks Lily cocktail (vodka, sweet & sour, cranberry, triple sec). A Louisville institution.'},
+             {name:'Grandstand Concessions', type:'Quick Service', note:'Burgoo (Kentucky stew) and hot browns. The classics.'},
+             {name:'Stakes & Bourbon', type:'Bar', note:'Extensive bourbon menu. Try the Maker\'s Mark or Woodford Reserve neat.'}
+           ],
+           tips:['The Derby Museum is excellent even on non-race days — $16 admission includes a walking tour of the grounds','The 4th floor Turf Club has AC and monitors — worth the upgrade on hot days','Reserved seating sells out fast for spring meet — book 2-3 weeks early','Park at the Indiana side lots and take the shuttle to avoid the Central Ave traffic','The backside dawn workouts are open to public — arrive by 6AM for the best views'],
+           info:'Churchill Downs is the home of the Kentucky Derby, the most famous horse race in the world, held the first Saturday in May since 1875. The main track is a 1-mile dirt oval with a 7-furlong turf course. The Twin Spires are the most iconic image in American racing. Past Derby winners trained here include Secretariat, Seattle Slew, Affirmed, American Pharoah, and Justify. The spring meet (late April-July) and fall meet (Sept-Nov) feature some of the country\'s deepest fields.'},
+  'GP':  { city:'Hallandale Beach, FL', venue:'Gulfstream Park',
+           sigDrink:'Mojito — this is South Florida. Fresh lime, mint, white rum. Available at the outdoor beer garden and all track bars.',
+           dressCode:'Casual — it\'s Florida. Shorts and sandals are fine in the grandstand. The Gulfstream Park Racing & Beach Club area is resort-casual.',
+           admission:'Free general admission and free parking. One of the best deals in American racing.',
+           boxSeats:'Box seats from $20/seat. Premium clubhouse tables available. Contact the box office for stakes day packages.',
+           jockeyClub:'The Winners\' Circle Lounge is the premium area with all-inclusive food and beverage packages on stakes days.',
+           dining:[
+             {name:'Yard House', type:'Bar & Restaurant', note:'In the Village at Gulfstream. Best happy hour — half-price appetizers and discounted beers.'},
+             {name:'Sport of Kings', type:'Bar', note:'2nd floor, less crowded with good sightlines. Craft cocktails and track view.'},
+             {name:'Beer Garden', type:'Outdoor Bar', note:'By the paddock. Best atmosphere on nice days — ocean breeze and cold beer.'},
+             {name:'Flanigan\'s', type:'Restaurant', note:'Across the street. The go-to post-racing spot. Ribs and seafood.'}
+           ],
+           tips:['Free valet parking if you\'re a 1/ST BET member — sign up at the track','The Village at Gulfstream has shopping and restaurants open after racing','The outdoor areas are the move — beautiful weather most of the season','The beach is 5 minutes away — combine a morning beach trip with afternoon racing','Big card days (FL Derby, Pegasus) get crowded — arrive by 11AM for good spots'],
+           info:'Gulfstream Park runs a Championship meet (Dec-April) that attracts top talent from the northeast wintering in Florida. The 1-1/8 mile dirt track and turf course are known for a speed-favoring bias. Home to the Florida Derby (G1) — the premier Derby prep on the East Coast, won by Nyquist, Always Dreaming, and Mage in recent years — and the Pegasus World Cup, one of the richest races in the world.'},
+  'SA':  { city:'Arcadia, CA', venue:'Santa Anita Park',
+           sigDrink:'The Santa Anita Sunrise — tequila, OJ, and grenadine. Or go classic with a California Chardonnay at the Chandelier Room.',
+           dressCode:'Casual for the grandstand. The Chandelier Room and FrontRunner have smart-casual dress codes. Big race days see more dressed-up crowds.',
+           admission:'General admission $5. Free on select promotional days. Reserved seats $10-20.',
+           boxSeats:'Box seats from $30/seat. Chandelier Room packages $75+ including food. Group hospitality available.',
+           jockeyClub:'The Chandelier Room is the premium experience with table seating, plated meals, and panoramic track views. Reservations required.',
+           dining:[
+             {name:'FrontRunner Restaurant', type:'Fine Dining', note:'Paddock-view dining. White-tablecloth with excellent food. Reservations recommended.'},
+             {name:'Craft Beer Garden', type:'Bar', note:'$3 craft beers on weekends. Great mountain views.'},
+             {name:'Clockers\' Corner', type:'Breakfast', note:'Backstretch breakfast spot. Open dawn for morning workouts. Cash only, authentic track life.'},
+             {name:'Infield Picnic Area', type:'Casual', note:'Family-friendly. Bring your own or buy from concessions. Great sightlines.'}
+           ],
+           tips:['Parking Structure 6 off Baldwin Ave gives the quickest exit after the last race','The San Gabriel Mountain backdrop makes incredible photos — bring a camera','Morning workouts are open to the public at Clockers\' Corner — arrive by 6AM','The Breeders\' Cup returns here periodically — check the calendar','The infield area is much less crowded and has better close-up views of the homestretch'],
+           info:'Santa Anita Park, "The Great Race Place," is one of the most beautiful tracks in the world. The 1-mile dirt oval and hillside turf course sit against the San Gabriel Mountains in Arcadia, CA. Opened in 1934, it hosted the legendary match race between Seabiscuit and Ligaroti. Home to the Santa Anita Derby (G1) and a regular Breeders\' Cup host. The SoCal colony features Flavien Prat, the dominant rider of his generation.'},
+  'SAR': { city:'Saratoga Springs, NY', venue:'Saratoga Race Course',
+           sigDrink:'The Saratoga Sunrise — vodka, OJ, grenadine. Or go with a Hazy IPA from a local Saratoga brewery at one of the backyard bars.',
+           dressCode:'Casual in the backyard and grandstand. The Turf Terrace and At The Rail dining require business casual. Big race days (Travers, Whitney) draw dressed-up crowds — linen suits and sundresses.',
+           admission:'General admission $7. Free parking in the main lot. Reserved seats $5-10 extra.',
+           boxSeats:'Season boxes are essentially inherited — the waitlist is decades long. Daily box seats occasionally available for $50+/seat. The 1863 Club offers premium day packages.',
+           jockeyClub:'The 1863 Club is the newest premium experience — all-inclusive hospitality. The Turf Terrace has reserved tables with wait service. Both require advance booking.',
+           dining:[
+             {name:'Hattie\'s Restaurant', type:'Southern/Soul', note:'In town, not at the track. The fried chicken is a Saratoga institution. Reservation essential.'},
+             {name:'Siro\'s', type:'Bar & Restaurant', note:'The legendary post-racing spot on Lincoln Ave. Open only during the meet. Where trainers and jockeys unwind.'},
+             {name:'Backyard Picnic', type:'Bring Your Own', note:'THE Saratoga tradition. Bring a cooler, blanket, and your racing form. Get there early to claim a table.'},
+             {name:'Porch Bar', type:'Bar', note:'Near the main entrance. Quick drinks and solid food. Try the track burger.'}
+           ],
+           tips:['Bring a cooler to the backyard — BYOB is a proud Saratoga tradition dating back decades','Get there at dawn for breakfast-at-the-track — watch workouts with coffee and a muffin on the fence rail','Book lodging months ahead — the whole town sells out for the summer meet','Siro\'s on Lincoln Ave is where the trainers drink after racing — the scene peaks Travers week','The National Museum of Racing is in town and world-class — go on a non-racing day'],
+           info:'The Spa — America\'s oldest racetrack, operating since 1863. Known as the "Graveyard of Favorites" because longshots win here more than anywhere. The summer meet (July-Sept) is a pilgrimage for racing fans. The 1-1/8 mile main track and inner turf course produce some of the year\'s best racing. The Travers Stakes (G1) — the "Mid-Summer Derby" — is the centerpiece. Man o\' War, Secretariat, and Arrogate all graced this track.'},
+  'BEL': { city:'Elmont, NY', venue:'Belmont Park',
+           sigDrink:'The Belmont Breeze — bourbon, sherry, lemon juice, OJ, cranberry, mint. The official cocktail of the Belmont Stakes.',
+           dressCode:'Casual on regular days. Belmont Stakes day: resort formal — blazers, sundresses, hats. The Garden Terrace has a smart-casual minimum.',
+           admission:'Free general admission on regular days. Belmont Stakes $25+ for reserved.',
+           boxSeats:'Box seats from $20/seat on regular days. Belmont Stakes day boxes are $500+/seat and sell out months ahead.',
+           jockeyClub:'The Garden Terrace is the premium area with all-inclusive packages. The Belmont Room offers reserved dining with views.',
+           dining:[
+             {name:'Backyard BBQ', type:'Casual', note:'Solid BBQ and drinks for casual viewing on the apron.'},
+             {name:'Garden Terrace', type:'Premium', note:'All-inclusive food and beverage. Premium track views. Package pricing.'},
+             {name:'Grandstand Concessions', type:'Quick Service', note:'Standard track fare. The Italian sausage is the move.'},
+             {name:'The Belmont Room', type:'Dining', note:'White-tablecloth dining overlooking the finish. Reservations required.'}
+           ],
+           tips:['LIRR train from Penn Station drops you right at the track entrance — skip the car','The top floor of the grandstand has the widest vantage of the massive 1.5-mile stretch','The paddock is one of the largest in the country — easy access and great viewing','Belmont is undergoing major renovation — check current status before visiting','The post-parade walkover from paddock to track is a great photo opportunity'],
+           info:'Belmont Park features America\'s biggest dirt oval at 1-1/2 miles with wide sweeping turns. Home to the Belmont Stakes (G1), the final leg of the Triple Crown and the "Test of the Champion." The wide track favors stalkers and closers. Currently undergoing a $455M renovation project. Secretariat\'s 31-length Belmont Stakes victory in 1973 is the most iconic moment in racing history.'},
+  'TAM': { city:'Tampa, FL', venue:'Tampa Bay Downs',
+           sigDrink:'Rum Runner — a Florida classic with rum, banana liqueur, and blackberry. Available at the Skye Bar and main bars.',
+           dressCode:'Very casual — shorts and flip-flops are perfectly fine. This is laid-back Florida racing.',
+           admission:'Free general admission and free parking. One of the most budget-friendly tracks in the country.',
+           boxSeats:'Box seats from $10/seat. Clubhouse reserved from $5. Very affordable compared to most tracks.',
+           jockeyClub:'The Turf Club offers reserved dining with track views. No formal membership required — just call ahead.',
+           dining:[
+             {name:'Skye Bar', type:'Cocktail Bar', note:'Upstairs with paddock overlook. Best cocktails at the track.'},
+             {name:'Clubhouse Dining', type:'Dining', note:'Table service with views. Affordable and comfortable.'},
+             {name:'Grandstand Concessions', type:'Quick Service', note:'$1 hot dogs and $2 beers on Wednesdays — the best deal in Florida racing.'},
+             {name:'Silks Poker Room', type:'Poker/Lounge', note:'Open daily. Full bar and food. Good spot between races if cards are slow.'}
+           ],
+           tips:['Wednesday $1 hot dogs and $2 beers is the best budget racing day in Florida','The golf course next door offers combo packages — morning golf, afternoon racing','Free parking is right by the entrance — one of the easiest lots in racing','The simulcast area has comfortable seating and tons of screens for multi-track play','Tampa is a great ship-out prep track — horses that win here often move up successfully at GP'],
+           info:'Tampa Bay Downs runs a winter meet (Nov-May) and attracts a solid circuit of Florida-based horses plus shippers from the north. The 1-mile dirt oval is known for a pronounced speed bias — front-runners have a big advantage. A great spot for finding value plays before horses ship to bigger meets at Gulfstream. The Sam F. Davis Stakes (G3) and Tampa Bay Derby (G3) are Derby trail prep races.'},
+  'FG':  { city:'New Orleans, LA', venue:'Fair Grounds Race Course',
+           sigDrink:'Sazerac — rye whiskey, Peychaud\'s bitters, absinthe wash, and a lemon peel. Born in New Orleans, served at the track.',
+           dressCode:'Casual. New Orleans doesn\'t stand on ceremony. Come as you are. Louisiana Derby day sees more dressed-up crowds.',
+           admission:'Free general admission. Parking $2-5.',
+           boxSeats:'Reserved seats from $5. Box seats from $15/seat. Louisiana Derby day packages available.',
+           jockeyClub:'The Clubhouse has reserved dining with track views. No formal membership — reservations recommended on stakes days.',
+           dining:[
+             {name:'Clubhouse Dining Room', type:'Creole Dining', note:'Excellent Creole food — the gumbo and jambalaya are the real deal. White tablecloths, good service.'},
+             {name:'Grandstand Bar', type:'Bar', note:'$1 beers on Thursdays. Solid pour-your-own draft setup.'},
+             {name:'OTB Lounge', type:'Bar/Lounge', note:'2nd floor. Comfortable seating, food service, and multiple screens.'},
+             {name:'French Quarter (nearby)', type:'Everything', note:'Uber from the Quarter is $12-15. The post-racing food and drink options are unlimited.'}
+           ],
+           tips:['Uber from the French Quarter is faster and cheaper than parking — $12-15 each way','The infield area is home to Jazz Fest outside of racing season — cool venue history','$1 beer Thursdays in the grandstand bar are a local secret','Louisiana Derby day is the biggest card — arrive early and soak in the atmosphere','Combine a racing trip with a French Quarter food tour — this is New Orleans after all'],
+           info:'Fair Grounds is America\'s 3rd oldest track (1872), steeped in New Orleans culture. Runs a winter meet (Nov-March). The 1-mile dirt oval and turf course produce competitive fields with a neutral pace bias. Home to the Louisiana Derby (G2) — a major Kentucky Derby prep won by My Dad Tony, Epicenter, and others. The track was damaged by Hurricane Katrina in 2005 but fully restored.'},
+  'TP':  { city:'Florence, KY', venue:'Turfway Park',
+           sigDrink:'Bourbon on the rocks — you\'re in Kentucky. Or try the Jeff Ruby — a bourbon cocktail named after the local steakhouse legend.',
+           dressCode:'Casual. Winter meet means coats and layers. The heated grandstand makes it comfortable.',
+           admission:'$5 admission includes a racing program. Free parking.',
+           boxSeats:'Box seats from $15/seat. Very accessible and affordable.',
+           jockeyClub:'No formal jockey club. The Turfway Club offers reserved dining on select nights.',
+           dining:[
+             {name:'Jack\'s Lounge', type:'Bar', note:'Best drinks at the track, less crowded than the main bar. Good vibes.'},
+             {name:'Main Level Food Court', type:'Quick Service', note:'Burgers are the best option. Quick and solid.'},
+             {name:'Jeff Ruby\'s Steakhouse (nearby)', type:'Fine Dining', note:'In downtown Cincinnati, 15 min away. The signature pre/post-racing dinner spot.'}
+           ],
+           tips:['The heated grandstand is a lifesaver during the winter meet','Close to Cincinnati — easy Uber from downtown hotels, 15-minute ride','The Polytrack surface makes form harder to handicap — speed horses dominate here more than any other track','The Jeff Ruby Steaks is a real Derby qualifier — watch the PP for shippers from bigger barns','Saturday night racing cards draw bigger crowds — plan accordingly'],
+           info:'Turfway Park runs a winter meet (Dec-March) on a Polytrack synthetic surface that heavily favors speed. The Jeff Ruby Steaks (G3) is a points race on the Road to the Kentucky Derby. The synthetic surface makes form analysis tricky — speed horses and synthetic specialists dominate. Located just south of Cincinnati, it draws from both the Kentucky and Ohio racing circuits.'},
+  'DMR': { city:'Del Mar, CA', venue:'Del Mar Thoroughbred Club',
+           sigDrink:'The Del Margarita — tequila, fresh lime, agave. Served frozen at the Seaside Cabana. Where the turf meets the surf.',
+           dressCode:'Resort casual in the grandstand. The Turf Club requires business casual (no shorts/sandals). Opening Day is a full fashion event — hats, sundresses, and blazers.',
+           admission:'General admission $6. Opening Day $20+. Parking $10-20.',
+           boxSeats:'Reserved seats from $10. Box seats from $30/seat. Season boxes are popular — available through the box office.',
+           jockeyClub:'The Turf Club is the premium experience with reserved tables, waitstaff, and AC. Season memberships and daily passes available.',
+           dining:[
+             {name:'Jimmy O\'s', type:'Fish Tacos', note:'Right outside the track. Best fish tacos in Del Mar. The pre/post-racing tradition.'},
+             {name:'Seaside Cabana', type:'Outdoor Bar', note:'$6 beers with ocean breeze. The best atmosphere in all of American racing.'},
+             {name:'Stretch Run Bar', type:'Bar', note:'Inside the grandstand. Where the serious bettors hang. Good cocktails.'},
+             {name:'Turf Club', type:'Fine Dining', note:'AC, linen, plated meals. Track views. The premium experience.'}
+           ],
+           tips:['$10 parking across the street at the fairgrounds is closer to the entrance than the main lot','Friday concerts after racing are free with admission — check the lineup, they book major acts','The beach is walking distance — combine morning surfing with afternoon racing','Opening Day (mid-July) is the biggest social event of the SoCal summer — dress to impress','The morning workout vantage from the Seaside Cabana is unbeatable — arrive by 7:30AM'],
+           info:'Where the turf meets the surf. Del Mar runs a prestigious summer meet (July-Sept) and a short fall meet (Nov). Founded by Bing Crosby in 1937. The 1-mile main track and turf course overlook the Pacific Ocean. Home to the Pacific Classic (G1), won by legends like Zenyatta, California Chrome, and Flightline. The SoCal jockey colony (Prat, Rispoli, Velazquez) is among the strongest in the country.'},
+  'LRL': { city:'Laurel, MD', venue:'Laurel Park',
+           sigDrink:'Natty Boh (National Bohemian) — the local Baltimore beer. Available on draft at the grandstand bars.',
+           dressCode:'Very casual. No dress code. This is blue-collar Maryland racing at its finest.',
+           admission:'Free admission and free parking. Easy and accessible.',
+           boxSeats:'Box seats from $10/seat. Reserved tables in the dining room available.',
+           jockeyClub:'No formal jockey club. The Dining Room overlooking the finish line is the premium option — reservations recommended.',
+           dining:[
+             {name:'Sports Bar', type:'Bar', note:'Good beer specials and multiple screens. The social hub of the track.'},
+             {name:'Dining Room', type:'Dining', note:'Overlooks the finish line. Worth the upgrade for a comfortable, sit-down experience.'},
+             {name:'Grandstand Concessions', type:'Quick Service', note:'Standard track fare. The crab cake sandwich is the Maryland pick.'}
+           ],
+           tips:['Parking is free and close to the entrance — one of the easiest tracks to get in and out of','Quick drive from Baltimore or DC — right off I-295','Check for Maryland Million day in October — biggest local card of the year with massive handle','The mid-Atlantic circuit horses often ship between LRL, PRX, and PIM — watch for track switches','The Dining Room overlooking the stretch is underrated — book it for a comfortable day'],
+           info:'Laurel Park runs year-round and anchors the Maryland racing circuit. The 1-1/8 mile dirt oval and turf course feature competitive mid-Atlantic fields. Key prep races feed into the Preakness Stakes at nearby Pimlico. Maryland Million Day is the signature event, restricted to Maryland-bred/sired horses. The track recently underwent renovations to modernize the facility.'},
+  'AQU': { city:'South Ozone Park, NY', venue:'Aqueduct Racetrack',
+           sigDrink:'Irish Coffee — hot coffee, Irish whiskey, cream. The winter meet essential. Available at all grandstand bars.',
+           dressCode:'Very casual. Dress warm for winter meets — the grandstand can be cold despite heat. Regulars come in layers.',
+           admission:'Free admission. Free parking.',
+           boxSeats:'Reserved seats from $5. Box seats from $15/seat. Very affordable for NYC.',
+           jockeyClub:'No formal jockey club at Aqueduct. The Resorts World Casino attached to the track has VIP gaming areas.',
+           dining:[
+             {name:'Equestris', type:'Restaurant', note:'Surprisingly good food for a racetrack. Italian-American menu. Table service.'},
+             {name:'Resorts World Casino', type:'Various', note:'Attached to the track — grab food at the casino floor restaurants between races.'},
+             {name:'Concourse Coffee', type:'Quick Service', note:'$2 coffee is a winter racing essential. Hot and fast.'}
+           ],
+           tips:['The A train from Manhattan stops right at the Aqueduct/Resorts World station — skip the car entirely','Dress warm for winter meets — layers, gloves, hand warmers if you\'re going to the apron','The Resorts World Casino is attached — good option for warmth and food between races','The inner dirt track is tight and favors speed/stalkers — handicap accordingly','The Wood Memorial in April is the signature race and the last major NYC Derby prep'],
+           info:'Aqueduct runs the NYC winter meet (Nov-April) while Belmont is closed. The inner dirt track is tight and favors speed/stalkers. Known for gritty, competitive claiming races. The Wood Memorial (G2) is the signature race — a key Kentucky Derby prep won by Funny Cide, Tapit, and others. The Resorts World Casino complex makes it a unique racing/gaming destination accessible by subway.'},
+  'PRX': { city:'Bensalem, PA', venue:'Parx Racing',
+           sigDrink:'Yuengling Lager — America\'s oldest brewery, brewed right in PA. On draft everywhere.',
+           dressCode:'Casual. No dress code. Come as you are.',
+           admission:'Free admission and free parking. One of the best deals in the Northeast.',
+           boxSeats:'Box seats from $10/seat. Turf Club from $15/seat with AC.',
+           jockeyClub:'The Turf Club is the premium area with AC, comfortable seating, and food service. No membership required.',
+           dining:[
+             {name:'360 Grill', type:'Restaurant', note:'Sit-down meal with track view. The nicest dining option at the track.'},
+             {name:'Casino Floor', type:'Quick Service', note:'Multiple quick-service options on the connected casino floor.'},
+             {name:'Grandstand Concessions', type:'Quick Service', note:'Cheesesteaks — you\'re near Philly, after all.'}
+           ],
+           tips:['Free parking and admission makes this the best budget racing day in the Northeast','Easy access from I-95 and the PA Turnpike — 20 min from Center City Philly','The Turf Club is air conditioned and worth it on hot summer days','The Cotillion (G1) and PA Derby (G1) in September are the signature cards','The casino is connected — slots and tables between races if the card is slow'],
+           info:'Parx Racing runs year-round in the Philadelphia suburbs. The 1-mile dirt oval is speed-biased with a short stretch run. Part of the Parx Casino complex. The Cotillion Stakes (G1) and Pennsylvania Derby (G1) headline the fall meet and often serve as Breeders\' Cup prep races. The track draws from the competitive mid-Atlantic circuit.'},
+  'PIM': { city:'Baltimore, MD', venue:'Pimlico Race Course',
+           sigDrink:'The Black-Eyed Susan — vodka, bourbon, orange juice, lime. The official cocktail of Preakness Day. Served in a commemorative glass.',
+           dressCode:'Casual for regular racing. Preakness Day: festive — big hats, bowties, seersucker. The InfieldFest is casual/concert attire. Corporate Village is business casual.',
+           admission:'Regular days free-$5. Preakness Day $60+ for reserved, $30+ for infield.',
+           boxSeats:'Regular day boxes from $15/seat. Preakness boxes are $300+/seat and sell out months ahead.',
+           jockeyClub:'The Corporate Village on Preakness Day offers premium hospitality packages. Contact Pimlico for group rates.',
+           dining:[
+             {name:'Turfside Terrace', type:'Bar & Dining', note:'Best viewing angles for the stretch run. Bar and food service.'},
+             {name:'Attman\'s Deli (nearby)', type:'Deli', note:'On Lombard St. Best corned beef in Baltimore. A pre-racing tradition.'},
+             {name:'InfieldFest', type:'Festival', note:'Preakness Day only. Full music festival with major acts, food trucks, and bars. It\'s a party.'}
+           ],
+           tips:['The Preakness InfieldFest is one of racing\'s great parties — check the music lineup','Parking is limited on big days — plan to Uber or take the Light Rail shuttle','The Turfside Terrace has the best viewing angles for the stretch run','The Black-Eyed Susan Stakes (G2) runs the Friday before Preakness — great card and smaller crowds','Pimlico has been undergoing renovation discussions — check current status before visiting'],
+           info:'Pimlico is home to the Preakness Stakes (G1), the second leg of the Triple Crown, run since 1873. The 1-mile dirt track features a closer-friendly layout. The iconic weather vane of a horse and jockey sits atop the cupola. Past Preakness winners include Secretariat, Sunday Silence, Smarty Jones, and National Treasure. The Black-Eyed Susan Stakes (G2) runs the day before on "Black-Eyed Susan Friday."'},
+  'HAW': { city:'Cicero, IL', venue:'Hawthorne Race Course',
+           sigDrink:'Old Style Beer — the Chicago classic. On draft at all track bars.',
+           dressCode:'Casual. No dress code. Chicago blue-collar racing.',
+           admission:'Free admission. Parking $3-5.',
+           boxSeats:'Box seats from $10/seat. Very affordable Midwest racing.',
+           jockeyClub:'No formal jockey club. The Clubhouse offers reserved dining.',
+           dining:[
+             {name:'Clubhouse Restaurant', type:'Dining', note:'Table service with track views. Solid American fare.'},
+             {name:'Grandstand Bar', type:'Bar', note:'Old Style on draft. Comfortable and no-frills.'}
+           ],
+           tips:['One of the few tracks with night racing in the Midwest — check the schedule','The Hawthorne Gold Cup is the signature race — one of the oldest stakes in Illinois','Close to Midway Airport — easy access from the Orange Line','Slot machines are now on-site, making it a racing/gaming combo destination','The track alternates dates with Arlington — check which meet is running'],
+           info:'Hawthorne Race Course has been running since 1891 in Cicero, IL, just outside Chicago. A historic track that has survived fires, floods, and the Great Depression. Recently expanded with gaming operations. The Hawthorne Gold Cup is one of the oldest stakes races in the Midwest. Known for competitive claiming races and a loyal local fan base.'}
+};
+
+function renderNews(){
+  var el=document.getElementById('tab-news');
+  if(!el) return;
+  var code=(cardInfo&&cardInfo.code)||'OP';
+  var trackName=(cardInfo&&cardInfo.track)||'Oaklawn Park';
+  var profile=TRACK_PROFILES[code]||{};
+  var tips=TRACK_TIPS[code]||{};
+  var tObj=TRACK_LIST.find(function(t){return t.code===code;})||{};
+
+  var html='';
+
+  // ── Track Info Header ──
+  html+='<div class="card-gold"><div class="ctitle">'+trackName+'</div>'+
+    '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">'+(tips.city||'')+' · '+(tips.venue||trackName)+'</div>'+
+    (tips.info?'<div style="font-size:12px;color:var(--text);line-height:1.6;margin-bottom:10px">'+tips.info+'</div>':'')+
+    (profile.notes?'<div style="font-size:11px;color:var(--blue);padding:6px 10px;background:rgba(100,150,255,0.05);border-left:2px solid var(--blue);border-radius:0 4px 4px 0"><b>Handicapping note:</b> '+profile.notes+'</div>':'')+
+    '</div>';
+
+  // ── Race Day Info ──
+  html+='<div class="card"><div class="ctitle">Race Day Info</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  var infoItems=[
+    {icon:'🎟', label:'Admission', val:tips.admission||'Check track website'},
+    {icon:'💺', label:'Box Seats', val:tips.boxSeats||'Contact box office'},
+    {icon:'👔', label:'Dress Code', val:tips.dressCode||'Casual'},
+    {icon:'🏆', label:'Jockey Club', val:tips.jockeyClub||'Contact track for premium options'}
+  ];
+  infoItems.forEach(function(item){
+    html+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 10px">'+
+      '<div style="font-size:12px;font-weight:600;color:var(--gold);margin-bottom:4px">'+item.icon+' '+item.label+'</div>'+
+      '<div style="font-size:11px;color:var(--text);line-height:1.5">'+item.val+'</div>'+
+    '</div>';
+  });
+  html+='</div>';
+  // Signature drink callout
+  if(tips.sigDrink){
+    html+='<div style="margin-top:10px;padding:10px 14px;background:rgba(212,175,55,0.05);border-left:3px solid var(--gold);border-radius:0 6px 6px 0">'+
+      '<div style="font-size:11px;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Signature Drink</div>'+
+      '<div style="font-size:12px;color:var(--text);line-height:1.5">'+tips.sigDrink+'</div>'+
+    '</div>';
+  }
+  html+='</div>';
+
+  // ── Dining & Drinks ──
+  if(tips.dining&&tips.dining.length){
+    html+='<div class="card"><div class="ctitle">Dining & Drinks</div>';
+    tips.dining.forEach(function(d){
+      html+='<div style="display:flex;gap:10px;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;margin-bottom:6px">'+
+        '<div style="flex-shrink:0;min-width:100px">'+
+          '<div style="font-size:12px;font-weight:600;color:var(--text)">'+d.name+'</div>'+
+          '<div style="font-size:10px;color:var(--blue)">'+d.type+'</div>'+
+        '</div>'+
+        '<div style="font-size:11px;color:var(--muted);line-height:1.5">'+d.note+'</div>'+
+      '</div>';
+    });
+    html+='</div>';
+  }
+
+  // ── Notable Sire Database ──
+  var SIRE_INFO = {
+    'Into Mischief':{farm:'Spendthrift Farm, Lexington, KY',note:'Leading sire in North America multiple years. Stood for $250K. Sire of Authentic (Kentucky Derby), Life Is Good, Mandaloun. Gets versatile runners — dirt and turf, sprint and route.',fee:'$250,000'},
+    'Gun Runner':{farm:'Three Chimneys Farm, Versailles, KY',note:'2017 Horse of the Year. Sire of Derma Sotogake, Early Voting, and multiple G1 winners. Known for producing gritty, late-developing types who love dirt.',fee:'$250,000'},
+    'Curlin':{farm:'Hill \'n\' Dale at Xalapa, Paris, KY',note:'2-time Horse of the Year. All-time leading NA earnings ($10.5M). Sire of Good Magic, Cody\'s Wish, Palace Malice. Gets classic-distance horses who love two turns.',fee:'$175,000'},
+    'Quality Road':{farm:'Lane\'s End Farm, Versailles, KY',note:'Elite sire of City of Light, Emblem Road, Bellafina. Offspring tend to be fast and precocious — love firm dirt tracks and sprint to mid-distances.',fee:'$200,000'},
+    'Tapit':{farm:'Gainesway Farm, Lexington, KY',note:'All-time leading sire by earnings. Sire of Essential Quality, Tonalist, Constitution, Tapwrit. Known for producing big-framed horses who improve with maturity.',fee:'$185,000'},
+    'Constitution':{farm:'WinStar Farm, Versailles, KY',note:'Son of Tapit. Sire of Tiz the Law, We the People, and multiple G1 winners. A classic dirt sire — his offspring love one turn and two turns equally.',fee:'$110,000'},
+    'Uncle Mo':{farm:'Coolmore America, Ashford Stud, Versailles, KY',note:'Champion 2YO. Sire of Nyquist (Kentucky Derby), Mo Donegal, Golden Pal. Known for speed and precocity — his 2-year-olds are dangerous.',fee:'$160,000'},
+    'Justify':{farm:'Coolmore America, Ashford Stud, Versailles, KY',note:'Undefeated Triple Crown winner (2018). Early crops showing promise. Premium pedigree — by Scat Daddy out of a Ghostzapper mare.',fee:'$200,000'},
+    'Not This Time':{farm:'Taylor Made Stallions, Nicholasville, KY',note:'By Giant\'s Causeway. Sire of Epicenter (multiple G1s), Not Another. Getting top-class runners from modest books. A rising star in the stallion ranks.',fee:'$75,000'},
+    'Practical Joke':{farm:'Coolmore America, Ashford Stud, Versailles, KY',note:'Champion 2YO. By Into Mischief. Getting fast, precocious types. Known for sprinters and milers who break sharply.',fee:'$35,000'},
+    'Munnings':{farm:'Coolmore America, Ashford Stud, Versailles, KY',note:'Elite sprint sire. Offspring are fast, forward, and love firm dirt. Sire of I Am the Law, Kimari, and multiple G1 sprint winners.',fee:'$85,000'},
+    'Nyquist':{farm:'Darley, Jonabell Farm, Lexington, KY',note:'2016 Kentucky Derby winner. By Uncle Mo. Getting classy runners who improve with age. Good on dirt and synthetic surfaces.',fee:'$55,000'},
+    'Candy Ride':{farm:'Lane\'s End Farm, Versailles, KY',note:'Argentine-bred champion. Sire of Gun Runner, Shared Belief, Game Winner. Known for producing late-running types with a big kick. Gets route horses.',fee:'Pensioned'},
+    'Arrogate':{farm:'(Deceased — Juddmonte Farms)',note:'Earned $17.4M — richest NA racehorse ever. Won Breeders\' Cup Classic, Dubai World Cup, Travers. Limited crops but producing quality.',fee:'Deceased'},
+    'Street Sense':{farm:'Darley, Jonabell Farm, Lexington, KY',note:'2007 Kentucky Derby winner. A solid mid-tier sire producing consistent, honest runners. Gets both dirt and turf types.',fee:'$60,000'},
+    'Goldencents':{farm:'Spendthrift Farm, Lexington, KY',note:'2-time Breeders\' Cup Dirt Mile winner. Gets fast, dirt-loving offspring. Popular in claiming and allowance ranks.',fee:'$7,500'},
+    'Bolt d\'Oro':{farm:'Spendthrift Farm, Lexington, KY',note:'By Medaglia d\'Oro. Multiple G1-placed. Getting nice early runners from his first crops. Watch for his offspring at 2 and 3.',fee:'$20,000'},
+    'Medaglia d\'Oro':{farm:'Darley, Jonabell Farm, Lexington, KY',note:'Elite sire of sires. Sire of Rachel Alexandra, Songbird, Violence. Gets classy fillies especially. Versatile — dirt and turf.',fee:'$100,000'},
+    'City of Light':{farm:'Lane\'s End Farm, Versailles, KY',note:'By Quality Road. Won the Pegasus World Cup and Breeders\' Cup Dirt Mile. First foals are racing. Premium dirt speed genetics.',fee:'$60,000'},
+    'Essential Quality':{farm:'Darley, Jonabell Farm, Lexington, KY',note:'Champion 2YO, Belmont Stakes and Travers winner. By Tapit. Undefeated at 2. First foals are yearlings — one to watch for future crops.',fee:'$75,000'},
+    'Flightline':{farm:'Lane\'s End Farm, Versailles, KY',note:'Possibly the most talented racehorse of the modern era. Won the BC Classic by 8+ lengths with a 139 Beyer. First foals are yearlings — the most anticipated stallion in decades.',fee:'$200,000'},
+    'Liam\'s Map':{farm:'Lane\'s End Farm, Versailles, KY',note:'By Unbridled\'s Song. Won the BC Dirt Mile. Sire of Colonel Liam, Mapmaker. Gets versatile runners who handle dirt and turf.',fee:'$40,000'},
+    'Hard Spun':{farm:'Darley, Jonabell Farm, Lexington, KY',note:'Haskell winner, sired Hard Not to Love, Wicked Strong. Durable sire producing honest, consistent runners who love dirt.',fee:'$35,000'},
+    'Malibu Moon':{farm:'Spendthrift Farm, Lexington, KY',note:'Leading sire by number of stakes winners. Gets early speed types. Offspring love sprint to middle distances on dirt.',fee:'Pensioned'},
+    'Blame':{farm:'Claiborne Farm, Paris, KY',note:'Beat Zenyatta in the 2010 BC Classic. Sire of Nadal, Seize the Grey. Gets tough, competitive types who can handle top company.',fee:'$35,000'},
+    'Good Magic':{farm:'Hill \'n\' Dale at Xalapa, Paris, KY',note:'Champion 2YO, Blue Grass Stakes winner. By Curlin. Early crops showing promise — watch for his runners to improve at 3.',fee:'$50,000'},
+    'Violence':{farm:'Hill \'n\' Dale at Xalapa, Paris, KY',note:'By Medaglia d\'Oro. CashCall Futurity winner. Gets fast, forward types. Known for producing precocious 2-year-olds who can sprint.',fee:'$25,000'},
+    'Maclean\'s Music':{farm:'Hill \'n\' Dale at Xalapa, Paris, KY',note:'By Distorted Humor. Cloud Computing (Preakness winner) is his most famous offspring. Gets fast types who like one-turn sprints.',fee:'$20,000'},
+    'Twirling Candy':{farm:'Lane\'s End Farm, Versailles, KY',note:'Gets versatile runners who handle dirt and turf equally. Rombauer (Preakness winner) is his star. Good mid-tier sire with solid consistency.',fee:'$40,000'}
+  };
+
+  // ── Bloodlines & Backgrounds — Today's Card ──
+  html+='<div class="card"><div class="ctitle">Bloodlines & Backgrounds</div>'+
+    '<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Breeding, connections, and background on today\'s runners.</div>';
+  R.forEach(function(race,ri){
+    if(!race.horses||!race.horses.length) return;
+    var scr=scratches[ri]||{};
+    var horses=race.horses.filter(function(h){return !scr[h.name];});
+    if(!horses.length) return;
+
+    // Only show races where we have breeding info
+    var hasBreedingInfo=horses.some(function(h){return h.sire||h.dam||h.jockeyName||h.trainerName;});
+    if(!hasBreedingInfo) return;
+
+    var rType=raceTypeBadge(race.ty);
+    html+='<div style="margin-bottom:14px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px">'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">'+
+        '<span class="bebas" style="font-size:15px;color:var(--gold)">R'+race.n+'</span>'+
+        '<span style="font-size:11px;color:var(--muted)">'+race.d+' · '+(race.ty||'')+'</span>'+
+        (rType?'<span style="font-size:9px;background:#1a1030;color:#b48cf8;padding:1px 6px;border-radius:3px">'+rType+'</span>':'')+
+        '<span style="font-size:10px;color:var(--dim);margin-left:auto">'+horses.length+' runners</span>'+
+      '</div>';
+
+    horses.forEach(function(h,i){
+      var pc=PP_COLORS[h.pp]||{bg:'#555',t:'#fff'};
+      var sireData=h.sire?SIRE_INFO[h.sire]:null;
+
+      // Build breeding line
+      var breedLine='';
+      if(h.sire&&h.dam) breedLine='By <b style="color:var(--gold)">'+h.sire+'</b> out of <b>'+h.dam+'</b>';
+      else if(h.sire) breedLine='By <b style="color:var(--gold)">'+h.sire+'</b>';
+
+      // Build connection info
+      var connParts=[];
+      if(h.jockeyName) connParts.push('Jockey: <b>'+h.jockeyName+'</b>');
+      if(h.trainerName) connParts.push('Trainer: <b>'+h.trainerName+'</b>');
+
+      // Build career summary (non-handicapping — just facts)
+      var career='';
+      if(h.starts>0){
+        career=h.wins+' win'+(h.wins!==1?'s':'')+' from '+h.starts+' start'+(h.starts!==1?'s':'');
+        if(h.earnings) career+=' · Earned $'+(h.earnings>=1?Math.round(h.earnings)+'K':Math.round(h.earnings*1000));
+      }
+
+      html+='<div style="padding:6px 0'+(i<horses.length-1?';border-bottom:1px solid rgba(255,255,255,0.03)':'')+'">'+
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">'+
+          '<span style="display:inline-flex;align-items:center;justify-content:center;background:'+pc.bg+';color:'+pc.t+';font-size:13px;font-weight:800;min-width:26px;height:24px;border-radius:4px;border:1px solid rgba(255,255,255,0.15)">'+h.pp+'</span>'+
+          '<span style="font-size:13px;font-weight:600;color:var(--text)">'+(h.disp||h.name)+'</span>'+
+          '<span style="font-size:10px;color:var(--dim);margin-left:auto">'+(h.ml||'')+'</span>'+
+        '</div>';
+
+      // Breeding line
+      if(breedLine){
+        html+='<div style="font-size:11px;color:var(--muted);line-height:1.5;margin-left:34px">'+breedLine+'</div>';
+      }
+
+      // Sire background (the interesting part)
+      if(sireData){
+        html+='<div style="font-size:10px;color:var(--blue);line-height:1.5;margin-left:34px;margin-top:2px;padding:4px 8px;background:rgba(100,150,255,0.04);border-radius:4px">'+
+          '<span style="color:var(--gold);font-weight:600">'+h.sire+'</span> — '+sireData.note+
+          (sireData.farm?' <span style="color:var(--dim)">Stands at '+sireData.farm+'</span>':'')+
+          (sireData.fee&&sireData.fee!=='Deceased'&&sireData.fee!=='Pensioned'?' <span style="color:var(--dim)">(Stud fee: '+sireData.fee+')</span>':'')+
+        '</div>';
+      }
+
+      // Connections
+      if(connParts.length){
+        html+='<div style="font-size:11px;color:var(--muted);margin-left:34px;margin-top:2px">'+connParts.join(' · ')+'</div>';
+      }
+
+      // Career facts
+      if(career){
+        html+='<div style="font-size:10px;color:var(--dim);margin-left:34px;margin-top:1px">'+career+'</div>';
+      }
+
+      html+='</div>';
+    });
+    html+='</div>';
+  });
+  html+='</div>';
+
+  // ── Quick Tips ──
+  if(tips.tips&&tips.tips.length){
+    html+='<div class="card"><div class="ctitle">Insider Tips — '+(tips.venue||trackName)+'</div>'+
+      '<div style="display:flex;flex-direction:column;gap:6px">';
+    var tipIcons=['💡','🅿️','📍','🎯','⭐'];
+    tips.tips.forEach(function(tip,i){
+      html+='<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 8px;background:var(--bg2);border-radius:6px">'+
+        '<span style="font-size:14px;flex-shrink:0">'+tipIcons[i%tipIcons.length]+'</span>'+
+        '<span style="font-size:12px;color:var(--text);line-height:1.5">'+tip+'</span>'+
+      '</div>';
+    });
+    html+='</div></div>';
+  }
+
+  // ── Track Condition & Weather Summary ──
+  html+='<div class="card"><div class="ctitle">Current Conditions</div>'+
+    '<div class="stat-grid">'+
+      '<div class="stat-box"><div class="stat-l">Surface</div><div class="stat-v" style="color:var(--blue)">'+(tc.surface||'fast').toUpperCase()+'</div></div>'+
+      '<div class="stat-box"><div class="stat-l">Bias</div><div class="stat-v" style="color:var(--gold)">'+(tc.bias||'none').toUpperCase()+'</div></div>'+
+      '<div class="stat-box"><div class="stat-l">Wind</div><div class="stat-v">'+(tc.wind||'calm').toUpperCase()+'</div></div>'+
+      '<div class="stat-box"><div class="stat-l">Temp</div><div class="stat-v">'+(tc.temp||'--')+'°F</div></div>'+
+    '</div>'+
+    (weatherStatus?'<div style="font-size:11px;color:var(--muted);margin-top:6px">'+weatherStatus+'</div>':'')+
+  '</div>';
 
   el.innerHTML=html;
 }
@@ -2386,6 +2834,11 @@ function fetchLiveOdds(silent) {
           // Populate morning line from TVG if horse still has default 5-1
           if (runner.ml && (!h.ml || h.ml === '5-1' || h.ml === '4-1')) {
             h.ml = runner.ml;
+            updated++;
+          }
+          // If still stuck on 5-1 and we have live odds, use live as best ML estimate
+          if ((!h.ml || h.ml === '5-1') && runner.live) {
+            h.ml = runner.live;
             updated++;
           }
           // Update live odds if available
@@ -5875,6 +6328,11 @@ function saveState(){
     var racesData=R.map(function(r){return {n:r.n,t:r.t,d:r.d,ty:r.ty,grade:r.grade||0,gradeName:r.gradeName||'',horses:r.horses.map(function(h){
       return {name:h.name,disp:h.disp,pp:h.pp,ml:h.ml,b:h.b,sty:h.sty,
         j:h.j,tr:h.tr,layoff:h.layoff,cc:h.cc,wins:h.wins,notes:h.notes,
+        cl:h.cl,starts:h.starts,places:h.places,shows:h.shows,
+        beyerFigs:h.beyerFigs,distFit:h.distFit,
+        sire:h.sire,dam:h.dam,earnings:h.earnings,
+        jockeyName:h.jockeyName,trainerName:h.trainerName,
+        claimPrice:h.claimPrice,lastClass:h.lastClass,
         eq:h.eq||{lf:false,bf:false,bl:false},wk:h.wk||[]};
     })};});
     var state={
@@ -5919,6 +6377,12 @@ function applyLoadedState(state){
           return {name:h.name||'',disp:h.disp||h.name||'',pp:parseInt(h.pp)||0,
             ml:h.ml||'5-1',b:parseInt(h.b)||0,sty:h.sty||'Midpack',
             j:parseInt(h.j)||10,tr:parseInt(h.tr)||10,wins:parseInt(h.wins)||0,
+            starts:parseInt(h.starts)||0,places:parseInt(h.places)||0,shows:parseInt(h.shows)||0,
+            cl:h.cl!=null?parseInt(h.cl):null,
+            beyerFigs:h.beyerFigs||[],
+            sire:h.sire||'',dam:h.dam||'',earnings:h.earnings||0,
+            jockeyName:h.jockeyName||'',trainerName:h.trainerName||'',
+            claimPrice:h.claimPrice||0,lastClass:h.lastClass||'',
             notes:h.notes||'',layoff:h.layoff!=null?parseInt(h.layoff):null,cc:parseInt(h.cc)||0,
             eq:eq,wk:h.wk||[],distFit:distFit,
             // Validate cc — should be in $K (e.g. -10 = drop $10K), cap at ±150
@@ -6402,25 +6866,17 @@ async function loadSavedCardList(){
       }).join("");
     }
 
-    // Populate header card switcher — today + upcoming only, past in a separate group
+    // Populate header card switcher — today + upcoming ONLY (no past races)
     var hdrSel=document.getElementById("hdr-card-sel");
     if(hdrSel){
       var loadedId=window._loadedCardId||0;
       var current=cards.filter(function(c){return c.raceDate>=today;});
-      var past=cards.filter(function(c){return c.raceDate<today;}).slice(-10);
       var opts='';
       current.forEach(function(c){
         var flag=c.raceDate===today?' ● TODAY':'';
         var short=c.track+' '+c.raceDate.slice(5)+flag;
         opts+='<option value="'+c.id+'"'+(c.id===loadedId?' selected':'')+'>'+short+'</option>';
       });
-      if(past.length){
-        opts+='<option disabled>── past ──</option>';
-        past.reverse().forEach(function(c){
-          var short=c.track+' '+c.raceDate.slice(5);
-          opts+='<option value="'+c.id+'"'+(c.id===loadedId?' selected':'')+'>'+short+'</option>';
-        });
-      }
       hdrSel.innerHTML=opts||'<option value="">No cards found</option>';
     }
 
@@ -6462,6 +6918,14 @@ async function loadCardById(id){
     // Persist jockey/trainer stats for this track
     var _tCode=(saved.cardInfo&&saved.cardInfo.code)?saved.cardInfo.code:null;
     if(_tCode) ingestCardJockStats(saved.races, _tCode);
+    // Reset track condition & bias to match the new track's profile
+    if(_tCode){
+      var _tp = TRACK_PROFILES[_tCode] || {};
+      var biasMap = {speed:'speed',closer:'closer',neutral:'none'};
+      tc.bias = biasMap[_tp.bias] || 'none';
+      // Clear TVG commentary cache so it re-fetches for the new track
+      tvgCommentary = {};
+    }
     // Update weather to match the loaded track
     if(_tCode && typeof updateWeatherForTrack === 'function') updateWeatherForTrack(_tCode);
     updateCardHeader();renderRaceTabs();goRace(0);render();
