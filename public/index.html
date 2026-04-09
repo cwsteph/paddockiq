@@ -6744,6 +6744,25 @@ async function processCSVFiles(files) {
       var cardState = parseSFCSV(text);
       if (!cardState || !cardState.races.length) throw new Error('No races found — make sure this is a DRF _sf.csv Selections File');
 
+      // Auto-detect track from filename if parseSFCSV couldn't find it
+      if (!trackOverride && (!cardState.track || cardState.track === 'OP')) {
+        var fnUpper = file.name.toUpperCase().replace(/[^A-Z0-9]/g,' ');
+        var fnMatch = TRACK_LIST.find(function(t){
+          // Match track code at start of filename or surrounded by non-alpha chars
+          var re = new RegExp('\\b'+t.code+'\\b','i');
+          return re.test(fnUpper) || fnUpper.indexOf(t.code) === 0;
+        });
+        if (fnMatch && fnMatch.code !== 'OP') {
+          cardState.track = fnMatch.code;
+          cardState.trackName = fnMatch.name;
+          if (cardState.cardInfo) {
+            cardState.cardInfo.code = fnMatch.code;
+            cardState.cardInfo.track = fnMatch.name;
+            cardState.cardInfo.tz = fnMatch.tz || 'America/Chicago';
+          }
+        }
+      }
+
       // Apply track override if set
       if (trackOverride) {
         var tObj = TRACK_LIST.find(function(t){ return t.code === trackOverride; });
