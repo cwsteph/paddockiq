@@ -7364,8 +7364,20 @@ async function loadSelectedCard(){
     if (trackCode && typeof updateWeatherForTrack === 'function') {
       updateWeatherForTrack(trackCode);
     }
+    // Reset bias to track default
+    if (trackCode && typeof TRACK_PROFILES !== 'undefined') {
+      var _tp = TRACK_PROFILES[trackCode] || {};
+      var biasMap = {speed:'speed',closer:'closer',neutral:'none'};
+      if (typeof tc !== 'undefined') tc.bias = biasMap[_tp.bias] || 'none';
+    }
+    // Refresh header, race tabs, dropdown, and navigate to race 1
+    if (typeof window.updateCardHeader === 'function') window.updateCardHeader();
     if (typeof window.renderRaceTabs === 'function') window.renderRaceTabs();
+    if (typeof window.goRace === 'function') window.goRace(0);
+    if (typeof window.loadSavedCardList === 'function') window.loadSavedCardList();
     if (typeof window.render === 'function') window.render('rankings');
+    // Fetch live odds to replace 5-1 defaults
+    setTimeout(function(){ if(typeof fetchLiveOdds==='function') fetchLiveOdds(true); }, 1000);
   }
 
   // ── SAVE TO NEON ─────────────────────────────────────────────
