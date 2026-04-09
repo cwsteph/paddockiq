@@ -6614,18 +6614,8 @@ function renderCSVImport(){
         'Browse Files</button>'+
     '</div>'+
 
-    // ── TRACK PICKER ───────────────────────────────────────────
-    '<div style="padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;margin-bottom:16px">'+
-      '<div style="font-size:11px;color:var(--gold);text-transform:uppercase;font-weight:700;margin-bottom:10px">🏇 Track Picker</div>'+
-      '<div style="font-size:11px;color:var(--dim);margin-bottom:10px">Override the track detected from the CSV — useful if the file does not include track metadata.</div>'+
-      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
-        '<select id="csv-track-override" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 10px;font-size:12px;flex:1;min-width:200px">'+
-          '<option value="">Auto-detect from CSV</option>'+
-          trackOpts+
-        '</select>'+
-        '<div id="csv-track-preview" style="font-size:11px;color:var(--muted)"></div>'+
-      '</div>'+
-    '</div>'+
+    // Hidden track override — auto-detect handles it now
+    '<select id="csv-track-override" style="display:none"><option value="">Auto-detect</option>'+trackOpts+'</select>'+
 
     // ── UPLOAD QUEUE ───────────────────────────────────────────
     '<div id="csv-queue" style="margin-bottom:16px"></div>'+
