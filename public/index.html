@@ -7296,10 +7296,14 @@ async function loadSelectedCard(){
     const rows = rawRows.map(r => {
       if (r.R_RCRace) {
         currentRace = r.R_RCRace;
-        raceFields = Object.fromEntries(Object.entries(r).filter(([k]) => k.startsWith('R_')));
+        raceFields = Object.fromEntries(Object.entries(r).filter(([k]) => k.startsWith('R_') && r[k] !== ''));
       }
       if (!r.H_Horse?.trim()) return null;
-      return { ...raceFields, ...r, _race: currentRace };
+      // Merge: raceFields first, then only non-empty row values on top
+      var merged = { ...raceFields };
+      Object.entries(r).forEach(([k, v]) => { if (v !== '') merged[k] = v; });
+      merged._race = currentRace;
+      return merged;
     }).filter(Boolean);
 
     if (rows.length === 0) return null;
