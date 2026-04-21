@@ -43,6 +43,7 @@ export async function GET() {
     const races = Object.values(raceMap).map(horses => {
       const first = horses[0];
       const topPick = horses.find(h => h.paddockiq_rank === 1);
+      const secondPick = horses.find(h => h.paddockiq_rank === 2);
       const winner = horses.find(h => h.finish_pos === 1);
       const winnerRank = winner ? horses.findIndex(h => h.horse_name === winner.horse_name) + 1 : null;
 
@@ -61,8 +62,12 @@ export async function GET() {
             wk: Number(topPick.wk), trend: Number(topPick.trend), ml: Number(topPick.ml),
           },
           morningLine: topPick.morning_line,
+          closingOdds: topPick.closing_odds,
           modelProb: topPick.model_prob ? Number(topPick.model_prob) : null,
+          finishPos: topPick.finish_pos,
+          winPayoff: topPick.win_payoff ? Number(topPick.win_payoff) : null,
         } : null,
+        secondPickScore: secondPick ? Number(secondPick.score) : null,
         winner: winner ? {
           name: winner.horse_name,
           score: Number(winner.score),
