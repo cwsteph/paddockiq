@@ -74,20 +74,20 @@ function KDashboard({ nav, ui }) {
 
           {/* Right rail */}
           <div style={{display:'flex', flexDirection:'column', gap:12}}>
-            {/* Bankroll — green-tinted, matches session data */}
+            {/* Bankroll — green-tinted, $100 demo bank */}
             <div style={{background:`linear-gradient(165deg, ${KT.greenSoft} 0%, ${KT.panel} 60%)`, border:`1.5px solid ${KT.green}`, borderRadius:8, padding:'14px 16px'}}>
               <div style={{display:'flex', alignItems:'baseline', gap:8, marginBottom:4}}>
                 <KLabel color={KT.green} spacing={1.5} size={10} style={{fontWeight:700}}>Bankroll</KLabel>
-                <span style={{marginLeft:'auto', fontSize:10, fontFamily:'Oswald, sans-serif', letterSpacing:1.2, color:KT.green, background:KT.panel, border:`1px solid ${KT.green}`, borderRadius:20, padding:'1px 8px', fontWeight:700}}>▲ +$29.00</span>
+                <span style={{marginLeft:'auto', fontSize:10, fontFamily:'Oswald, sans-serif', letterSpacing:1.2, color:KT.green, background:KT.panel, border:`1px solid ${KT.green}`, borderRadius:20, padding:'1px 8px', fontWeight:700}}>▲ +$12.40</span>
               </div>
-              <div style={{fontFamily:'Playfair Display, serif', fontSize:30, fontWeight:800, color:KT.ink, lineHeight:1}}>$1,286.40</div>
-              <div style={{fontSize:10.5, color:KT.muted, fontFamily:'Playfair Display, serif', fontStyle:'italic', marginTop:3}}>Session end · sims from $1,000 start</div>
+              <div style={{fontFamily:'Playfair Display, serif', fontSize:30, fontWeight:800, color:KT.ink, lineHeight:1}}>$100.00</div>
+              <div style={{fontSize:10.5, color:KT.muted, fontFamily:'Playfair Display, serif', fontStyle:'italic', marginTop:3}}>Current session</div>
               <div style={{height:1, background:KT.rule2, margin:'12px 0'}}/>
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, fontSize:11}}>
-                <div><KLabel spacing={1} size={9}>Today P/L</KLabel><div style={{fontFamily:'JetBrains Mono, monospace', fontWeight:600, color:KT.green, marginTop:1}}>+$29.00</div></div>
-                <div><KLabel spacing={1} size={9}>Open Bets</KLabel><div style={{fontFamily:'JetBrains Mono, monospace', fontWeight:600, marginTop:1}}>0</div></div>
-                <div><KLabel spacing={1} size={9}>ROI</KLabel><div style={{fontFamily:'JetBrains Mono, monospace', fontWeight:600, color:KT.green, marginTop:1}}>+28.6%</div></div>
-                <div><KLabel spacing={1} size={9}>Win Rate</KLabel><div style={{fontFamily:'JetBrains Mono, monospace', fontWeight:600, marginTop:1}}>31.0%</div></div>
+                <div><KLabel spacing={1} size={9}>Today P/L</KLabel><div style={{fontFamily:'JetBrains Mono, monospace', fontWeight:600, color:KT.green, marginTop:1}}>+$12.40</div></div>
+                <div><KLabel spacing={1} size={9}>Open Bets</KLabel><div style={{fontFamily:'JetBrains Mono, monospace', fontWeight:600, marginTop:1}}>1</div></div>
+                <div><KLabel spacing={1} size={9}>Sim ROI</KLabel><div style={{fontFamily:'JetBrains Mono, monospace', fontWeight:600, color:KT.green, marginTop:1}}>+28.6%</div></div>
+                <div><KLabel spacing={1} size={9}>Sim Win %</KLabel><div style={{fontFamily:'JetBrains Mono, monospace', fontWeight:600, marginTop:1}}>31.0%</div></div>
               </div>
               <div style={{display:'flex', gap:6, marginTop:10}}>
                 <KButton variant="ghost" size="sm" style={{flex:1}}>Edit</KButton>
@@ -95,33 +95,38 @@ function KDashboard({ nav, ui }) {
               </div>
             </div>
 
-            {/* Today's Bets — session summary from bet log */}
+            {/* Today's Bets — session summary (scaled to $100 bank) */}
             <div style={{background:KT.panel, border:`1px solid ${KT.border}`, borderRadius:8, padding:'14px 16px'}}>
               <div style={{display:'flex', alignItems:'baseline', gap:8, marginBottom:8}}>
                 <KLabel spacing={1.5} size={10} color={KT.brass} style={{fontWeight:700}}>Today's Bets</KLabel>
-                <span style={{marginLeft:'auto', fontSize:10, color:KT.muted, fontFamily:'Playfair Display, serif', fontStyle:'italic'}}>2 fired</span>
+                <span style={{marginLeft:'auto', fontSize:10, color:KT.muted, fontFamily:'Playfair Display, serif', fontStyle:'italic'}}>2 settled · 1 pending</span>
               </div>
               {[
-                { r:4, pick:'Silver Reign',  conf:'HI',  odds:'7/2', stake:10, finish:'🥇', net:+35.00 },
-                { r:3, pick:'Maple Drifter', conf:'MED', odds:'5/1', stake: 6, finish:'🥉', net: -6.00 },
-              ].map((b,i) => {
+                { r:3, pick:'Maple Drifter', conf:'MED', odds:'5/1', stake:2, finish:'🥉', net: -2.00, pending:false },
+                { r:2, pick:'Ironwood Bay',  conf:'HI',  odds:'3/1', stake:4, finish:'🥇', net:+14.40, pending:false },
+                { r:4, pick:'Silver Reign',  conf:'HI',  odds:'7/2', stake:4, finish:'—',  net:  0,    pending:true  },
+              ].map((b,i,arr) => {
                 const win = b.net > 0;
                 return (
-                  <div key={i} style={{display:'grid', gridTemplateColumns:'24px 1fr auto', gap:8, alignItems:'center', padding:'7px 0', borderBottom: i===0 ? `1px solid ${KT.rule2}` : 'none'}}>
+                  <div key={i} style={{display:'grid', gridTemplateColumns:'24px 1fr auto', gap:8, alignItems:'center', padding:'7px 0', borderBottom: i<arr.length-1 ? `1px solid ${KT.rule2}` : 'none', opacity: b.pending ? 0.7 : 1}}>
                     <div style={{fontFamily:'Playfair Display, serif', fontSize:15, fontWeight:700, color:KT.brass}}>R{b.r}</div>
                     <div>
                       <div style={{fontSize:12, fontFamily:'Playfair Display, serif', fontWeight:600, color:KT.ink}}>{b.pick}</div>
                       <div style={{fontSize:10, color:KT.muted, fontFamily:'JetBrains Mono, monospace'}}>{b.odds} · ${b.stake} · <span style={{fontFamily:'initial', fontSize:12}}>{b.finish}</span></div>
                     </div>
-                    <div style={{fontSize:12, fontFamily:'JetBrains Mono, monospace', fontWeight:700, color: win ? KT.green : KT.red, textAlign:'right'}}>
-                      {win ? '▲ +' : '▼ -'}${Math.abs(b.net).toFixed(2)}
-                    </div>
+                    {b.pending ? (
+                      <div style={{fontSize:10, fontFamily:'Oswald, sans-serif', letterSpacing:1.2, fontWeight:700, color:KT.brass, textAlign:'right'}}>PENDING</div>
+                    ) : (
+                      <div style={{fontSize:12, fontFamily:'JetBrains Mono, monospace', fontWeight:700, color: win ? KT.green : KT.red, textAlign:'right'}}>
+                        {win ? '▲ +' : '▼ -'}${Math.abs(b.net).toFixed(2)}
+                      </div>
+                    )}
                   </div>
                 );
               })}
               <div style={{marginTop:8, padding:'7px 10px', background:KT.greenSoft, border:`1px solid ${KT.green}`, borderRadius:4, display:'flex', alignItems:'center'}}>
-                <KLabel color={KT.green} spacing={1.5} size={10} style={{fontWeight:700}}>Net</KLabel>
-                <span style={{marginLeft:'auto', fontFamily:'JetBrains Mono, monospace', fontSize:13, fontWeight:700, color:KT.green}}>+$29.00</span>
+                <KLabel color={KT.green} spacing={1.5} size={10} style={{fontWeight:700}}>Settled Net</KLabel>
+                <span style={{marginLeft:'auto', fontFamily:'JetBrains Mono, monospace', fontSize:13, fontWeight:700, color:KT.green}}>+$12.40</span>
               </div>
             </div>
 

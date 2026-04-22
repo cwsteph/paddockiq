@@ -7,9 +7,3 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
-
-[[redirects]]
-  from = "/"
-  to = "/redesign/"
-  status = 301
-  force = true

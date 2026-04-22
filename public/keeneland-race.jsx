@@ -94,9 +94,9 @@ function KRankings({ race, silksOn }) {
         </div>
         <div style={{background:'rgba(0,0,0,0.3)', border:`1.5px solid ${KT.brassHi}`, borderRadius:6, padding:'14px 16px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center', zIndex:1}}>
           <KLabel color={KT.brassHi} spacing={3} size={11} style={{marginBottom:8, fontWeight:700}}>Kelly Stake</KLabel>
-          <div style={{fontFamily:'Playfair Display, serif', fontSize:34, fontWeight:800, color:KT.brassHi, lineHeight:1}}>$77</div>
-          <div style={{fontSize:10.5, color:'rgba(245,236,211,0.55)', fontFamily:'JetBrains Mono, monospace', marginTop:3}}>6% of $1,286.40</div>
-          <div style={{fontSize:11, color:'#9ad89a', fontFamily:'JetBrains Mono, monospace', marginTop:4, fontWeight:600}}>To win ~$269.50</div>
+          <div style={{fontFamily:'Playfair Display, serif', fontSize:34, fontWeight:800, color:KT.brassHi, lineHeight:1}}>$6</div>
+          <div style={{fontSize:10.5, color:'rgba(245,236,211,0.55)', fontFamily:'JetBrains Mono, monospace', marginTop:3}}>6% of $100.00</div>
+          <div style={{fontSize:11, color:'#9ad89a', fontFamily:'JetBrains Mono, monospace', marginTop:4, fontWeight:600}}>To win ~$21.00</div>
           <div style={{width:40, height:1, background:KT.brassHi, margin:'10px 0'}}/>
           <div style={{fontSize:11, color:'rgba(245,236,211,0.75)', lineHeight:1.5, fontFamily:'Playfair Display, serif', fontStyle:'italic'}}>
             HIGH confidence — model edge well above threshold.

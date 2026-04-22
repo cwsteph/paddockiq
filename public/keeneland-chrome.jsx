@@ -51,7 +51,7 @@ function KHead({ children, size=22, color, weight=700, style={} }) {
 }
 
 // ─── HEADER (matches real app: track sel + card sel + date + bankroll + betting-today + race badge) ──
-function KHeader({ current, track='Oaklawn Park', date='Apr 9, 2026', nRaces=8, bankroll=1286.40, tracksToday=1 }) {
+function KHeader({ current, track='Oaklawn Park', date='Apr 9, 2026', nRaces=8, bankroll=100, tracksToday=1 }) {
   return (
     <div style={{background:KT.bg, color:KT.cream, padding:'10px 24px', display:'flex', alignItems:'center', gap:14, flexWrap:'wrap', borderBottom:`3px solid ${KT.brass}`, fontFamily:'Inter, sans-serif'}}>
       <div style={{display:'flex', alignItems:'center', gap:10}}>
@@ -80,7 +80,6 @@ function KHeader({ current, track='Oaklawn Park', date='Apr 9, 2026', nRaces=8, 
       <div style={{display:'flex', alignItems:'center', gap:6, background:'rgba(26,111,84,0.25)', border:`1px solid ${KT.green2}`, borderRadius:20, padding:'4px 12px'}}>
         <span style={{fontFamily:'JetBrains Mono, monospace', fontSize:12, color:'#9ad89a', fontWeight:600}}>${bankroll.toFixed(2)}</span>
         <span style={{fontSize:10, color:'rgba(154,216,154,0.7)'}}>Bankroll</span>
-        <span style={{fontSize:10, color:'#9ad89a', fontFamily:'JetBrains Mono, monospace'}}>+$29.00</span>
         <span style={{fontSize:9, color:KT.dim, cursor:'pointer', marginLeft:2}}>✎</span>
       </div>
 
