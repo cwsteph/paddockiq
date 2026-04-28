@@ -49,7 +49,7 @@ select{font-family:'Inter',system-ui,sans-serif}
 ::-webkit-scrollbar-thumb:hover{background:var(--gold)}
 
 /* Layout */
-#hdr{background:var(--header-bg);color:var(--header-ink);border-bottom:3px solid var(--gold);padding:0 20px;display:flex;align-items:center;justify-content:space-between;min-height:58px;flex-wrap:wrap;gap:8px}
+#hdr{background:var(--header-bg);color:var(--header-ink);border-bottom:3px solid var(--gold);padding:22px 36px;display:flex;align-items:center;justify-content:space-between;min-height:96px;flex-wrap:wrap;gap:14px}
 #hdr select{background:rgba(0,0,0,0.25);border-color:var(--gold) !important;color:var(--header-accent) !important;font-family:'Oswald',sans-serif !important;letter-spacing:1px}
 #hdr input{background:rgba(0,0,0,0.2);border-color:rgba(201,154,74,0.4);color:var(--header-ink)}
 #main{max-width:1060px;margin:0 auto;padding:16px}
@@ -89,7 +89,27 @@ select{font-family:'Inter',system-ui,sans-serif}
 
 /* Cards — regular cards get a green left accent; card-gold stays brass */
 .card{background:var(--bg3);border:1px solid var(--border);border-left:4px solid var(--green);border-radius:6px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(13,61,46,0.05)}
-.card-gold{background:linear-gradient(135deg,var(--brass-soft),var(--bg3));border:1.5px solid var(--gold);border-left:4px solid var(--gold);border-radius:6px;padding:14px 16px;margin-bottom:12px;box-shadow:0 2px 6px rgba(166,124,46,0.1)}
+.card-gold{background:linear-gradient(135deg,var(--header-bg) 0%,#0f4736 50%,var(--header-bg) 100%);border:1.5px solid var(--gold);border-left:4px solid var(--gold);border-radius:8px;padding:18px 20px;margin-bottom:12px;box-shadow:0 4px 14px rgba(13,61,46,0.25);color:var(--header-ink)}
+.card-gold .ctitle{color:var(--header-accent) !important}
+.card-gold,.card-gold *{color:inherit}
+.card-gold .pill{border-color:rgba(201,154,74,0.5);color:var(--header-ink);background:transparent}
+.card-gold .pill.on{border-color:var(--header-accent);background:rgba(201,154,74,0.18);color:var(--header-accent)}
+.card-gold .pill.on-g{border-color:#7fc89c;background:rgba(13,79,60,0.4);color:#9fd9b4}
+.card-gold .pill.on-b{border-color:#9fb5d4;background:rgba(26,58,94,0.35);color:#c9d6e8}
+.card-gold .pill.on-r{border-color:#d49a9a;background:rgba(139,35,48,0.35);color:#e8b8b8}
+.card-gold .pill.on-p{border-color:#c9a8e0;background:rgba(106,63,144,0.35);color:#dec5ef}
+.card-gold .bebas{color:var(--header-accent) !important}
+.card-gold b{color:var(--header-accent)}
+.card-gold [style*="color:var(--text)"]{color:var(--header-ink) !important}
+.card-gold [style*="color:var(--muted)"]{color:rgba(245,236,211,0.78) !important}
+.card-gold [style*="color:var(--dim)"]{color:rgba(245,236,211,0.55) !important}
+.card-gold [style*="color:var(--green)"]{color:#9fd9b4 !important}
+.card-gold [style*="color:var(--blue)"]{color:#c9d6e8 !important}
+.card-gold [style*="color:var(--red)"]{color:#e8b8b8 !important}
+.card-gold [style*="color:var(--gold)"]{color:var(--header-accent) !important}
+.card-gold [style*="background:rgba(212,175,55,0.04)"]{background:rgba(245,236,211,0.06) !important}
+.card-gold [style*="background:#ede5cc"]{background:rgba(245,236,211,0.12) !important}
+.card-gold [style*="background:var(--purple-soft)"]{background:rgba(106,63,144,0.25) !important;color:#dec5ef !important}
 .ctitle{font-family:'Playfair Display',serif;font-size:20px;font-weight:800;color:var(--green);margin-bottom:10px;letter-spacing:0.2px}
 .card-gold .ctitle{color:var(--gold)}
 .slabel{font-family:'Oswald',sans-serif;font-size:10px;color:var(--green);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;font-weight:700}
@@ -123,15 +143,34 @@ select{font-family:'Inter',system-ui,sans-serif}
 .inp:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 2px rgba(166,124,46,0.15)}
 
 /* Horse rank cards — green left accent for all, brass for top pick via JS if it sets a class */
-.hcard{background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--green);border-radius:6px;margin-bottom:6px;overflow:hidden;box-shadow:0 1px 2px rgba(13,61,46,0.05)}
-.hcard.top-pick{border-left-color:var(--gold);background:linear-gradient(90deg,var(--brass-soft) 0%,var(--bg3) 12%)}
-.hcard-row{display:flex;align-items:center;gap:8px;padding:11px 14px;cursor:pointer;transition:background .1s}
+.hcard{background:var(--bg3);border:1px solid var(--border);border-left:6px solid var(--green);border-radius:6px;margin-bottom:6px;overflow:hidden;box-shadow:0 1px 3px rgba(13,61,46,0.08);color:var(--text)}
+.hcard.top-pick{border-left-color:var(--gold);background:linear-gradient(90deg,var(--brass-soft) 0%,var(--bg3) 18%)}
+.hcard-row{display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;transition:background .1s;color:var(--text)}
 .hcard-row:hover{background:var(--bg2)}
-.hcard-detail{padding:0 14px 14px;border-top:1px solid var(--rule2);background:var(--bg)}
+.hcard-row .horse-name{font-family:'Playfair Display',serif;font-weight:800;font-size:15px;letter-spacing:0.4px;color:var(--green);text-transform:uppercase}
+.hcard.top-pick .hcard-row .horse-name{color:var(--gold)}
+.hcard-row .horse-sub{font-family:'Playfair Display',serif;font-style:italic;font-size:11px;color:var(--muted);margin-top:1px;letter-spacing:0.2px}
+.hcard-row .pct{color:var(--dim)}
+.hcard-row .rank-num{font-family:'Playfair Display',serif;font-weight:800;color:var(--gold)}
+.hcard-row .score-num{font-family:'Playfair Display',serif;font-weight:800;color:var(--green)}
+.hcard.top-pick .hcard-row .score-num{color:var(--gold)}
+.hcard-detail{padding:14px;border-top:1px solid var(--rule2);background:var(--bg);color:var(--text)}
 .hcard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:5px;margin:8px 0}
 .hcard-stat{background:var(--bg3);border:1px solid var(--rule2);border-radius:4px;padding:6px 9px}
 .hcard-stat-l{font-family:'Oswald',sans-serif;font-size:9px;color:var(--green);text-transform:uppercase;letter-spacing:1px;font-weight:700}
 .hcard-stat-v{font-size:12.5px;font-weight:700;color:var(--text);margin-top:1px;font-family:'JetBrains Mono',monospace}
+
+/* Pills — shared badge system (Keeneland Turf Club tones). Reusable across PaddockIQ/DugoutIQ/RalliQ. */
+.pill{display:inline-block;padding:2px 9px;font-family:'Oswald',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;line-height:1.35;border-radius:20px;border:1px solid currentColor;white-space:nowrap;flex-shrink:0}
+.pill-soft{font-weight:600;letter-spacing:.5px}
+.pill-green{color:var(--green);background:var(--green-soft)}
+.pill-red{color:var(--red);background:var(--red-soft)}
+.pill-brass{color:var(--gold);background:var(--brass-soft)}
+.pill-blue{color:var(--blue);background:var(--blue-soft)}
+.pill-purple{color:var(--purple);background:var(--purple-soft)}
+.pill-olive{color:var(--green);background:var(--green-soft)}
+.pill-orange{color:#9c4718;background:#fbe8d8}
+.pill-muted{color:var(--muted);background:var(--rule2);border-color:var(--rule2)}
 
 /* Progress bar — green for generic progress, brass highlight via .pbar-fill-brass */
 .pbar{height:6px;background:var(--rule2);border-radius:3px;overflow:hidden}
@@ -149,20 +188,31 @@ select{font-family:'Inter',system-ui,sans-serif}
 #tc-bar{background:var(--bg3);border:1px solid var(--border);border-left:4px solid var(--green);border-radius:6px;padding:10px 14px;margin:0 0 12px}
 #tc-content{display:none;margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
 #tc-content.open{display:grid}
-#big-race-spotlight{margin:0 0 12px;padding:14px 18px;background:linear-gradient(135deg,#faf0d4 0%,var(--brass-soft) 50%,#faf0d4 100%);border:1.5px solid var(--gold);border-radius:8px}
-#big-race-spotlight .brs-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-#big-race-spotlight .brs-title{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:800;color:var(--gold);letter-spacing:0.3px}
+#big-race-spotlight{margin:0 0 12px;padding:14px 18px;background:linear-gradient(135deg,var(--header-bg) 0%,#0f4736 50%,var(--header-bg) 100%);border:1.5px solid var(--gold);border-radius:8px;color:var(--header-ink)}
+#big-race-spotlight .brs-title{color:var(--header-accent) !important}
+#big-race-spotlight details>summary:hover .brs-title{color:#f0d68a !important}
+#big-race-spotlight .brs-badge{background:var(--header-accent);color:var(--header-bg)}
+#big-race-spotlight details>summary .brs-caret{color:var(--header-accent) !important}
+#big-race-spotlight details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;user-select:none}
+#big-race-spotlight details>summary::-webkit-details-marker{display:none}
+#big-race-spotlight details>summary .brs-caret{margin-left:auto;color:var(--gold);font-size:0.9rem;transition:transform .15s}
+#big-race-spotlight details[open]>summary .brs-caret{transform:rotate(180deg)}
+#big-race-spotlight details:not([open])>summary{margin-bottom:0}
+#big-race-spotlight details>summary:hover .brs-title{color:var(--green)}
+#big-race-spotlight .brs-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;width:100%}
+#big-race-spotlight .brs-title{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:800;color:var(--gold);letter-spacing:0.3px;transition:color .15s}
 #big-race-spotlight .brs-badge{background:var(--gold);color:var(--bg);font-family:'Oswald',sans-serif;font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:1.2px}
 #big-race-spotlight .brs-races{display:flex;flex-direction:column;gap:10px}
-#big-race-spotlight .brs-race{background:rgba(255,255,255,0.6);border:1px solid rgba(166,124,46,0.25);border-radius:6px;padding:12px}
-#big-race-spotlight .brs-race-name{font-family:'Playfair Display',serif;font-weight:800;color:var(--gold);font-size:1rem;margin-bottom:6px}
-#big-race-spotlight .brs-race-meta{font-size:0.75rem;color:var(--muted);margin-bottom:8px;font-family:'JetBrains Mono',monospace}
+#big-race-spotlight .brs-race{background:rgba(13,61,46,0.72);border:1px solid rgba(201,154,74,0.45);border-left:3px solid var(--gold);border-radius:6px;padding:12px}
+#big-race-spotlight .brs-race-name{font-family:'Playfair Display',serif;font-weight:800;color:var(--header-accent);font-size:1rem;margin-bottom:6px}
+#big-race-spotlight .brs-race-meta{font-size:0.75rem;color:rgba(245,236,211,0.7);margin-bottom:8px;font-family:'JetBrains Mono',monospace}
 #big-race-spotlight .brs-picks{display:flex;flex-direction:column;gap:4px}
 #big-race-spotlight .brs-pick{display:flex;align-items:center;gap:8px;font-size:0.85rem}
-#big-race-spotlight .brs-rank{font-family:'Playfair Display',serif;font-weight:800;color:var(--gold);min-width:22px}
-#big-race-spotlight .brs-horse{font-family:'Playfair Display',serif;font-weight:700;flex:1;color:var(--text)}
-#big-race-spotlight .brs-score{color:var(--green);font-weight:700;font-size:0.82rem;font-family:'JetBrains Mono',monospace}
-#big-race-spotlight .brs-commentary{font-size:0.82rem;color:var(--text);margin-top:8px;line-height:1.5;font-family:'Playfair Display',serif;font-style:italic;border-top:1px solid rgba(166,124,46,0.25);padding-top:8px}
+#big-race-spotlight .brs-rank{font-family:'Playfair Display',serif;font-weight:800;color:var(--header-accent);min-width:22px}
+#big-race-spotlight .brs-horse{font-family:'Playfair Display',serif;font-weight:700;flex:1;color:var(--header-ink)}
+#big-race-spotlight .brs-score{color:#9fd9b4;font-weight:700;font-size:0.82rem;font-family:'JetBrains Mono',monospace}
+#big-race-spotlight .brs-commentary{font-size:0.82rem;color:rgba(245,236,211,0.92);margin-top:8px;line-height:1.5;font-family:'Playfair Display',serif;font-style:italic;border-top:1px solid rgba(201,154,74,0.3);padding-top:8px}
+#big-race-spotlight .brs-commentary strong{color:var(--header-accent)}
 
 /* Alloc row */
 .alloc-row{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:5px}
@@ -717,10 +767,14 @@ function renderBigRaceSpotlight(){
   var bigRaces=detectBigRaces();
   if(!bigRaces.length){el.style.display='none';return;}
 
-  var html='<div class="brs-header">';
+  var brsOpen=localStorage.getItem('brsOpen');
+  var openAttr=(brsOpen==='1')?' open':'';
+  var html='<details'+openAttr+' onToggle="localStorage.setItem(\'brsOpen\',this.open?\'1\':\'0\')">';
+  html+='<summary><div class="brs-header">';
   html+='<span class="brs-title">Big Race Spotlight</span>';
   html+='<span class="brs-badge">'+bigRaces.length+' Featured Race'+(bigRaces.length>1?'s':'')+'</span>';
-  html+='</div>';
+  html+='<span class="brs-caret">▾</span>';
+  html+='</div></summary>';
   html+='<div class="brs-races">';
 
   bigRaces.forEach(function(br){
@@ -753,7 +807,7 @@ function renderBigRaceSpotlight(){
       html+='<span class="brs-rank">'+medal+'</span>';
       html+='<span class="brs-horse">'+pick.name+'</span>';
       html+='<span class="brs-score">'+pick.score+' pts</span>';
-      html+='<span style="color:#8b8d98;font-size:0.78rem">'+odds+' | '+(prob*100).toFixed(0)+'%</span>';
+      html+='<span style="color:rgba(245,236,211,0.6);font-size:0.78rem">'+odds+' | '+(prob*100).toFixed(0)+'%</span>';
       html+='</div>';
     }
     html+='</div>';
@@ -780,7 +834,7 @@ function renderBigRaceSpotlight(){
     html+='</div>';
   });
 
-  html+='</div>';
+  html+='</div></details>';
   el.innerHTML=html;
   el.style.display='block';
 }
@@ -1012,14 +1066,15 @@ function renderRankings(){
 
   // Track profile info banner
   var _tprof = getTrackProfile();
-  var _biasColor = _tprof.bias==='speed' ? '#d4904a' : _tprof.bias==='closer' ? '#6aabbb' : 'var(--muted)';
+  var _biasColor = _tprof.bias==='speed' ? 'var(--gold)' : _tprof.bias==='closer' ? 'var(--blue)' : 'var(--muted)';
+  var _biasBg    = _tprof.bias==='speed' ? 'var(--brass-soft)' : _tprof.bias==='closer' ? 'var(--blue-soft)' : 'var(--bg2)';
   var _biasLabel = _tprof.bias==='speed' ? '⚡ Speed bias' : _tprof.bias==='closer' ? '🏃 Closer bias' : '⚖️ Neutral bias';
   var _trackBanner = (cardInfo&&cardInfo.code&&cardInfo.code!=='OP') ?
-    '<div style="background:#0a0a14;border:1px solid #222;border-radius:7px;padding:7px 12px;margin-bottom:10px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">'+
+    '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:7px 12px;margin-bottom:10px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">'+
       '<span style="font-size:11px;font-weight:700;color:var(--gold)">'+(cardInfo.track||cardInfo.code)+'</span>'+
-      '<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:#1a1a0a;border:1px solid '+_biasColor+';color:'+_biasColor+'">'+_biasLabel+'</span>'+
+      '<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:'+_biasBg+';border:1px solid '+_biasColor+';color:'+_biasColor+';font-weight:600">'+_biasLabel+'</span>'+
       '<span style="font-size:10px;color:var(--dim)">Jockey elite: '+_tprof.jThresh[0]+'%+ · Trainer elite: '+_tprof.trThresh[0]+'%+</span>'+
-      (_tprof.notes ? '<span style="font-size:10px;color:#555;font-style:italic">'+_tprof.notes+'</span>' : '')+
+      (_tprof.notes ? '<span style="font-size:10px;color:var(--muted);font-style:italic">'+_tprof.notes+'</span>' : '')+
     '</div>' : '';
 
   // Top pick
@@ -1046,7 +1101,7 @@ function renderRankings(){
         '<span class="pill on-g">Score: '+top.score+'</span>'+
         '<span class="'+cfBadge+'">'+cf.toUpperCase()+' CONF</span>'+
         '<span class="pill on">'+btype+'</span>'+
-        (top.wkScore>0?'<span style="font-size:10px;background:#ede3f5;color:#b48cf8;border:1px solid #3a2060;padding:2px 8px;border-radius:20px">WRK +'+top.wkScore+' pts</span>':'')+
+        (top.wkScore>0?'<span style="font-size:10px;background:var(--purple-soft);color:var(--purple);border:1px solid var(--purple);padding:2px 8px;border-radius:20px;font-weight:600">WRK +'+top.wkScore+' pts</span>':'')+
         (top.kaciOn?'<span class="pill on-p">✨ Kaci ×'+top.km.toFixed(2)+'</span>':'')+
       '</div>'+
       // ── Thesis narrative ──
@@ -1106,10 +1161,10 @@ function renderRankings(){
     '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">'+
     (ka<=0
       // ── NO BET state ──
-      ? '<div style="background:#1a1010;border:2px solid #553030;border-radius:8px;padding:10px 16px;text-align:center;min-width:160px">'+
-          '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:18px;color:#884444;letter-spacing:1px">NO BET</div>'+
-          '<div style="font-size:10px;color:#664444;margin-top:2px">Low confidence — score gap under 3 pts</div>'+
-          '<div style="font-size:10px;color:#553333;margin-top:4px">Too close to call — use in exotics only</div>'+
+      ? '<div style="background:rgba(8,28,22,0.55);border:1.5px solid var(--header-accent);border-radius:8px;padding:14px 18px;text-align:center;min-width:200px">'+
+          '<div style="font-family:\'Oswald\',sans-serif;font-size:13px;color:var(--header-accent);letter-spacing:2.5px;font-weight:700">NO BET</div>'+
+          '<div style="font-size:11px;color:rgba(245,236,211,0.75);margin-top:6px;font-style:italic;line-height:1.4">Model edge below threshold. Pass and wait for the next spot.</div>'+
+          '<div style="margin-top:10px;display:inline-block;background:var(--header-accent);color:var(--header-bg);font-family:\'Oswald\',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;padding:7px 18px;border-radius:4px">PASS RACE</div>'+
         '</div>'
       // ── Has edge — show Recommended + Secondary ──
       : '<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">'+
@@ -1117,9 +1172,9 @@ function renderRankings(){
           '<div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;text-align:right">Recommended Bet'+(_kellyAmt<=0?' <span style="color:#b89040">(min. conf bet)</span>':'')+'</div>'+
           '<div style="font-size:9px;color:#555;text-align:right">Budget: $'+perRaceCap.toFixed(0)+'/race · '+qualCount+' qualifying races</div>'+
           '<button onclick="logBet(\''+top.name.replace(/'/g,'\\\'')+'\',' +ka+')" style="'+
-            'background:'+(cf==='high'?'#e8f2e8':cf==='medium'?'#0d1a0d':'#1a0d0d')+';'+
-            'border:2px solid '+(cf==='high'?'var(--green)':cf==='medium'?'#4ea84e':'#c07070')+';'+
-            'color:'+(cf==='high'?'var(--green)':cf==='medium'?'#7ec87e':'#d4a0a0')+';'+
+            'background:'+(cf==='high'?'var(--green-soft)':cf==='medium'?'var(--brass-soft)':'var(--red-soft)')+';'+
+            'border:2px solid '+(cf==='high'?'var(--green)':cf==='medium'?'var(--gold)':'var(--red)')+';'+
+            'color:'+(cf==='high'?'var(--green)':cf==='medium'?'var(--gold)':'var(--red)')+';'+
             'border-radius:8px;padding:8px 16px;cursor:pointer;font-family:\'Bebas Neue\',sans-serif;font-size:18px;letter-spacing:1px;min-width:170px;text-align:center">'+
             (cf==='high'?'WIN — $'+ka:cf==='medium'?'WIN / PLACE — $'+ka:'NO BET')+
           '</button>'+
@@ -1127,7 +1182,7 @@ function renderRankings(){
           (sc.length>=2
             ? '<div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;text-align:right;margin-top:2px">Secondary Option</div>'+
               '<button onclick="logBet(\''+top.name.replace(/'/g,'\\\'')+'\',' +Math.ceil(ka*0.5)+')" style="'+
-                'background:#ede3f5;border:1px solid #7b8df8;color:#7b8df8;'+
+                'background:var(--purple-soft);border:1px solid var(--purple);color:var(--purple);'+
                 'border-radius:8px;padding:6px 14px;cursor:pointer;font-family:\'Bebas Neue\',sans-serif;font-size:14px;letter-spacing:1px;min-width:170px;text-align:center">'+
                 'EXACTA BOX — $'+Math.ceil(ka*0.5)+
               '</button>'
@@ -1172,7 +1227,7 @@ function renderRankings(){
           '<div style="flex:1;min-width:0">'+
             '<div style="display:flex;align-items:center;gap:5px">'+
             '<span style="font-size:13px;color:#664444;text-decoration:line-through;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(h.disp||h.name)+'</span>'+
-            '<span style="font-size:10px;background:#2a0a0a;color:#994444;border:1px solid #441a1a;padding:1px 6px;border-radius:20px;flex-shrink:0">SCR</span>'+
+            '<span class="pill pill-muted" style="opacity:.7">SCR</span>'+
             '</div>'+
           '</div>'+
           '<div style="font-size:11px;color:#553333;text-decoration:line-through;min-width:44px;text-align:right">'+h.ml+'</div>'+
@@ -1189,14 +1244,16 @@ function renderRankings(){
     var pr2=pr[i]?(pr[i]*100).toFixed(1):'0.0';
     var k=kaci[race.n]&&kaci[race.n][s.name]||{enabled:false,carry:0,conformation:0,temperament:0};
 
-    html+='<div class="hcard">'+
+    html+='<div class="hcard'+(i===0?' top-pick':'')+'">'+
       '<div class="hcard-row" onclick="toggleExp('+CUR+',\''+s.name+'\')" >'+
-      '<div class="bebas" style="font-size:22px;color:'+nc+';min-width:22px;line-height:1">'+(i+1)+'</div>'+
+      '<div class="rank-num" style="font-size:22px;color:'+nc+';min-width:22px;line-height:1">'+(i+1)+'</div>'+
       '<div style="flex:1;min-width:0">'+
         '<div style="display:flex;align-items:center;gap:6px;min-width:0">'+
         (function(){var pc=PP_COLORS[s.horse.pp]||{bg:'#555',t:'#fff'};return '<span style="display:inline-flex;align-items:center;justify-content:center;background:'+pc.bg+';color:'+pc.t+';font-size:15px;font-weight:800;min-width:30px;height:26px;border-radius:4px;flex-shrink:0;border:2px solid rgba(255,255,255,0.2)">'+s.horse.pp+'</span>';})()+
-        '<span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.horse.disp||s.name)+'</span>'+
+        '<span class="horse-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.horse.disp||s.name)+'</span>'+
+        (i===0?'<span class="pill" style="border-color:var(--gold);color:var(--gold);background:var(--brass-soft);font-weight:600;letter-spacing:1px;font-size:10px">★ TOP PICK</span>':'')+
         '</div>'+
+        ((s.horse.jockey||s.horse.trainer)?'<div class="horse-sub">'+[s.horse.jockey?'J. '+s.horse.jockey:'',s.horse.trainer?'T. '+s.horse.trainer:''].filter(Boolean).join(' · ')+'</div>':'')+
         flagPills(s.horse,race.n)+
         whyBadge(s)+
         // Beyer trend pill — only show if we have 2+ actual Beyer figures to compare
@@ -1204,15 +1261,15 @@ function renderRankings(){
           var wks = s.horse && s.horse.wk ? s.horse.wk.filter(function(w){return (w.beyer||w.figure||0)>0;}) : [];
           if(wks.length < 2) return ''; // not enough data — don't show
           var ts = s.trendScore || 0;
-          if(ts >= 70) return '<span style="font-size:9px;font-weight:700;background:#e8f2e8;color:#4ec97e;border:1px solid #4ec97e;border-radius:3px;padding:2px 6px">↑ IMPROVING</span>';
-          if(ts <= 15) return '<span style="font-size:9px;font-weight:700;background:#200505;color:#e05555;border:1px solid #e05555;border-radius:3px;padding:2px 6px">↓ DECLINING</span>';
+          if(ts >= 70) return '<span class="pill pill-green">↑ IMPROVING</span>';
+          if(ts <= 15) return '<span class="pill pill-red">↓ DECLINING</span>';
           return '';
         })()+
         // E1/E2 pace edge pill
         (function(){
           var nn=(s.horse.notes||'').toLowerCase();
           var e2m=nn.match(/e2[:\s]+(\d+)/);
-          if(e2m && parseInt(e2m[1])>=95) return '<span style="font-size:9px;font-weight:700;background:#dde6f0;color:#6aabbb;border:1px solid #6aabbb;border-radius:3px;padding:2px 6px">⚡ PACE EDGE</span>';
+          if(e2m && parseInt(e2m[1])>=95) return '<span class="pill pill-blue">⚡ PACE EDGE</span>';
           return '';
         })()+
         (s.wkScore>0?(function(){
@@ -1220,37 +1277,34 @@ function renderRankings(){
           var wkArr=s.horse.wk||[];
           var isElite=wkArr.length&&wkArr[0].field>0&&(wkArr[0].rank/wkArr[0].field)<0.15;
           var label=isBullet?'\u25cf BULLET +'+s.wkScore:isElite?'\u2605 WRK +'+s.wkScore:'WRK +'+s.wkScore;
-          var bg=isBullet?'#ede3f5':isElite?'#e8f2e8':'#101028';
-          var cl=isBullet?'#b48cf8':isElite?'#4ec97e':'#8888cc';
-          var bd=isBullet?'#3a2060':isElite?'#0d4f3c':'#202040';
-          return '<span style="font-size:10px;background:'+bg+';color:'+cl+';border:1px solid '+bd+';padding:1px 7px;border-radius:20px;flex-shrink:0">'+label+'</span>';
+          var tone=isBullet?'purple':isElite?'green':'blue';
+          return '<span class="pill pill-'+tone+'">'+label+'</span>';
         })():'')+
-        (s.newTrnBonus>0?'<span style="font-size:10px;background:#ede3f5;color:#b48cf8;border:1px solid #3a2060;padding:1px 7px;border-radius:20px;flex-shrink:0">NEW TRN +'+s.newTrnBonus+'</span>':'')+
-        (s.extremeDropBonus>0?'<span style="font-size:10px;background:#e8f2e8;color:#4ec97e;border:1px solid #0d4f3c;padding:1px 7px;border-radius:20px;flex-shrink:0">BIG DROP +'+s.extremeDropBonus+'</span>':'')+
+        (s.newTrnBonus>0?'<span class="pill pill-purple">NEW TRN +'+s.newTrnBonus+'</span>':'')+
+        (s.extremeDropBonus>0?'<span class="pill pill-green">BIG DROP +'+s.extremeDropBonus+'</span>':'')+
         ((s.distFitAdj&&s.distFitAdj!==0&&s.distFitAdj!==2)?(function(){
           var df=s.horse.distFit||'';
           var labels={'proven':'✓ DIST +5','stretching':'↑ DIST -3','shortening':'↓ DIST +3','debut_dist':'NEW DIST -2'};
-          var colors={'proven':'#4ec97e','stretching':'#d4904a','shortening':'#6aabbb','debut_dist':'#aaaa44'};
-          var bgs={'proven':'#e8f2e8','stretching':'#fbf3d8','shortening':'#001a10','debut_dist':'#fbf3d8'};
-          var bds={'proven':'#0d4f3c','stretching':'#3a2000','shortening':'#003020','debut_dist':'#3a3a00'};
+          var tones={'proven':'green','stretching':'orange','shortening':'blue','debut_dist':'olive'};
           if(!labels[df]) return '';
-          return '<span style="font-size:10px;background:'+bgs[df]+';color:'+colors[df]+';border:1px solid '+bds[df]+';padding:1px 7px;border-radius:20px;flex-shrink:0">'+labels[df]+'</span>';
+          return '<span class="pill pill-'+tones[df]+'">'+labels[df]+'</span>';
         })():'')+
       '</div>'+
       '<div class="pbar" style="flex:1;min-width:60px;max-width:120px"><div class="pbar-fill" style="width:'+Math.min(100,s.score)+'%"></div></div>'+
-      '<div style="font-size:11px;color:var(--dim);min-width:44px;text-align:right">'+pr2+'%</div>'+
-      '<div class="bebas" style="font-size:18px;color:'+nc+';min-width:36px;text-align:right">'+s.score+'</div>'+
-      // ML + Live odds side by side
+      '<div class="pct" style="font-size:11px;color:var(--dim);min-width:44px;text-align:right">'+pr2+'%</div>'+
+      '<div class="score-num" style="font-size:22px;color:'+nc+';min-width:40px;text-align:right">'+s.score+'</div>'+
+      // ML + Live odds — DRF-style stacked: Oswald caps label above monospace value
       (function(){
         var ml=s.horse.ml||'—';
         var live=getOdds(CUR,s.name);
         var hasLive=live&&live!==ml&&live!=='—';
         var mlDec=BettingCore.mlToDecimal(ml);
         var liveDec=hasLive?BettingCore.mlToDecimal(live):mlDec;
-        var movColor=hasLive?(liveDec<mlDec*0.8?'var(--green)':liveDec>mlDec*1.3?'var(--red)':'var(--blue)'):'var(--blue)';
-        return '<div style="display:flex;flex-direction:column;align-items:center;gap:1px;min-width:56px">'+
-          '<div style="font-size:10px;color:var(--dim)">'+ml+'</div>'+
-          (hasLive?'<div style="font-size:11px;font-weight:600;color:'+movColor+';background:#ede5cc;padding:1px 8px;border-radius:20px">'+live+'</div>':'<div style="font-size:11px;color:var(--blue);background:#ede5cc;padding:1px 8px;border-radius:20px">'+ml+'</div>')+
+        var movColor=hasLive?(liveDec<mlDec*0.8?'var(--green)':liveDec>mlDec*1.3?'var(--red)':'var(--text)'):'var(--text)';
+        var arrow=hasLive?(liveDec<mlDec*0.8?'↓':liveDec>mlDec*1.3?'↑':''):'';
+        return '<div class="ml-stack" style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:62px;border-left:1px solid var(--rule2);padding-left:10px">'+
+          '<div class="ml-label" style="font-size:9.5px;color:var(--dim);font-family:\'Oswald\',sans-serif;letter-spacing:1px;font-weight:600">ML '+ml+'</div>'+
+          '<div class="ml-val" style="font-size:13px;font-weight:700;color:'+movColor+';font-family:\'JetBrains Mono\',monospace;line-height:1">'+(hasLive?live:ml)+arrow+'</div>'+
         '</div>';
       })()+
       '</div>'+
@@ -1443,34 +1497,34 @@ function whyBadge(s){
 
   var reasons = [];
 
-  // Build reason list ranked by contribution
-  if(s.lasixFirst > 0)   reasons.push({label:'1ST LASIX', score:s.lasixFirst, color:'#4ec97e', bg:'#e8f2e8'});
-  if(s.blinkFirst > 0)   reasons.push({label:'BLINKERS ON', score:s.blinkFirst, color:'#b48cf8', bg:'#ede3f5'});
-  if(s.extremeDropBonus > 0) reasons.push({label:'BIG DROP', score:s.extremeDropBonus, color:'#4ec97e', bg:'#0a2010'});
-  if(s.newTrnBonus > 0)  reasons.push({label:'NEW TRAINER', score:s.newTrnBonus, color:'#c8a84b', bg:'#1a1500'});
-  if(s.stakesBonus > 0)  reasons.push({label:'STAKES BRED', score:s.stakesBonus, color:'#f0c850', bg:'#fbf3d8'});
+  // Build reason list ranked by contribution — tones map to .pill utility classes
+  if(s.lasixFirst > 0)   reasons.push({label:'1ST LASIX',   score:s.lasixFirst,       tone:'green'});
+  if(s.blinkFirst > 0)   reasons.push({label:'BLINKERS ON', score:s.blinkFirst,       tone:'purple'});
+  if(s.extremeDropBonus > 0) reasons.push({label:'BIG DROP',score:s.extremeDropBonus, tone:'green'});
+  if(s.newTrnBonus > 0)  reasons.push({label:'NEW TRAINER', score:s.newTrnBonus,      tone:'brass'});
+  if(s.stakesBonus > 0)  reasons.push({label:'STAKES BRED', score:s.stakesBonus,      tone:'brass'});
 
   // Component scores — find dominant factor
   var components = [
-    {label:'SPEED', score: s.spdRaw||0, color:'#e07733', bg:'#fbf3d8'},
-    {label:'FORM',  score: s.frmRaw||0, color:'#4ec97e', bg:'#e8f2e8'},
-    {label:'CLASS', score: s.clsRaw||0, color:'#b48cf8', bg:'#ede3f5'},
-    {label:'PACE',  score: s.pceRaw||0, color:'#6aabbb', bg:'#dde6f0'},
+    {label:'SPEED', score: s.spdRaw||0, tone:'orange'},
+    {label:'FORM',  score: s.frmRaw||0, tone:'green'},
+    {label:'CLASS', score: s.clsRaw||0, tone:'purple'},
+    {label:'PACE',  score: s.pceRaw||0, tone:'blue'},
   ];
   var topComp = components.reduce(function(a,b){return a.score>b.score?a:b;}, {score:0});
 
   // Jockey dominance
   var jEff = Math.max(s.horse ? (s.horse.j||10) : 10, 10);
-  if(jEff >= 25) reasons.push({label:'HOT JOCK '+jEff+'%', score:jEff, color:'#c8a84b', bg:'#fbf3d8'});
-  else if(jEff >= 20) reasons.push({label:'JOC '+jEff+'%', score:jEff*0.5, color:'#aaaa66', bg:'#151500'});
+  if(jEff >= 25) reasons.push({label:'HOT JOCK '+jEff+'%', score:jEff,     tone:'brass'});
+  else if(jEff >= 20) reasons.push({label:'JOC '+jEff+'%', score:jEff*0.5, tone:'olive'});
 
   // Distance proven
-  if(s.distFitAdj >= 5) reasons.push({label:'PROVEN DIST', score:5, color:'#6aabbb', bg:'#dde6f0'});
+  if(s.distFitAdj >= 5) reasons.push({label:'PROVEN DIST', score:5, tone:'blue'});
 
   // Bullet workout
-  if(s.trendScore >= 70) reasons.push({label:'IMPROVING', score:s.trendScore*0.5, color:'#4ec97e', bg:'#e8f2e8'});
-  if(s.trendScore <= 15) reasons.push({label:'DECLINING', score:20, color:'#e05555', bg:'#200505'});
-  if(s.bulletBonus > 0)  reasons.push({label:'BULLET WRK', score:s.bulletBonus, color:'#b48cf8', bg:'#ede3f5'});
+  if(s.trendScore >= 70) reasons.push({label:'IMPROVING', score:s.trendScore*0.5, tone:'green'});
+  if(s.trendScore <= 15) reasons.push({label:'DECLINING', score:20,               tone:'red'});
+  if(s.bulletBonus > 0)  reasons.push({label:'BULLET WRK', score:s.bulletBonus,   tone:'purple'});
 
   // Pick the top reason by score
   var allReasons = reasons.concat([topComp]);
@@ -1478,9 +1532,7 @@ function whyBadge(s){
   var top = allReasons[0];
   if(!top || top.score <= 0) return '';
 
-  return '<span style="font-size:9px;font-weight:700;background:'+top.bg+
-    ';color:'+top.color+';border:1px solid '+top.color+'44;'+
-    'border-radius:3px;padding:2px 6px;letter-spacing:.3px">'+top.label+'</span>';
+  return '<span class="pill pill-'+top.tone+'">'+top.label+'</span>';
 }
 
 
@@ -1628,41 +1680,45 @@ function generateThesis(s, prob, rank, race, raceIdx, allScored) {
 function flagPills(h,rn){
   var nn=(h.notes||'').toLowerCase();
   var pills=[];
+  // Unified pill — uses .pill utility class (Keeneland tones). Soft variant drops caps emphasis.
+  function P(tone,txt,soft){
+    return '<span class="pill pill-'+tone+(soft?' pill-soft':'')+'">'+txt+'</span>';
+  }
   // Null-safe layoff: use actual days, fall back to last workout + 7, skip badge if unknown
   var lo=(h.layoff!=null&&h.layoff>0) ? h.layoff :
          (h.wk&&h.wk.length&&typeof h.wk[0]==='object'&&h.wk[0].daysAgo>0 ? h.wk[0].daysAgo+7 : null);
   if(lo!=null){
-    var lbg,lcl,ltx;
-    if(lo<=14){lbg='#e8f2e8';lcl='#4ec97e';ltx=lo+'d fresh';}
-    else if(lo<=28){lbg='#dde6f0';lcl='#6aabbb';ltx=lo+'d';}
-    else if(lo<=45){lbg='#1a1a0d';lcl='#aaaa66';ltx=lo+'d';}
-    else if(lo<=90){lbg='#2a1a0a';lcl='#d4904a';ltx=lo+'d rust';}
-    else{lbg='#2a0a0a';lcl='#e05555';ltx=lo+'d LAYOFF';}
-    pills.push('<span style="font-size:9px;background:'+lbg+';color:'+lcl+';border-radius:3px;padding:1px 5px">'+ltx+'</span>');
+    var lt,lx;
+    if(lo<=14){lt='green';lx=lo+'d fresh';}
+    else if(lo<=28){lt='blue';lx=lo+'d';}
+    else if(lo<=45){lt='olive';lx=lo+'d';}
+    else if(lo<=90){lt='orange';lx=lo+'d rust';}
+    else{lt='red';lx=lo+'d LAYOFF';}
+    pills.push(P(lt,lx,true));
   }
   var cc=h.cc||0;
-  if(cc<=-20)pills.push('<span style="font-size:9px;font-weight:700;background:#e8f2e8;color:#4ec97e;border:1px solid #4ec97e;border-radius:3px;padding:2px 7px">⬇ DROP $'+Math.abs(cc)+'K</span>');
-  else if(cc<=-10)pills.push('<span style="font-size:9px;font-weight:700;background:#e8f2e8;color:#4ec97e;border:1px solid #2a6040;border-radius:3px;padding:2px 7px">↓ DROP $'+Math.abs(cc)+'K</span>');
-  else if(cc<0)pills.push('<span style="font-size:9px;background:#0d1a10;color:#6ec090;border:1px solid #0d4f3c;border-radius:3px;padding:2px 7px">↓ drop $'+Math.abs(cc)+'K</span>');
-  else if(cc>=20)pills.push('<span style="font-size:9px;font-weight:700;background:#200505;color:#e05555;border:1px solid #e05555;border-radius:3px;padding:2px 7px">⬆ UP $'+cc+'K</span>');
-  else if(cc>=10)pills.push('<span style="font-size:9px;font-weight:700;background:#1a0808;color:#e05555;border:1px solid #602020;border-radius:3px;padding:2px 7px">↑ UP $'+cc+'K</span>');
-  else if(cc>0)pills.push('<span style="font-size:9px;background:#150808;color:#cc6666;border:1px solid #401515;border-radius:3px;padding:2px 7px">↑ up $'+cc+'K</span>');
-  if(nn.indexOf('bullet')>-1||(h.wk&&h.wk.length>0&&h.wk[0].bullet))pills.push('<span style="font-size:9px;background:#ede3f5;color:#b48cf8;border-radius:3px;padding:1px 5px">🔵 BULLET</span>');
-  else if(h.wk&&h.wk.length>0&&(h.wk[0].rank/Math.max(1,h.wk[0].field))<0.15)pills.push('<span style="font-size:9px;background:#0d1a10;color:var(--green);border-radius:3px;padding:1px 5px">★ ELITE WRK</span>');
-  else if(nn.indexOf('sharp work')>-1||nn.indexOf('works well')>-1)pills.push('<span style="font-size:9px;background:#101020;color:#888;border-radius:3px;padding:1px 5px">SHARP WRK</span>');
+  if(cc<=-20)pills.push(P('green','⬇ DROP $'+Math.abs(cc)+'K'));
+  else if(cc<=-10)pills.push(P('green','↓ DROP $'+Math.abs(cc)+'K'));
+  else if(cc<0)pills.push(P('green','↓ drop $'+Math.abs(cc)+'K',true));
+  else if(cc>=20)pills.push(P('red','⬆ UP $'+cc+'K'));
+  else if(cc>=10)pills.push(P('red','↑ UP $'+cc+'K'));
+  else if(cc>0)pills.push(P('red','↑ up $'+cc+'K',true));
+  if(nn.indexOf('bullet')>-1||(h.wk&&h.wk.length>0&&h.wk[0].bullet))pills.push(P('purple','🔵 BULLET'));
+  else if(h.wk&&h.wk.length>0&&(h.wk[0].rank/Math.max(1,h.wk[0].field))<0.15)pills.push(P('green','★ ELITE WRK'));
+  else if(nn.indexOf('sharp work')>-1||nn.indexOf('works well')>-1)pills.push(P('blue','SHARP WRK',true));
   var heqf=h.eq||{lf:false,lo:false,bf:false,bl:false};
-  if(heqf.lf)pills.push('<span style="font-size:9px;background:#0a1a30;color:#60b8ff;border-radius:3px;padding:1px 5px;font-weight:700">LASIX 1ST</span>');
-  else if(heqf.lo)pills.push('<span style="font-size:9px;background:#080f1a;color:#4488cc;border-radius:3px;padding:1px 5px">LASIX</span>');
-  if(heqf.bf)pills.push('<span style="font-size:9px;background:#1a0a30;color:#c090ff;border-radius:3px;padding:1px 5px;font-weight:700">BLINK 1ST</span>');
-  if(nn.indexOf('stakes')>-1||nn.indexOf('grade')>-1)pills.push('<span style="font-size:9px;background:#ede3f5;color:#c490f8;border-radius:3px;padding:1px 5px">STAKES</span>');
+  if(heqf.lf)pills.push(P('blue','LASIX 1ST'));
+  else if(heqf.lo)pills.push(P('blue','LASIX',true));
+  if(heqf.bf)pills.push(P('purple','BLINK 1ST'));
+  if(nn.indexOf('stakes')>-1||nn.indexOf('grade')>-1)pills.push(P('purple','STAKES',true));
   // Distance fit badge
   var df=h.distFit||'';
-  if(df==='proven')pills.push('<span style="font-size:9px;background:#e8f2e8;color:#4ec97e;border-radius:3px;padding:1px 5px">✓ DIST</span>');
-  else if(df==='stretching')pills.push('<span style="font-size:9px;background:#fbf3d8;color:#d4904a;border-radius:3px;padding:1px 5px">↑ DIST</span>');
-  else if(df==='shortening')pills.push('<span style="font-size:9px;background:#001a10;color:#6aabbb;border-radius:3px;padding:1px 5px">↓ DIST</span>');
-  else if(df==='debut_dist')pills.push('<span style="font-size:9px;background:#fbf3d8;color:#aaaa44;border-radius:3px;padding:1px 5px">NEW DIST</span>');
+  if(df==='proven')pills.push(P('green','✓ DIST',true));
+  else if(df==='stretching')pills.push(P('orange','↑ DIST',true));
+  else if(df==='shortening')pills.push(P('blue','↓ DIST',true));
+  else if(df==='debut_dist')pills.push(P('olive','NEW DIST',true));
   var eq=(eqChange[rn]&&eqChange[rn][h.name])||0;
-  if(eq>0)pills.push('<span style="font-size:9px;background:#101a30;color:#90b8f8;border-radius:3px;padding:1px 5px">BLINK+</span>');
+  if(eq>0)pills.push(P('blue','BLINK+',true));
 
   // ── CLAIMING TRAINER ANGLE ───────────────────────────────────
   // Flag when trainer has strong claim win% AND good ROI — Winter's Ghost lesson
@@ -1675,7 +1731,7 @@ function flagPills(h,rn){
       claimAngle=true; break;
     }
   }
-  if(claimAngle) pills.push('<span style="font-size:9px;font-weight:700;background:#fbf3d8;color:#f0c850;border:1px solid #f0c85088;border-radius:3px;padding:2px 7px">🎯 CLAIM ANGLE</span>');
+  if(claimAngle) pills.push(P('brass','🎯 CLAIM ANGLE'));
 
   // ── CLASS DROP ORIGIN ────────────────────────────────────────
   // ALW/OC/Stakes → claim = red flag (connections giving up)
@@ -1685,8 +1741,8 @@ function flagPills(h,rn){
   var claimLast = parseFloat(h.lastClaimPrice||0);
   var isAlwDrop = claimNow>0 && (lastClassStr.indexOf('ALW')>-1||lastClassStr.indexOf('OC ')>-1||lastClassStr.indexOf('ALLOW')>-1||lastClassStr.indexOf('STK')>-1||lastClassStr.indexOf('STAKE')>-1||lastClassStr.indexOf('MSW')>-1||lastClassStr.indexOf('MDN SP')>-1);
   var isClaimDrop = claimNow>0 && claimLast>0 && claimLast>claimNow;
-  if(isAlwDrop) pills.push('<span style="font-size:9px;font-weight:700;background:#200808;color:#e05555;border:1px solid #e0555588;border-radius:3px;padding:2px 7px">⚠️ ALW DROP</span>');
-  else if(isClaimDrop) pills.push('<span style="font-size:9px;font-weight:700;background:#e8f2e8;color:#4ec97e;border:1px solid #4ec97e88;border-radius:3px;padding:2px 7px">✅ CLM DROP</span>');
+  if(isAlwDrop) pills.push(P('red','⚠️ ALW DROP'));
+  else if(isClaimDrop) pills.push(P('green','✅ CLM DROP'));
 
   return pills.length?'<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px">'+pills.join('')+'</div>':'';
 }
@@ -1696,7 +1752,7 @@ function liveUpdatesPanel(rn,name,horse){
   var eq=(eqChange[rn]&&eqChange[rn][name])||0;
   var jOvr=jockeyOvr[rn]&&jockeyOvr[rn][name]!=null?jockeyOvr[rn][name]:horse.j;
   var changed=jOvr!==horse.j;
-  return '<div style="background:#080814;border:1px solid var(--border);border-radius:7px;padding:9px 12px;margin-top:8px">'+
+  return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:9px 12px;margin-top:8px">'+
     '<div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Race-Day Overrides</div>'+
     '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">'+
     '<span style="font-size:11px;color:var(--muted)">Blinkers on:</span>'+
@@ -1900,7 +1956,7 @@ function renderExotics(){
   // Build race cards into html string
   function _renderExoticRace(rc){
     var race=rc.race;
-    var confColor=rc.exoticConf==='strong'?'var(--green)':rc.exoticConf==='good'?'var(--gold)':'var(--dim)';
+    var confTone=rc.exoticConf==='strong'?'green':rc.exoticConf==='good'?'brass':'muted';
     var confLabel=rc.exoticConf==='strong'?'STRONG':rc.exoticConf==='good'?'GOOD':'MARGINAL';
     var borderStyle=rc._featured?'border-left:3px solid var(--gold);':'';
 
@@ -1910,7 +1966,7 @@ function renderExotics(){
         (rc._medal?'<span style="font-size:16px">'+rc._medal+'</span>':'')+
         '<span class="bebas" style="font-size:15px;color:var(--gold);background:#f5efe0;border:1px solid var(--gold);padding:1px 8px;border-radius:4px">R'+race.n+'</span>'+
         '<span style="font-size:11px;color:var(--muted)">'+race.d+' · '+race.ty+'</span>'+
-        '<span style="font-size:9px;font-weight:700;color:'+confColor+';background:rgba(0,0,0,0.3);border:1px solid '+confColor+';padding:2px 8px;border-radius:3px">'+confLabel+'</span>'+
+        '<span class="pill pill-'+confTone+'">'+confLabel+'</span>'+
         '<span style="font-size:11px;color:var(--dim);margin-left:auto">Gap: '+rc.gap+' · Score: '+rc.exoticScore+'</span>'+
       '</div>'+
       // Horses — compact inline
@@ -1934,14 +1990,14 @@ function renderExotics(){
     html+='</div>'+
       // Bet recommendations — compact row
       '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">'+
-        '<div style="background:#ede3f5;border:1px solid #4a5a8a;border-radius:6px;padding:5px 12px;flex:1;min-width:180px">'+
+        '<div style="background:var(--blue-soft);border:1px solid var(--blue);border-radius:6px;padding:5px 12px;flex:1;min-width:180px">'+
           '<span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">EXA BOX '+rc.exaHorses.length+'H</span> '+
           '<span style="font-size:13px;color:var(--blue);font-weight:700">'+rc.exaHorses.map(function(s2){var pp2=s2.horse?s2.horse.pp:'?';var pc2=PP_COLORS[pp2]||{bg:'#555',t:'#fff'};return '<span style="display:inline-flex;align-items:center;justify-content:center;background:'+pc2.bg+';color:'+pc2.t+';font-size:12px;font-weight:800;min-width:22px;height:20px;border-radius:3px;margin:0 1px;vertical-align:middle">'+pp2+'</span> '+(s2.horse?s2.horse.disp||s2.name:s2.name).split(' ')[0];}).join(' / ')+'</span>'+
           ' <span style="font-size:11px;color:var(--text)">$'+rc.exaCost+'</span>'+
         '</div>'+
-        '<div style="background:#ede3f5;border:1px solid #6a5a8a;border-radius:6px;padding:5px 12px;flex:1;min-width:180px">'+
+        '<div style="background:var(--purple-soft);border:1px solid var(--purple);border-radius:6px;padding:5px 12px;flex:1;min-width:180px">'+
           '<span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">TRI BOX 4H</span> '+
-          '<span style="font-size:13px;color:#b48cf8;font-weight:700">'+rc.triHorses.map(function(s2){var pp2=s2.horse?s2.horse.pp:'?';var pc2=PP_COLORS[pp2]||{bg:'#555',t:'#fff'};return '<span style="display:inline-flex;align-items:center;justify-content:center;background:'+pc2.bg+';color:'+pc2.t+';font-size:12px;font-weight:800;min-width:22px;height:20px;border-radius:3px;margin:0 1px;vertical-align:middle">'+pp2+'</span> '+(s2.horse?s2.horse.disp||s2.name:s2.name).split(' ')[0];}).join(' / ')+'</span>'+
+          '<span style="font-size:13px;color:var(--purple);font-weight:700">'+rc.triHorses.map(function(s2){var pp2=s2.horse?s2.horse.pp:'?';var pc2=PP_COLORS[pp2]||{bg:'#555',t:'#fff'};return '<span style="display:inline-flex;align-items:center;justify-content:center;background:'+pc2.bg+';color:'+pc2.t+';font-size:12px;font-weight:800;min-width:22px;height:20px;border-radius:3px;margin:0 1px;vertical-align:middle">'+pp2+'</span> '+(s2.horse?s2.horse.disp||s2.name:s2.name).split(' ')[0];}).join(' / ')+'</span>'+
           ' <span style="font-size:11px;color:var(--text)">$'+rc.triCost+'</span>'+
         '</div>'+
       '</div>'+
@@ -2408,7 +2464,7 @@ function renderNews(){
       '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">'+
         '<span class="bebas" style="font-size:15px;color:var(--gold)">R'+race.n+'</span>'+
         '<span style="font-size:11px;color:var(--muted)">'+race.d+' · '+(race.ty||'')+'</span>'+
-        (rType?'<span style="font-size:9px;background:#ede3f5;color:#b48cf8;padding:1px 6px;border-radius:3px">'+rType+'</span>':'')+
+        (rType?'<span class="pill pill-purple pill-soft">'+rType+'</span>':'')+
         '<span style="font-size:10px;color:var(--dim);margin-left:auto">'+horses.length+' runners</span>'+
       '</div>';
 
@@ -2525,8 +2581,8 @@ function renderOdds(){
     var cur=getOdds(CUR,h.name);
     var mlD=mlDec(h.ml),curD=mlDec(cur);
     var mov='',movBadge='';
-    if(curD>mlD*1.8){mov='<span style="color:var(--blue);font-size:11px">↑ Drifting</span>';movBadge='<span style="font-size:9px;font-weight:700;color:#6aabff;background:#dde6f0;border:1px solid #203050;border-radius:3px;padding:1px 6px;margin-right:4px">FADE</span>';}
-    else if(curD<mlD*0.55){mov='<span style="color:var(--green);font-size:11px">↓ Shortening</span>';movBadge='<span style="font-size:9px;font-weight:700;color:#ff8040;background:#1a1008;border:1px solid #503010;border-radius:3px;padding:1px 6px;margin-right:4px">STEAM</span>';}
+    if(curD>mlD*1.8){mov='<span style="color:var(--blue);font-size:11px">↑ Drifting</span>';movBadge='<span class="pill pill-blue" style="margin-right:4px">FADE</span>';}
+    else if(curD<mlD*0.55){mov='<span style="color:var(--green);font-size:11px">↓ Shortening</span>';movBadge='<span class="pill pill-orange" style="margin-right:4px">STEAM</span>';}
     else if(curD<mlD*0.9){mov='<span style="color:var(--green);font-size:11px">↓ Shortening</span>';}
     else if(curD>mlD*1.1){mov='<span style="color:var(--dim);font-size:11px">↑ Drifting</span>';}
     html+='<tr class="'+(isScr?'scr':'')+'" id="orow-'+CUR+'-'+h.name.replace(/\s/g,'_')+'">'+
@@ -2791,7 +2847,7 @@ function openResultsModal(raceIdx) {
       '</table>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
         '<button onclick="fetchTVGResults(' + raceIdx + ')" ' +
-          'style="font-size:11px;padding:6px 14px;border-radius:6px;border:1px solid var(--blue);background:#0d1828;color:var(--blue);cursor:pointer">' +
+          'style="font-size:11px;padding:6px 14px;border-radius:6px;border:1px solid var(--blue);background:var(--blue-soft);color:var(--blue);cursor:pointer;font-weight:600">' +
           '🔄 Auto-fill from TVG</button>' +
         '<button onclick="submitResults(' + raceIdx + ',' + JSON.stringify(horses).replace(/"/g,"'") + ')" ' +
           'style="font-size:11px;padding:6px 16px;border-radius:6px;border:1px solid var(--green);background:#e8f2e8;color:var(--green);cursor:pointer;margin-left:auto;font-weight:600">' +
@@ -3554,7 +3610,7 @@ function renderAnalysis() {
       '<div style="font-size:12px;color:var(--dim);margin-bottom:12px">Aggregate performance across all saved cards. Backfill results from TVG, then analyze.</div>' +
       '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">' +
         '<button id="backfill-btn" onclick="backfillAllCards()" style="font-size:12px;padding:8px 20px;border-radius:6px;border:1px solid var(--gold);background:#fbf3d8;color:var(--gold);cursor:pointer;font-weight:600">⚡ Backfill All Cards from TVG</button>' +
-        '<button onclick="loadAnalysisData()" style="font-size:12px;padding:8px 20px;border-radius:6px;border:1px solid var(--blue);background:#0d1828;color:var(--blue);cursor:pointer;font-weight:600">📊 Load Analysis</button>' +
+        '<button onclick="loadAnalysisData()" style="font-size:12px;padding:8px 20px;border-radius:6px;border:1px solid var(--blue);background:var(--blue-soft);color:var(--blue);cursor:pointer;font-weight:600">📊 Load Analysis</button>' +
       '</div>' +
       '<div id="backfill-status" style="font-size:11px;color:var(--dim);margin-top:8px;min-height:18px"></div>' +
     '</div>' +
