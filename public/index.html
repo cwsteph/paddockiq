@@ -116,9 +116,9 @@ select{font-family:'Inter',system-ui,sans-serif}
 
 /* Stat boxes — subtle green left tick */
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:12px}
-.stat-box{background:var(--bg);border:1px solid var(--rule2);border-left:3px solid var(--green);border-radius:4px;padding:9px 12px}
-.stat-l{font-family:'Oswald',sans-serif;font-size:10px;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;font-weight:700}
-.stat-v{font-family:'Playfair Display',serif;font-size:22px;font-weight:800;letter-spacing:0.2px;color:var(--text)}
+.stat-box{background:var(--bg3);border:1px solid var(--border);border-left:4px solid var(--green);border-radius:4px;padding:10px 14px}
+.stat-l{font-family:'Oswald',sans-serif;font-size:10px;color:var(--green);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:3px;font-weight:700}
+.stat-v{font-family:'Bebas Neue','Oswald',sans-serif;font-size:20px;font-weight:800;letter-spacing:0.4px;color:var(--text);line-height:1.05}
 
 /* Badges / pills */
 .pill{display:inline-block;padding:3px 10px;border-radius:20px;border:1px solid var(--border);font-size:11px;background:transparent;color:var(--muted);white-space:nowrap;transition:all .15s;font-family:'Oswald',sans-serif;letter-spacing:0.5px;font-weight:500}
@@ -336,7 +336,7 @@ select{font-family:'Inter',system-ui,sans-serif}
   <div id="tab-rankings"></div>
   <div id="tab-odds" style="display:none"></div>
   <div id="tab-exotics" style="display:none"></div>
-  <div id="tab-analysis" style="display:none;--dim:#777;--muted:#aaa;font-size:13px"></div>
+  <div id="tab-analysis" style="display:none;--dim:#6b6558;--muted:#4a4438;--gold:#7a5a1f;--blue:#122a47;--green:#093729;--red:#6e1a26;font-size:13px"></div>
   <div id="tab-news" style="display:none"></div>
 </div>
 
@@ -1125,8 +1125,8 @@ function renderRankings(){
           var bf=top.horse.beyerFigs||[];
           if(bf.length>=2){
             var trend=bf[0]-bf[1];
-            if(trend>=5) parts.push('Beyers trending up (<b>'+bf.slice(0,3).join('→')+'</b>).');
-            else if(trend<=-5) parts.push('Beyers declining ('+bf.slice(0,3).join('→')+') — regression risk.');
+            if(trend>=5) parts.push('Beyers trending up (<b>'+bf.slice(0,3).slice().reverse().join('→')+'</b>).');
+            else if(trend<=-5) parts.push('Beyers declining ('+bf.slice(0,3).slice().reverse().join('→')+') — regression risk.');
             else if(bf[0]>=70) parts.push('Top Beyer of <b>'+bf[0]+'</b>.');
           }
           // Class
@@ -1172,7 +1172,7 @@ function renderRankings(){
           '<div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;text-align:right">Recommended Bet'+(_kellyAmt<=0?' <span style="color:#b89040">(min. conf bet)</span>':'')+'</div>'+
           '<div style="font-size:9px;color:#555;text-align:right">Budget: $'+perRaceCap.toFixed(0)+'/race · '+qualCount+' qualifying races</div>'+
           '<button onclick="logBet(\''+top.name.replace(/'/g,'\\\'')+'\',' +ka+')" style="'+
-            'background:'+(cf==='high'?'var(--green-soft)':cf==='medium'?'var(--brass-soft)':'var(--red-soft)')+';'+
+            'background:'+(cf==='high'?'#7fc89c':cf==='medium'?'var(--brass-soft)':'#d8a8b2')+';'+
             'border:2px solid '+(cf==='high'?'var(--green)':cf==='medium'?'var(--gold)':'var(--red)')+';'+
             'color:'+(cf==='high'?'var(--green)':cf==='medium'?'var(--gold)':'var(--red)')+';'+
             'border-radius:8px;padding:8px 16px;cursor:pointer;font-family:\'Bebas Neue\',sans-serif;font-size:18px;letter-spacing:1px;min-width:170px;text-align:center">'+
@@ -1627,8 +1627,8 @@ function generateThesis(s, prob, rank, race, raceIdx, allScored) {
   var bf = h.beyerFigs || [];
   if (bf.length >= 2) {
     var trend = bf[0] - bf[1];
-    if (trend >= 5) parts.push('Beyers trending up (' + bf.slice(0, 3).join('-') + ').');
-    else if (trend <= -5) parts.push('Beyers declining (' + bf.slice(0, 3).join('-') + ') — regression risk.');
+    if (trend >= 5) parts.push('Beyers trending up (' + bf.slice(0, 3).slice().reverse().join('-') + ').');
+    else if (trend <= -5) parts.push('Beyers declining (' + bf.slice(0, 3).slice().reverse().join('-') + ') — regression risk.');
     else if (bf[0] >= 75) parts.push('Top Beyer of ' + bf[0] + ' is best in field.');
   }
 
@@ -3610,7 +3610,7 @@ function renderAnalysis() {
       '<div style="font-size:12px;color:var(--dim);margin-bottom:12px">Aggregate performance across all saved cards. Backfill results from TVG, then analyze.</div>' +
       '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">' +
         '<button id="backfill-btn" onclick="backfillAllCards()" style="font-size:12px;padding:8px 20px;border-radius:6px;border:1px solid var(--gold);background:#fbf3d8;color:var(--gold);cursor:pointer;font-weight:600">⚡ Backfill All Cards from TVG</button>' +
-        '<button onclick="loadAnalysisData()" style="font-size:12px;padding:8px 20px;border-radius:6px;border:1px solid var(--blue);background:var(--blue-soft);color:var(--blue);cursor:pointer;font-weight:600">📊 Load Analysis</button>' +
+        '<button onclick="loadAnalysisData()" style="font-size:12px;padding:8px 22px;border-radius:6px;border:1.5px solid var(--gold);background:var(--gold);color:#fff;cursor:pointer;font-weight:700;letter-spacing:0.5px;box-shadow:0 1px 3px rgba(13,79,60,0.18)">📊 Load Analysis</button>' +
       '</div>' +
       '<div id="backfill-status" style="font-size:11px;color:var(--dim);margin-top:8px;min-height:18px"></div>' +
     '</div>' +
@@ -3722,7 +3722,7 @@ async function backfillAllCards() {
     window.R = origR; window.scratches = origScratches; window.cardInfo = origCardInfo;
     window.kaci = origKaci; window.liveOdds = origLiveOdds;
 
-    if (statusEl) { statusEl.style.color = 'var(--green)'; statusEl.textContent = '✅ Backfilled ' + totalRaces + ' races (' + totalSaved + ' horses) across ' + cards.length + ' cards'; }
+    if (statusEl) { statusEl.style.color = 'var(--dim)'; statusEl.textContent = '✅ Backfilled ' + totalRaces + ' races (' + totalSaved + ' horses) across ' + cards.length + ' cards'; }
 
     // Auto-load analysis
     await loadAnalysisData();
@@ -3746,7 +3746,7 @@ async function loadAnalysisData() {
       return;
     }
     _analysisCache = data;
-    if (statusEl) { statusEl.style.color = 'var(--green)'; statusEl.textContent = '✅ ' + data.totalRaces + ' races loaded across ' + data.tracks.join(', '); }
+    if (statusEl) { statusEl.style.color = 'var(--dim)'; statusEl.textContent = '✅ ' + data.totalRaces + ' races loaded across ' + data.tracks.join(', '); }
     showAnalysisFilters();
     buildAnalysisView();
   } catch (e) {
@@ -4019,18 +4019,18 @@ function buildAnalysisView() {
 
     html += '<div class="card"><div class="ctitle">Weight Sensitivity — Misses Only (' + missCount + ' races)</div>' +
       '<div style="font-size:11px;color:var(--dim);margin-bottom:10px">Avg component difference (winner − our pick). Positive = winners score higher here = potential under-weighting.</div>' +
-      '<div style="display:flex;flex-wrap:wrap;gap:8px">';
+      '<div style="display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto">';
     compDiffs.forEach(function(cd) {
       var barWidth = Math.min(100, Math.abs(cd.avgDiff) * 15);
       var color = cd.avgDiff > 0.5 ? 'var(--green)' : cd.avgDiff < -0.5 ? 'var(--red)' : 'var(--dim)';
-      var dir = cd.avgDiff > 0.5 ? '↑ Under-weighted' : cd.avgDiff < -0.5 ? '↓ Over-weighted' : '≈ OK';
-      html += '<div style="flex:1;min-width:105px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px">' +
+      var dir = cd.avgDiff > 0.5 ? '↑ Under' : cd.avgDiff < -0.5 ? '↓ Over' : '≈ OK';
+      html += '<div style="flex:1 1 0;min-width:0;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px">' +
         '<div style="font-size:10px;color:var(--dim);text-transform:uppercase;margin-bottom:4px">' + cd.label + '</div>' +
-        '<div style="font-size:18px;font-family:\'Bebas Neue\',sans-serif;color:' + color + '">' + (cd.avgDiff > 0 ? '+' : '') + cd.avgDiff.toFixed(2) + '</div>' +
+        '<div style="font-size:16px;font-family:\'Bebas Neue\',sans-serif;color:' + color + '">' + (cd.avgDiff > 0 ? '+' : '') + cd.avgDiff.toFixed(2) + '</div>' +
         '<div style="height:4px;background:#f5efe0;border-radius:2px;margin:4px 0;overflow:hidden">' +
           '<div style="height:100%;width:' + barWidth + '%;background:' + color + ';border-radius:2px"></div>' +
         '</div>' +
-        '<div style="font-size:9px;color:' + color + '">' + dir + '</div>' +
+        '<div style="font-size:9px;color:' + color + ';white-space:nowrap">' + dir + '</div>' +
       '</div>';
     });
     html += '</div></div>';
@@ -4106,14 +4106,14 @@ function buildAnalysisView() {
     '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Running Style Win Rates (609K runners)</div>' +
     '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">' +
     [
-      {label:'Leader', pct:16.3, n:'82,762', color:'#22c55e'},
-      {label:'Closer', pct:15.6, n:'28,707', color:'#3b82f6'},
-      {label:'Tracker', pct:15.5, n:'68,686', color:'#06b6d4'},
-      {label:'Speed', pct:14.7, n:'74,674', color:'#eab308'},
-      {label:'Midpack', pct:10.8, n:'96,162', color:'#f97316'},
-      {label:'Plodder', pct:9.0, n:'113,826', color:'#ef4444'},
+      {label:'Leader', pct:16.3, n:'82,762', color:'#15803d'},
+      {label:'Closer', pct:15.6, n:'28,707', color:'#1d4ed8'},
+      {label:'Tracker', pct:15.5, n:'68,686', color:'#0e7490'},
+      {label:'Speed', pct:14.7, n:'74,674', color:'#a16207'},
+      {label:'Midpack', pct:10.8, n:'96,162', color:'#c2410c'},
+      {label:'Plodder', pct:9.0, n:'113,826', color:'#b91c1c'},
     ].map(function(f){
-      return '<div style="flex:1;min-width:95px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">' +
+      return '<div style="flex:1;min-width:95px;background:var(--bg3);border:1px solid var(--gold);border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 2px rgba(13,79,60,0.06)">' +
         '<div style="font-size:10px;color:var(--dim);text-transform:uppercase;margin-bottom:4px">' + f.label + '</div>' +
         '<div style="font-size:22px;font-family:\'Bebas Neue\',sans-serif;color:' + f.color + '">' + f.pct + '%</div>' +
         '<div style="height:4px;background:#f5efe0;border-radius:2px;margin-top:4px;overflow:hidden"><div style="height:100%;width:' + (f.pct/17*100) + '%;background:' + f.color + ';border-radius:2px"></div></div>' +
@@ -4126,13 +4126,13 @@ function buildAnalysisView() {
     '<div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:8px">Days Off Sweet Spot</div>' +
     '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">' +
     [
-      {label:'29-45d', pct:13.7, n:'115,295', color:'#22c55e', note:'BEST'},
-      {label:'46-90d', pct:13.3, n:'77,321', color:'#3b82f6', note:'GOOD'},
-      {label:'15-28d', pct:12.7, n:'186,843', color:'#eab308', note:'OK'},
-      {label:'90d+', pct:12.3, n:'47,776', color:'#f97316', note:'RISKY'},
-      {label:'0-14d', pct:11.3, n:'62,411', color:'#ef4444', note:'WORST'},
+      {label:'29-45d', pct:13.7, n:'115,295', color:'#15803d', note:'BEST'},
+      {label:'46-90d', pct:13.3, n:'77,321', color:'#1d4ed8', note:'GOOD'},
+      {label:'15-28d', pct:12.7, n:'186,843', color:'#a16207', note:'OK'},
+      {label:'90d+', pct:12.3, n:'47,776', color:'#c2410c', note:'RISKY'},
+      {label:'0-14d', pct:11.3, n:'62,411', color:'#b91c1c', note:'WORST'},
     ].map(function(f){
-      return '<div style="flex:1;min-width:100px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">' +
+      return '<div style="flex:1;min-width:100px;background:var(--bg3);border:1px solid var(--gold);border-radius:8px;padding:10px;text-align:center;box-shadow:0 1px 2px rgba(13,79,60,0.06)">' +
         '<div style="font-size:10px;color:var(--dim);text-transform:uppercase;margin-bottom:4px">' + f.label + '</div>' +
         '<div style="font-size:22px;font-family:\'Bebas Neue\',sans-serif;color:' + f.color + '">' + f.pct + '%</div>' +
         '<div style="font-size:9px;color:' + f.color + ';font-weight:700;margin-top:2px">' + f.note + '</div>' +
@@ -4234,12 +4234,12 @@ function buildAnalysisView() {
   ];
 
   changelog.forEach(function(c, i) {
-    html += '<tr style="border-bottom:1px solid #f5efe0' + (i % 2 === 0 ? '' : ';background:rgba(255,255,255,0.015)') + '">' +
-      '<td style="padding:5px 8px;color:var(--muted);white-space:nowrap;font-size:11px">' + c.date + '</td>' +
-      '<td style="padding:5px 8px;color:var(--gold);font-weight:600;white-space:nowrap">' + c.change + '</td>' +
-      '<td style="padding:5px 8px;color:var(--red);font-family:monospace;font-size:11px">' + c.old + '</td>' +
-      '<td style="padding:5px 8px;color:var(--green);font-family:monospace;font-size:11px">' + c.new_ + '</td>' +
-      '<td style="padding:5px 8px;color:var(--text);font-size:11px;max-width:400px">' + c.why + '</td>' +
+    html += '<tr style="border-bottom:1px solid var(--rule2)' + (i % 2 === 0 ? '' : ';background:var(--bg2)') + '">' +
+      '<td style="padding:6px 8px;color:var(--text);white-space:nowrap;font-size:11px;font-weight:500">' + c.date + '</td>' +
+      '<td style="padding:6px 8px;color:var(--gold);font-weight:700;white-space:nowrap">' + c.change + '</td>' +
+      '<td style="padding:6px 8px;color:var(--red);font-family:monospace;font-size:11.5px;font-weight:600">' + c.old + '</td>' +
+      '<td style="padding:6px 8px;color:var(--green);font-family:monospace;font-size:11.5px;font-weight:700">' + c.new_ + '</td>' +
+      '<td style="padding:6px 8px;color:var(--text);font-size:11.5px;max-width:400px">' + c.why + '</td>' +
     '</tr>';
   });
 
@@ -4453,20 +4453,22 @@ function _renderBankrollChart(replay) {
         {
           label: 'Bank',
           data: banks,
-          borderColor: '#d4af37',
-          backgroundColor: 'rgba(212,175,55,0.08)',
-          borderWidth: 2,
+          borderColor: '#c99a4a',
+          backgroundColor: 'rgba(201,154,74,0.22)',
+          borderWidth: 3,
           tension: 0.25,
-          pointRadius: labels.length > 40 ? 0 : 2.5,
+          pointRadius: labels.length > 40 ? 0 : 3,
+          pointBackgroundColor: '#f5ecd3',
+          pointBorderColor: '#c99a4a',
           fill: true,
           order: 1
         },
         {
           label: 'Starting $' + replay.startBank,
           data: startLine,
-          borderColor: 'rgba(200,200,200,0.35)',
-          borderDash: [4, 4],
-          borderWidth: 1,
+          borderColor: 'rgba(245,236,211,0.55)',
+          borderDash: [5, 4],
+          borderWidth: 1.5,
           pointRadius: 0,
           fill: false,
           order: 2
@@ -4477,7 +4479,7 @@ function _renderBankrollChart(replay) {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { labels: { color: '#999', font: { size: 10 } } },
+        legend: { labels: { color: '#c99a4a', font: { size: 11, weight: '600' } } },
         tooltip: {
           callbacks: {
             title: function(items) { return 'Bet #' + items[0].label; },
@@ -4489,8 +4491,8 @@ function _renderBankrollChart(replay) {
         }
       },
       scales: {
-        x: { title: { display: true, text: 'Bet #', color: '#666', font: { size: 10 } }, ticks: { color: '#666', font: { size: 10 }, maxTicksLimit: 12 }, grid: { color: 'rgba(255,255,255,0.04)' } },
-        y: { title: { display: true, text: 'Bankroll ($)', color: '#666', font: { size: 10 } }, ticks: { color: '#666', font: { size: 10 }, callback: function(v) { return '$' + v; } }, grid: { color: 'rgba(255,255,255,0.04)' } }
+        x: { title: { display: true, text: 'Bet #', color: '#c99a4a', font: { size: 12, weight: '700' } }, ticks: { color: '#f5ecd3', font: { size: 10, weight: '500' }, maxTicksLimit: 12 }, grid: { color: 'rgba(201,154,74,0.18)' }, border: { color: '#c99a4a', width: 1.5 } },
+        y: { title: { display: true, text: 'Bankroll ($)', color: '#c99a4a', font: { size: 12, weight: '700' } }, ticks: { color: '#f5ecd3', font: { size: 10, weight: '500' }, callback: function(v) { return '$' + v; } }, grid: { color: 'rgba(201,154,74,0.18)' }, border: { color: '#c99a4a', width: 1.5 } }
       }
     }
   });
@@ -4510,8 +4512,8 @@ function _renderAccuracyChart(races, cumPct /*, cumTop3 */) {
       datasets: [{
         label: 'Top Pick Win %',
         data: cumPct,
-        borderColor: '#d4af37',
-        backgroundColor: 'rgba(212,175,55,0.08)',
+        borderColor: '#0d4f3c',
+        backgroundColor: 'rgba(13,79,60,0.10)',
         borderWidth: 2,
         pointRadius: races.length > 40 ? 0 : 2,
         tension: 0.25,
@@ -4534,8 +4536,8 @@ function _renderAccuracyChart(races, cumPct /*, cumTop3 */) {
         }
       },
       scales: {
-        x: { title: { display: true, text: 'Race #', color: '#666', font: { size: 10 } }, ticks: { color: '#666', font: { size: 10 }, maxTicksLimit: 12 }, grid: { color: 'rgba(255,255,255,0.04)' } },
-        y: { min: 0, max: 100, ticks: { color: '#d4af37', font: { size: 10 }, callback: function(v) { return v + '%'; } }, grid: { color: 'rgba(255,255,255,0.04)' } }
+        x: { title: { display: true, text: 'Race #', color: '#6b6558', font: { size: 10 } }, ticks: { color: '#6b6558', font: { size: 10 }, maxTicksLimit: 12 }, grid: { color: 'rgba(166,124,46,0.10)' } },
+        y: { min: 0, max: 100, ticks: { color: '#0d4f3c', font: { size: 10 }, callback: function(v) { return v + '%'; } }, grid: { color: 'rgba(166,124,46,0.10)' } }
       }
     }
   });
@@ -4556,14 +4558,14 @@ function _renderComponentCharts(compLabels, winnerTotals, pickTotals, totalRaces
       data: {
         labels: compLabels,
         datasets: [
-          { label: 'Actual Winners', data: winnerAvg, borderColor: '#d4af37', backgroundColor: 'rgba(212,175,55,0.12)', pointBackgroundColor: '#d4af37', borderWidth: 2 },
-          { label: 'Our Top Picks', data: pickAvg, borderColor: '#7b8df8', backgroundColor: 'rgba(123,141,248,0.08)', pointBackgroundColor: '#7b8df8', borderWidth: 2 }
+          { label: 'Actual Winners', data: winnerAvg, borderColor: '#0d4f3c', backgroundColor: 'rgba(13,79,60,0.15)', pointBackgroundColor: '#0d4f3c', borderWidth: 2 },
+          { label: 'Our Top Picks', data: pickAvg, borderColor: '#a67c2e', backgroundColor: 'rgba(166,124,46,0.12)', pointBackgroundColor: '#a67c2e', borderWidth: 2 }
         ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { labels: { color: '#aaa', font: { size: 10 } } } },
-        scales: { r: { angleLines: { color: '#f5efe0' }, grid: { color: '#f5efe0' }, pointLabels: { color: '#888', font: { size: 10 } }, ticks: { display: false } } }
+        plugins: { legend: { labels: { color: '#6b6558', font: { size: 10 } } } },
+        scales: { r: { angleLines: { color: '#e4dcc4' }, grid: { color: '#e4dcc4' }, pointLabels: { color: '#6b6558', font: { size: 10 } }, ticks: { display: false } } }
       }
     });
   }
@@ -4575,14 +4577,14 @@ function _renderComponentCharts(compLabels, winnerTotals, pickTotals, totalRaces
       data: {
         labels: compLabels,
         datasets: [
-          { label: 'Winners Avg', data: winnerAvg, backgroundColor: 'rgba(212,175,55,0.6)', borderColor: '#d4af37', borderWidth: 1, borderRadius: 3 },
-          { label: 'Our Picks Avg', data: pickAvg, backgroundColor: 'rgba(123,141,248,0.5)', borderColor: '#7b8df8', borderWidth: 1, borderRadius: 3 }
+          { label: 'Winners Avg', data: winnerAvg, backgroundColor: 'rgba(13,79,60,0.65)', borderColor: '#0d4f3c', borderWidth: 1, borderRadius: 3 },
+          { label: 'Our Picks Avg', data: pickAvg, backgroundColor: 'rgba(166,124,46,0.55)', borderColor: '#a67c2e', borderWidth: 1, borderRadius: 3 }
         ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { labels: { color: '#aaa', font: { size: 10 } } } },
-        scales: { x: { ticks: { color: '#666' }, grid: { color: '#f5efe0' } }, y: { ticks: { color: '#666' }, grid: { color: '#f5efe0' } } }
+        plugins: { legend: { labels: { color: '#6b6558', font: { size: 10 } } } },
+        scales: { x: { ticks: { color: '#6b6558' }, grid: { color: '#e4dcc4' } }, y: { ticks: { color: '#6b6558' }, grid: { color: '#e4dcc4' } } }
       }
     });
   }
@@ -4599,7 +4601,8 @@ function _renderWeightTrendChart(races, compLabels, compKeys) {
   var windowSize = Math.min(10, Math.max(5, Math.floor(races.length / 3)));
   var datasets = [];
   var labels = [];
-  var colors = ['#d4af37','#4ec97e','#b48cf8','#6aabbb','#e07733','#7b8df8','#e05555','#aaaa66','#c09060'];
+  // Distinct per-component palette — bumped saturation/depth so lines don't wash out on cream canvas
+  var colors = ['#b8941a','#15803d','#7c3aed','#0891b2','#c2410c','#1d4ed8','#b91c1c','#65a30d','#92400e'];
 
   // Build data points for each component — use dates as labels
   compKeys.forEach(function(k, ki) {
@@ -4616,7 +4619,10 @@ function _renderWeightTrendChart(races, compLabels, compKeys) {
       data.push(count > 0 ? +(sum / count).toFixed(2) : 0);
       if (ki === 0) {
         var rd2 = races[i];
-        var dateLabel = (rd2.raceDate || '').slice(5) + ' ' + rd2.track + ' R' + rd2.raceNum;
+        var _MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+        var _md = (rd2.raceDate || '').match(/^\d{4}-(\d{2})-(\d{2})/);
+        var dateStr = _md ? (_MONTHS[parseInt(_md[1], 10) - 1] + ' ' + parseInt(_md[2], 10)) : (rd2.raceDate || '').slice(5);
+        var dateLabel = dateStr + ' ' + rd2.track + ' R' + rd2.raceNum;
         labels.push(dateLabel);
       }
     }
@@ -4640,7 +4646,7 @@ function _renderWeightTrendChart(races, compLabels, compKeys) {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { labels: { color: '#bbb', font: { size: 11 }, usePointStyle: true, pointStyle: 'line' } },
+        legend: { labels: { color: '#6b6558', font: { size: 11 }, usePointStyle: true, pointStyle: 'line' } },
         tooltip: {
           callbacks: {
             title: function(items) { return 'After race ' + items[0].label; },
@@ -4655,20 +4661,29 @@ function _renderWeightTrendChart(races, compLabels, compKeys) {
       },
       scales: {
         x: {
-          title: { display: true, text: 'Race #', color: '#666' },
+          title: { display: true, text: 'Race #', color: '#6b6558' },
           ticks: {
-            color: '#555',
+            color: '#6b6558',
             callback: function(val, i) {
               var n = labels[i];
               return [20,40,60,80,100].indexOf(n) >= 0 ? '▼' + n : (races.length > 40 ? (i % 5 === 0 ? n : '') : n);
             }
           },
-          grid: { color: function(ctx) { return [20,40,60,80,100].indexOf(labels[ctx.index]) >= 0 ? 'rgba(212,175,55,0.25)' : '#ede5cc'; } }
+          grid: { color: function(ctx) { return [20,40,60,80,100].indexOf(labels[ctx.index]) >= 0 ? 'rgba(166,124,46,0.30)' : '#ede5cc'; } }
         },
         y: {
-          title: { display: true, text: 'Winner − Pick (avg)', color: '#666' },
-          ticks: { color: '#666', callback: function(v) { return (v > 0 ? '+' : '') + v.toFixed(1); } },
-          grid: { color: '#ede5cc' }
+          title: { display: true, text: 'Winner − Pick (avg component score)', color: '#6b6558' },
+          suggestedMin: -2,
+          suggestedMax: 2,
+          ticks: {
+            color: '#6b6558',
+            stepSize: 0.5,
+            callback: function(v) { return (v > 0 ? '+' : v < 0 ? '' : '') + v.toFixed(2); }
+          },
+          grid: {
+            color: function(ctx) { return ctx.tick && ctx.tick.value === 0 ? 'rgba(166,124,46,0.45)' : '#ede5cc'; },
+            lineWidth: function(ctx) { return ctx.tick && ctx.tick.value === 0 ? 1.5 : 1; }
+          }
         }
       }
     }
