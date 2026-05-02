@@ -135,39 +135,52 @@ export async function GET(req: NextRequest) {
         }
       }
     } else {
-      // Fetch all races — try race-by-race via pastRaces
-      const promises = [];
-      for (let r = 1; r <= 14; r++) {
-        promises.push(
-          fetch(TVG_GQL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query: PAST_QUERY, variables: { trackCode, date, raceNumber: String(r) } }),
-          }).then(resp => resp.json()).catch(() => null)
-        );
-      }
-      const results = await Promise.all(promises);
-      for (const gql of results) {
-        if (!gql?.data?.pastRaces) continue;
-        for (const race of gql.data.pastRaces) {
-          if (race.bettingInterests?.length) {
-            result[race.number] = { runners: parseBettingInterests(race.bettingInterests) };
-            if (!trackCondition && race.surface?.defaultCondition) trackCondition = race.surface.defaultCondition;
+      // Fetch all races — batched in groups of 5 with a small gap between batches so
+      // we don't burst 14 simultaneous calls at TVG every poll cycle. ~3 batches × 5 = ~15 calls
+      // spread across <2s, well under any reasonable rate limit.
+      const BATCH = 5;
+      for (let start = 1; start <= 14; start += BATCH) {
+        const batch = [];
+        for (let r = start; r < start + BATCH && r <= 14; r++) {
+          batch.push(
+            fetch(TVG_GQL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query: PAST_QUERY, variables: { trackCode, date, raceNumber: String(r) } }),
+            }).then(resp => resp.json()).catch(() => null)
+          );
+        }
+        const batchResults = await Promise.all(batch);
+        for (const gql of batchResults) {
+          if (!gql?.data?.pastRaces) continue;
+          for (const race of gql.data.pastRaces) {
+            if (race.bettingInterests?.length) {
+              result[race.number] = { runners: parseBettingInterests(race.bettingInterests) };
+              if (!trackCondition && race.surface?.defaultCondition) trackCondition = race.surface.defaultCondition;
+            }
           }
         }
+        if (start + BATCH <= 14) await new Promise(res => setTimeout(res, 250));
       }
 
-      // Also try live queries for races that didn't show up in pastRaces
-      for (let r = 1; r <= 14; r++) {
-        if (result[r]) continue;
-        try {
-          const liveResp = await fetch(TVG_GQL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query: LIVE_QUERY, variables: { track: trackCode, number: String(r) } }),
-          });
-          const liveGql = await liveResp.json();
-          const liveRace = liveGql.data?.race;
+      // Also try live queries for races that didn't show up in pastRaces — batched the same way
+      for (let start = 1; start <= 14; start += BATCH) {
+        const liveBatch: Promise<{ r: number; gql: { data?: { race?: { number: string; status?: { name: string }; mtp?: number; bettingInterests?: unknown[] } } } | null }>[] = [];
+        for (let r = start; r < start + BATCH && r <= 14; r++) {
+          if (result[r]) continue;
+          liveBatch.push(
+            fetch(TVG_GQL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query: LIVE_QUERY, variables: { track: trackCode, number: String(r) } }),
+            }).then(async resp => ({ r, gql: await resp.json() })).catch(() => ({ r, gql: null }))
+          );
+        }
+        if (!liveBatch.length) continue;
+        const liveResults = await Promise.all(liveBatch);
+        for (const { r, gql } of liveResults) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const liveRace: any = gql?.data?.race;
           if (liveRace?.bettingInterests?.length) {
             result[r] = {
               status: liveRace.status?.name,
@@ -175,7 +188,8 @@ export async function GET(req: NextRequest) {
               runners: parseBettingInterests(liveRace.bettingInterests),
             };
           }
-        } catch { /* live query not available for this race */ }
+        }
+        if (start + BATCH <= 14) await new Promise(res => setTimeout(res, 250));
       }
     }
 
