@@ -28,6 +28,8 @@
   --blue:#1a3a5e;          /* navy */
   --red:#8b2330;           /* oxblood */
   --purple:#6a3f90;        /* refined purple */
+  --kaci:#b89352;          /* Kaci's identity — soft champagne gold (paler than primary --gold #a67c2e) */
+  --kaci-soft:#f5ebd0;     /* Kaci tint bg */
   --text:#1a2420;          /* ink */
   --muted:#6b6558;         /* muted tan */
   --dim:#a89f8c;           /* dim */
@@ -110,6 +112,8 @@ select{font-family:'Inter',system-ui,sans-serif}
 .card-gold [style*="background:rgba(212,175,55,0.04)"]{background:rgba(245,236,211,0.06) !important}
 .card-gold [style*="background:#ede5cc"]{background:rgba(245,236,211,0.12) !important}
 .card-gold [style*="background:var(--purple-soft)"]{background:rgba(106,63,144,0.25) !important;color:#dec5ef !important}
+.card-gold [style*="background:var(--kaci-soft)"]{background:rgba(184,147,82,0.25) !important;color:#e8d5a8 !important}
+.card-gold [style*="color:var(--kaci)"]{color:#e8d5a8 !important}
 .ctitle{font-family:'Playfair Display',serif;font-size:20px;font-weight:800;color:var(--green);margin-bottom:10px;letter-spacing:0.2px}
 .card-gold .ctitle{color:var(--gold)}
 .slabel{font-family:'Oswald',sans-serif;font-size:10px;color:var(--green);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;font-weight:700}
@@ -231,15 +235,15 @@ select{font-family:'Inter',system-ui,sans-serif}
 .note-box{background:var(--green-soft);border:1px solid var(--green);border-left:3px solid var(--green);border-radius:4px;padding:9px 12px;font-size:11.5px;color:var(--green);line-height:1.6;margin-top:8px;font-family:'Playfair Display',serif}
 .warn-box{background:var(--red-soft);border:1px solid var(--red);border-left:3px solid var(--red);border-radius:4px;padding:9px 12px;font-size:11.5px;color:var(--red);line-height:1.6;margin-top:8px;font-family:'Playfair Display',serif}
 
-/* Kaci — purple accent preserved (identity color for Kaci system), but lightened to fit the Keeneland palette */
-.kaci-panel{background:var(--purple-soft);border:1px solid var(--purple);border-radius:6px;padding:10px 12px;margin-top:8px}
+/* Kaci — turf-club teal (own identity, distinct from rust Stine + indigo Pedigree + purple Workouts) */
+.kaci-panel{background:var(--kaci-soft);border:1px solid var(--kaci);border-radius:6px;padding:10px 12px;margin-top:8px}
 .kaci-cat{background:var(--bg3);border-radius:4px;padding:8px 10px;border:1px solid var(--rule2)}
-.kaci-cat-l{font-family:'Oswald',sans-serif;font-size:10px;color:var(--purple);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:3px;font-weight:700}
+.kaci-cat-l{font-family:'Oswald',sans-serif;font-size:10px;color:var(--kaci);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:3px;font-weight:700}
 .kaci-cat-d{font-size:10.5px;color:var(--muted);margin-bottom:6px;font-family:'Playfair Display',serif;font-style:italic}
 .kaci-opts{display:flex;gap:3px}
-.kopt{flex:1;padding:5px 2px;border-radius:4px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--muted);transition:all .1s;min-height:32px;font-family:'JetBrains Mono',monospace}
-.kopt:hover{border-color:var(--purple);color:var(--purple);background:var(--purple-soft)}
-.kopt.on{border-color:var(--purple);background:var(--purple);color:#fff;font-weight:700}
+.kopt{flex:1;padding:5px 2px;border-radius:4px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text);transition:all .1s;min-height:32px;font-family:'JetBrains Mono',monospace;font-weight:600;text-align:center;white-space:nowrap}
+.kopt:hover{border-color:var(--kaci);color:#6e5728;background:var(--kaci-soft)}
+.kopt.on{border-color:var(--kaci);background:var(--kaci);color:#fff;font-weight:700}
 /* Kaci inline strip on main card row — deep green band like the redesign spec */
 .kaci-strip{display:flex;gap:5px;padding:10px 14px;background:linear-gradient(90deg,var(--header-bg),var(--green));border-top:1px solid var(--gold);align-items:center;flex-wrap:wrap}
 .kaci-strip-label{font-family:'Oswald',sans-serif;font-size:10px;color:var(--header-accent);text-transform:uppercase;letter-spacing:1.5px;min-width:56px;font-weight:700}
@@ -679,16 +683,21 @@ function scoreRace(ri){
     var k=kaci[race.n]&&kaci[race.n][h.name]||{enabled:false,carry:0,conformation:0,temperament:0};
     var km=1.0;
     if(k.enabled){var kt=k.carry+k.conformation+k.temperament;if(kt>0)km=1+(kt/9)*0.15;}
-    // Stine's Boost (Austin Bryant) — sub-point fractional bump. Auto-detects from
-    // name (CU Buffaloes / Colorado pro / whimsical) AND can be manually toggled per
-    // horse. Applied BEFORE round so it only matters as a tiebreaker.
-    var sbAuto = stineBoost(h.name);
+    // Stine's Boost (Austin Bryant) — auto-detection FLAGS candidates with a
+    // buffalo indicator next to the name, but the boost itself only applies when
+    // Charles ticks the manual checkbox in the expanded Stine panel. This keeps
+    // the algorithm honest by default and surfaces the candidate without baking it in.
+    var sbAuto = stineBoost(h.name);  // detection only — does NOT contribute to score
     var sbManual = (stineManual[race.n]&&stineManual[race.n][h.name])?0.30:0;
-    var sb = Math.min(0.49, sbAuto + sbManual);
-    var rawScore = (base+tb)*km + sb;
+    var sb = sbManual;  // only manual flips the boost
+    // Pedigree (stud-fee tiered) — soft class signal capped at +1 pt so it can't
+    // dominate. Only signal we have for bloodline; conditional turf/mud/distance
+    // splits would require Tomlinson Ratings (not in current SF tier).
+    var pedBoost = pedigreeBoost(h.studFee);
+    var rawScore = (base+tb)*km + sb + pedBoost;
     var final = Math.min(120, Math.round(rawScore));
     var trendDir=wkBeyersRaw&&wkBeyersRaw.length>=2?(wkBeyersRaw[0]-wkBeyersRaw[1]):0;
-    results.push({name:h.name,horse:h,score:final,_rawScore:rawScore,base:Math.round(base),tb:Math.round(tb*10)/10,km:km,kaciOn:km>1,stineBoost:sb,stineAuto:sbAuto,stineManualOn:sbManual>0,stineReason:stineBoostReason(h.name),newTrnBonus:newTrnBonus,extremeDropBonus:extremeDropBonus,wkScore:wkScore,wkLabel:wkLabel,distFitAdj:distFitAdj,stakesBonus:stakesBonus,
+    results.push({name:h.name,horse:h,score:final,_rawScore:rawScore,base:Math.round(base),tb:Math.round(tb*10)/10,km:km,kaciOn:km>1,stineBoost:sb,stineAuto:sbAuto,stineManualOn:sbManual>0,stineReason:stineBoostReason(h.name),pedBoost:pedBoost,pedTier:pedigreeTier(h.studFee),newTrnBonus:newTrnBonus,extremeDropBonus:extremeDropBonus,wkScore:wkScore,wkLabel:wkLabel,distFitAdj:distFitAdj,stakesBonus:stakesBonus,
       spdRaw:Math.round(spd*10)/10, frmRaw:Math.round(frm*10)/10, clsRaw:Math.round(cls*10)/10, pceRaw:Math.round(pce*10)/10,
       trendScore:trendScore, bulletBonus:bulletBonus, lasixFirst:lasixFirst, blinkFirst:blinkFirst,
       _components:{spd:Math.round(spd*10)/10,frm:Math.round(frm*10)/10,cls:Math.round(cls*10)/10,pce:Math.round(pce*10)/10,jck:Math.round(jck*10)/10,trn:Math.round(trn*10)/10,wk:Math.round((bulletBonus||0)*10)/10,trend:Math.round(beyerTrend*10)/10,ml:Math.round((e1e2Score||0)*10)/10}});
@@ -1258,16 +1267,16 @@ function renderRankings(){
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">'+
     '<div style="flex:1;min-width:240px">'+
       '<div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;margin-bottom:3px">Top Pick — Race '+race.n+(function(){var rn=(typeof resolveRaceName==='function')?resolveRaceName(race):'';var label=rn||race.gradeName||'';return label?' &nbsp;<span style="color:#f0c850;text-transform:none">'+label+'</span>':'';})()+'</div>'+
-      '<div class="bebas" style="font-size:28px;color:var(--gold);line-height:1.1">'+(top.horse.disp||top.name)+'</div>'+
+      '<div class="bebas" style="font-size:28px;color:var(--gold);line-height:1.1">'+(top.horse.disp||top.name)+((top.stineAuto||0)>0?' <span title="Stine candidate — '+(top.stineReason||'auto-detected')+'. Apply manually in expanded panel." style="font-size:22px;cursor:help">🦬</span>':'')+'</div>'+
       '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center">'+
         '<span class="pill on-b">ML: '+top.horse.ml+'</span>'+
         (_topHasLive?'<span style="font-size:11px;font-weight:700;color:'+(_topMovColor||'var(--blue)')+';background:#ede5cc;padding:2px 10px;border-radius:20px;border:1px solid '+(_topMovColor||'var(--blue)')+'">LIVE: '+_topLive+(_topMovLabel?' '+_topMovLabel:'')+'</span>':'')+
         '<span class="pill on-g">Score: '+top.score+'</span>'+
         '<span class="'+cfBadge+'">'+cf.toUpperCase()+' CONF</span>'+
-        '<span class="pill on">'+btype+'</span>'+
         (top.wkScore>0?'<span style="font-size:10px;background:var(--purple-soft);color:var(--purple);border:1px solid var(--purple);padding:2px 8px;border-radius:20px;font-weight:600">WRK +'+top.wkScore+' pts</span>':'')+
-        (top.kaciOn?'<span class="pill on-p">✨ Kaci ×'+top.km.toFixed(2)+'</span>':'')+
-        (top.stineBoost>0?'<span class="pill" style="border-color:#c97a3a;background:rgba(201,122,58,0.15);color:#c97a3a;font-weight:600">🦬 Stine +'+top.stineBoost.toFixed(2)+'</span>':'')+
+        (top.kaciOn?'<span class="pill" style="border-color:var(--kaci);background:var(--kaci-soft);color:var(--kaci);font-weight:600">✨ Kaci ×'+top.km.toFixed(2)+'</span>':'')+
+        (top.stineManualOn?'<span class="pill" style="border-color:#c97a3a;background:rgba(201,122,58,0.15);color:#c97a3a;font-weight:600">🦬 Stine</span>':'')+
+        (top.pedBoost>=1.0?'<span class="pill" style="border-color:#8a7fc8;background:rgba(106,99,168,0.15);color:#8a7fc8;font-weight:600" title="'+(top.horse.sire||'')+' · $'+(top.horse.studFee||0)+'K stud fee">🧬 Elite Pedigree</span>':'')+
       '</div>'+
       // ── Thesis narrative ──
       '<div style="margin-top:10px;font-size:13px;color:var(--text);line-height:1.7;padding:10px 14px;background:rgba(212,175,55,0.04);border-left:3px solid var(--gold);border-radius:0 8px 8px 0">'+
@@ -1307,6 +1316,21 @@ function renderRankings(){
           else if(lo>=45) parts.push('Returning off '+lo+'-day break.');
           // Distance
           if(top.horse.distFit==='proven'||top.horse.distFit==='winner') parts.push('Proven winner at this distance.');
+          // Pedigree — fire on any positive boost (≥ SOLID). On marquee cards every
+          // horse has a notable sire, so the commentary helps even at lower tiers.
+          if(top.pedBoost>0 && top.horse.sire){
+            var feeStr = top.horse.studFee>=100 ? '<span style="color:#8a7fc8"><b>Top pedigree</b></span>' :
+                         top.horse.studFee>=50  ? '<span style="color:#8a7fc8"><b>Upper-tier pedigree</b></span>' :
+                         top.horse.studFee>=25  ? 'Solid pedigree' :
+                                                  'Modest pedigree';
+            var pedLine = feeStr+' — by <b>'+top.horse.sire+'</b>';
+            if(top.horse.studFee) pedLine += ' ($'+top.horse.studFee+'K stud fee)';
+            if(top.horse.damSire) pedLine += ', out of a <b>'+top.horse.damSire+'</b> mare';
+            pedLine += '.';
+            if(top.horse.studFee>=100 && top.horse.sireSire) pedLine += ' Grandsire <b>'+top.horse.sireSire+'</b>.';
+            if(top.horse.salePrice && top.horse.salePrice>=250000) pedLine += ' Sold for <b>$'+Math.round(top.horse.salePrice).toLocaleString()+'</b>'+(top.horse.sale?' at '+top.horse.sale+(top.horse.saleYear?' '+top.horse.saleYear:''):'')+'.';
+            parts.push(pedLine);
+          }
           // Value
           var topProb=pr[0]||0;
           var impliedProb=_topHasLive?(1/(_topLiveDec+1)):(_topMLDec>0?(1/(_topMLDec+1)):0);
@@ -1337,18 +1361,16 @@ function renderRankings(){
           '<div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;text-align:right">Recommended Bet'+(_kellyAmt<=0?' <span style="color:#b89040">(min. conf bet)</span>':'')+'</div>'+
           '<div style="font-size:9px;color:#555;text-align:right">Budget: $'+perRaceCap.toFixed(0)+'/race · '+qualCount+' qualifying races</div>'+
           '<button onclick="logBet(\''+top.name.replace(/'/g,'\\\'')+'\',' +ka+')" style="'+
-            'background:'+(cf==='high'?'#7fc89c':cf==='medium'?'var(--brass-soft)':'#d8a8b2')+';'+
-            'border:2px solid '+(cf==='high'?'var(--green)':cf==='medium'?'var(--gold)':'var(--red)')+';'+
-            'color:'+(cf==='high'?'var(--green)':cf==='medium'?'var(--gold)':'var(--red)')+';'+
-            'border-radius:8px;padding:8px 16px;cursor:pointer;font-family:\'Bebas Neue\',sans-serif;font-size:18px;letter-spacing:1px;min-width:170px;text-align:center">'+
+            'background:rgba(8,28,22,0.55);border:1.5px solid #c99a4a;color:#c99a4a;font-weight:800;'+
+            'border-radius:8px;padding:10px 18px;cursor:pointer;font-family:\'Oswald\',sans-serif;font-size:15px;letter-spacing:2.5px;min-width:200px;text-align:center;text-transform:uppercase">'+
             (cf==='high'?'WIN — $'+ka:cf==='medium'?'WIN / PLACE — $'+ka:'NO BET')+
           '</button>'+
           // Secondary exotic option
           (sc.length>=2
             ? '<div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;text-align:right;margin-top:2px">Secondary Option</div>'+
               '<button onclick="logBet(\''+top.name.replace(/'/g,'\\\'')+'\',' +Math.ceil(ka*0.5)+')" style="'+
-                'background:var(--purple-soft);border:1px solid var(--purple);color:var(--purple);'+
-                'border-radius:8px;padding:6px 14px;cursor:pointer;font-family:\'Bebas Neue\',sans-serif;font-size:14px;letter-spacing:1px;min-width:170px;text-align:center">'+
+                'background:rgba(8,28,22,0.55);border:1.5px solid #c99a4a;color:#c99a4a;font-weight:700;'+
+                'border-radius:8px;padding:7px 14px;cursor:pointer;font-family:\'Oswald\',sans-serif;font-size:12px;letter-spacing:2px;min-width:200px;text-align:center;text-transform:uppercase">'+
                 'EXACTA BOX — $'+Math.ceil(ka*0.5)+
               '</button>'
             : '')+
@@ -1416,6 +1438,7 @@ function renderRankings(){
         '<div style="display:flex;align-items:center;gap:6px;min-width:0">'+
         (function(){var pc=PP_COLORS[s.horse.pp]||{bg:'#555',t:'#fff'};return '<span style="display:inline-flex;align-items:center;justify-content:center;background:'+pc.bg+';color:'+pc.t+';font-size:15px;font-weight:800;min-width:30px;height:26px;border-radius:4px;flex-shrink:0;border:2px solid rgba(255,255,255,0.2)">'+s.horse.pp+'</span>';})()+
         '<span class="horse-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.horse.disp||s.name)+'</span>'+
+        ((s.stineAuto||0)>0?'<span title="Stine candidate — '+(s.stineReason||'auto-detected')+'. Apply manually in expanded panel." style="font-size:14px;line-height:1;cursor:help;flex-shrink:0">🦬</span>':'')+
         (i===0?'<span class="pill" style="border-color:var(--gold);color:var(--gold);background:var(--brass-soft);font-weight:600;letter-spacing:1px;font-size:10px">★ TOP PICK</span>':'')+
         '</div>'+
         ((s.horse.jockey||s.horse.trainer)?'<div class="horse-sub">'+[s.horse.jockey?'J. '+s.horse.jockey:'',s.horse.trainer?'T. '+s.horse.trainer:''].filter(Boolean).join(' · ')+'</div>':'')+
@@ -1447,7 +1470,8 @@ function renderRankings(){
         })():'')+
         (s.newTrnBonus>0?'<span class="pill pill-purple">NEW TRN +'+s.newTrnBonus+'</span>':'')+
         (s.extremeDropBonus>0?'<span class="pill pill-green">BIG DROP +'+s.extremeDropBonus+'</span>':'')+
-        (s.stineBoost>0?'<span class="pill" style="border-color:#c97a3a;color:#c97a3a;background:rgba(201,122,58,0.12);font-weight:600" title="Stine\'s Boost — '+(s.stineReason||'tiebreaker')+'">🦬 STINE +'+s.stineBoost.toFixed(2)+'</span>':'')+
+        (s.stineManualOn?'<span class="pill" style="border-color:#c97a3a;color:#c97a3a;background:rgba(201,122,58,0.12);font-weight:600">🦬 STINE</span>':'')+
+        (s.pedBoost>=1.0?'<span class="pill" style="border-color:#8a7fc8;color:#8a7fc8;background:rgba(106,99,168,0.12);font-weight:600" title="'+(s.horse.sire||'')+' · $'+(s.horse.studFee||0)+'K stud fee">🧬 ELITE PEDIGREE</span>':'')+
         ((s.distFitAdj&&s.distFitAdj!==0&&s.distFitAdj!==2)?(function(){
           var df=s.horse.distFit||'';
           var labels={'proven':'✓ DIST +5','stretching':'↑ DIST -3','shortening':'↓ DIST +3','debut_dist':'NEW DIST -2'};
@@ -1477,7 +1501,7 @@ function renderRankings(){
       })()+
       '</div>'+
       // Score breakdown strip — toggled by clicking the score progress bar
-      ((compsOpen[CUR+'_'+s.name])?renderCompsStrip(s._components, s.score, s.stineBoost, s.stineReason):'')+
+      ((compsOpen[CUR+'_'+s.name])?renderCompsStrip(s._components, s.score, s.stineBoost, s.stineReason, s.pedBoost, s.pedTier, s.horse.sire, s.horse):'')+
       (isExp?'<div class="hcard-detail">'+
         (i>0?generateThesis(s, pr[i], i, race, CUR, sc):'')+
         ((s.horse.notes)?'<div style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:6px"><span style="color:var(--dim);font-size:9px;text-transform:uppercase;letter-spacing:.5px">DRF:</span> '+s.horse.notes+'</div>':'')+
@@ -1509,8 +1533,8 @@ function renderRankings(){
   var df=s.horse.distFit||'';
   var label=df==='winner'?'✓ Winner':df==='no wins'?'0 wins':df==='first-time'?'First time':df==='tested'?'Tested':df==='lightly-tested'?'Light':df||'—';
   return (s.distFitAdj&&s.distFitAdj!==0)?((s.distFitAdj>0?'+':'')+s.distFitAdj+' pts ('+label+')'):label;
-})()],['Stakes',(s.stakesBonus||0)>0?'+'+s.stakesBonus+' pts':'—'],['New Trn Bonus',(s.newTrnBonus||0)>0?'+'+s.newTrnBonus+'pts':'—'],['Drop Bonus',(s.extremeDropBonus||0)>0?'+'+s.extremeDropBonus+'pts':'—'],['Base',s.base],['Track Adj',(s.tb>=0?'+':'')+s.tb],['Win Prob',pr2+'%'],['Final Score',s.score]].map(function(x){
-          var vc=x[0]==='Track Adj'?(parseFloat(x[1])>=0?'var(--green)':'var(--red)'):x[0]==='Final Score'?'var(--gold)':x[0]==='Workout Pts'?'var(--purple)':x[0]==='Dist Fit'?(s.distFitAdj>0?'var(--green)':s.distFitAdj<0?'var(--red)':'var(--muted)'):x[0]==='Stakes'?'#c490f8':'var(--text)';
+})()],['Stakes',(s.stakesBonus||0)>0?'+'+s.stakesBonus+' pts':'—'],['New Trn Bonus',(s.newTrnBonus||0)>0?'+'+s.newTrnBonus+'pts':'—'],['Drop Bonus',(s.extremeDropBonus||0)>0?'+'+s.extremeDropBonus+'pts':'—'],['Pedigree',(s.pedTier?s.pedTier+' +'+s.pedBoost.toFixed(1):'—')],['Base',s.base],['Track Adj',(s.tb>=0?'+':'')+s.tb],['Win Prob',pr2+'%'],['Final Score',s.score]].map(function(x){
+          var vc=x[0]==='Track Adj'?(parseFloat(x[1])>=0?'var(--green)':'var(--red)'):x[0]==='Final Score'?'var(--gold)':x[0]==='Workout Pts'?'var(--purple)':x[0]==='Dist Fit'?(s.distFitAdj>0?'var(--green)':s.distFitAdj<0?'var(--red)':'var(--muted)'):x[0]==='Stakes'?'#c490f8':x[0]==='Pedigree'?(s.pedBoost>0?'#8a7fc8':'var(--muted)'):'var(--text)';
           return '<div class="hcard-stat"><div class="hcard-stat-l">'+x[0]+'</div><div class="hcard-stat-v" style="color:'+vc+'">'+x[1]+'</div></div>';
         }).join('')+
         '</div>'+
@@ -1857,6 +1881,22 @@ function generateThesis(s, prob, rank, race, raceIdx, allScored) {
   if (h.distFit === 'proven' || h.distFit === 'winner') parts.push('Proven winner at this distance.');
   else if (h.distFit === 'first-time') parts.push('First try at this distance.');
 
+  // Pedigree — show whenever stud fee earns any boost (≥ SOLID, +0.3+). Marquee
+  // races are a sire's race so commentary helps even when boost is small.
+  if (s.pedBoost > 0 && h.sire) {
+    var feeStr = h.studFee >= 100 ? '<span style="color:#8a7fc8"><b>Top pedigree</b></span>' :
+                 h.studFee >= 50  ? '<span style="color:#8a7fc8"><b>Upper-tier pedigree</b></span>' :
+                 h.studFee >= 25  ? 'Solid pedigree' :
+                                    'Modest pedigree';
+    var line = feeStr + ' — by <b>' + h.sire + '</b>';
+    if (h.studFee) line += ' ($' + h.studFee + 'K)';
+    if (h.damSire) line += ', out of a <b>' + h.damSire + '</b> mare';
+    line += '.';
+    if (h.studFee >= 100 && h.sireSire) line += ' Grandsire <b>' + h.sireSire + '</b>.';
+    if (h.salePrice && h.salePrice >= 250000) line += ' Sold for <b>$' + Math.round(h.salePrice).toLocaleString() + '</b>' + (h.sale ? ' at ' + h.sale + (h.saleYear ? ' '+h.saleYear : '') : '') + '.';
+    parts.push(line);
+  }
+
   // Value assessment
   if (edge > 0.05) {
     parts.push('<span style="color:var(--green)">At ' + odds + ', offers +' + edgePct + '% edge</span> — model gives ' + (prob * 100).toFixed(0) + '% win probability vs ' + (impliedProb * 100).toFixed(0) + '% implied.');
@@ -2007,7 +2047,7 @@ function toggleComps(ri,name){
 }
 
 // Render the components mini-bar strip. `comps` is s._components, `score` for context.
-function renderCompsStrip(comps, score, stineBoost, stineReason){
+function renderCompsStrip(comps, score, stineBoost, stineReason, pedBoost, pedTier, sireName, horse){
   if(!comps) return '';
   // Order matches the algorithm's mental hierarchy: speed/form/class first.
   var defs = [
@@ -2048,12 +2088,67 @@ function renderCompsStrip(comps, score, stineBoost, stineReason){
     ? '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding:5px 8px;background:rgba(201,122,58,0.1);border:1px solid rgba(201,122,58,0.3);border-radius:4px;font-size:10.5px;color:#c97a3a"><span>🦬 Stine\'s tiebreaker'+(stineReason?' · '+stineReason:'')+'</span><span style="font-family:\'JetBrains Mono\',monospace;font-weight:700">+'+stineBoost.toFixed(2)+'</span></div>'
     : '';
 
+  // Pedigree dossier — full bloodline panel when boost fires. Indigo accent, distinct
+  // from Stine's rust. Pulls everything available from the SF feed: stud fee tier,
+  // sire + grandsire (if known), dam + damsire, breeder, auction sale tag.
+  var pedLine = '';
+  if(pedBoost > 0 && horse){
+    var bits = [];
+    var fee = horse.studFee || 0;
+    var feeStr = fee ? '$'+fee+'K' : '';
+    var headerRight = '+' + pedBoost.toFixed(1);
+    // Sire line: "by Sire (out of Sire's Sire)" if grandsire is known
+    var sireLine = '';
+    if(horse.sire){
+      sireLine = '<b style="color:#a89fdc">'+horse.sire+'</b>';
+      if(horse.sireSire) sireLine += ' <span style="color:var(--dim)">(by '+horse.sireSire+')</span>';
+    }
+    // Dam line: "out of Dam, by Damsire"
+    var damLine = '';
+    if(horse.dam){
+      damLine = horse.dam;
+      if(horse.damSire) damLine += ' <span style="color:var(--dim)">(by '+horse.damSire+')</span>';
+    } else if(horse.damSire){
+      damLine = '<span style="color:var(--dim)">— mare by</span> '+horse.damSire;
+    }
+    // Sale tag
+    var saleStr = '';
+    if(horse.sale && horse.saleYear){
+      saleStr = horse.sale+' '+horse.saleYear;
+      if(horse.salePrice) saleStr += ' · $'+Math.round(horse.salePrice).toLocaleString();
+    }
+    bits.push(
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
+        '<div style="display:flex;align-items:center;gap:8px">'+
+          '<span style="font-size:14px">🧬</span>'+
+          '<span style="font-family:\'Oswald\',sans-serif;font-size:11px;letter-spacing:1.2px;font-weight:700;color:#8a7fc8">PEDIGREE'+(pedTier?' · '+pedTier:'')+'</span>'+
+          (feeStr?'<span style="font-family:\'JetBrains Mono\',monospace;font-size:11px;color:#a89fdc;font-weight:700">'+feeStr+'</span>':'')+
+        '</div>'+
+        '<span style="font-family:\'JetBrains Mono\',monospace;font-size:11px;font-weight:700;color:#8a7fc8">'+headerRight+'</span>'+
+      '</div>'
+    );
+    if(sireLine){
+      bits.push('<div style="font-size:11px;color:var(--text);line-height:1.5"><span style="color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-right:6px">SIRE</span>'+sireLine+'</div>');
+    }
+    if(damLine){
+      bits.push('<div style="font-size:11px;color:var(--text);line-height:1.5"><span style="color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-right:6px">DAM</span>'+damLine+'</div>');
+    }
+    if(horse.breeder){
+      bits.push('<div style="font-size:10.5px;color:var(--muted);line-height:1.5"><span style="color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-right:6px">BREEDER</span>'+horse.breeder+'</div>');
+    }
+    if(saleStr){
+      bits.push('<div style="font-size:10.5px;color:var(--muted);line-height:1.5"><span style="color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-right:6px">SALE</span>'+saleStr+'</div>');
+    }
+    pedLine = '<div style="margin-top:6px;padding:8px 10px;background:rgba(106,99,168,0.08);border:1px solid rgba(106,99,168,0.35);border-radius:4px">'+bits.join('')+'</div>';
+  }
+
   return '<div class="comps-strip" style="padding:10px 16px 12px;background:linear-gradient(180deg,var(--bg2),var(--bg3));border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule2)">'+
     '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">'+
       '<div style="font-family:\'Oswald\',sans-serif;font-size:10px;color:var(--gold);letter-spacing:1.5px;font-weight:700">SCORE BREAKDOWN</div>'+
       (topLabel?'<div style="font-size:10.5px;color:var(--muted);font-style:italic">stands out on <b style="color:var(--gold);font-style:normal">'+topLabel+'</b></div>':'')+
     '</div>'+
     rows +
+    pedLine +
     stineLine +
   '</div>';
 }
@@ -2064,16 +2159,29 @@ function renderCompsStrip(comps, score, stineBoost, stineReason){
 // can only break ties, never overturn a legitimate score gap.
 var STINE_KEYWORDS = {
   cu: [
-    'buffalo','buffaloes','buff','buffs','folsom','boulder','colorado','coach prime','sanders',
-    'shedeur','travis hunter','black and gold','ralphie'
+    // CU Boulder + signature Buffaloes football
+    'buffalo','buffaloes','buff','buffs','folsom','boulder','coach prime','sanders',
+    'shedeur','travis hunter','black and gold','ralphie',
+    // CSU Rams (Charles's secondary CO college signal)
+    'csu','ram nation','colorado state'
   ],
   pro: [
-    // Broncos / Avalanche / Nuggets / Rockies / Rapids
-    'bronco','broncos','mile high','denver','elway','manning','manny',
+    // Pro teams — Broncos / Avalanche / Nuggets / Rockies / Rapids
+    'bronco','broncos','mile high','denver','elway','manning',
     'avalanche','avs','nathan','makar','mackinnon',
-    'nugget','nuggets','jokic','murray','ball arena','mile high city',
-    'rocky','rockies','coors','blake street','tulo','helton',
-    'rapids','dick\'s sporting goods'
+    'nugget','nuggets','jokic','murray','ball arena',
+    'rockies','coors','blake street','tulo','helton',
+    // Generic Colorado — "anything Colorado related"
+    'colorado','rocky mountain','rmnp','columbine','fourteener',
+    // Ski + outdoor culture (distinctive only — dropped ridge/peak/slope/summit/golden as too generic)
+    'shred','gnar','powder day','bluebird day','fresh tracks','chairlift','gondola','telemark',
+    'snowbird','snowboard','snowboarder','ski bum',
+    // Front Range cities + ski towns
+    'aspen','vail','breck','breckenridge','telluride','copper mountain','keystone',
+    'winter park','steamboat','eldora','arapahoe basin','durango','leadville','ouray',
+    'crested butte','fort collins','ftc','colorado springs','grand junction',
+    // CO craft beer
+    'coors light','new belgium','fat tire','odell','left hand','great divide'
   ],
   funny: [
     // Whimsical word fragments — matches anywhere in the name
@@ -2082,6 +2190,15 @@ var STINE_KEYWORDS = {
     'bamboozle','flapjack','noodle','pickle','muffin','biscuit','waffle','pancake',
     'bigfoot','sasquatch','yeti','unicorn','wizard','ninja','pirate','cowboy',
     'awol','yolo','swag','vibes','wild card','plot twist','no chill',
+    // Sailor / nautical (dropped reef/harbor/port/tide — too generic)
+    'anchor','sailor','ahoy','yacht','schooner','mariner','starboard',
+    'jolly roger','kraken','leviathan','davy jones','lighthouse',
+    'salt life','seven seas','deep blue','admiralty','bowsprit','mainsail','rigging',
+    'shipwreck','castaway','seadog','sea dog','seafarer','undertow',
+    // Inappropriate / risqué — judgment call, kept tasteful (dropped 'sin ' caught "cruisin")
+    'naughty','wicked','scandal','dirty','hellraiser','hellbent','raunchy',
+    'flirt','tease','rebel','outlaw','bandit','rogue','mischief','renegade','devilish',
+    'hot mess','spicy','racy','vixen','minx','badass','trouble','sinful','reckless',
     // Funny prefixes/titles
     'mister ','sir ','dame ','lord ','king ','queen ','captain ','professor ','doctor ','admiral '
   ]
@@ -2097,6 +2214,29 @@ function stineBoost(name){
   for(var k2=0;k2<STINE_KEYWORDS.funny.length;k2++){ if(nn.indexOf(STINE_KEYWORDS.funny[k2])>-1){ hits += 1; break; } }
   // Cap at 0.49 — sub-point so it can only break ties before Math.round
   return Math.min(0.49, hits * 0.15);
+}
+
+// Pedigree boost — derived from H_StudFee ($ in thousands). Stud fee is the
+// commercial market's pricing of breeding rights to the sire. Thresholds calibrated
+// to feel right on stacked marquee cards (Derby/Oaks/BC) — ELITE means a TRUE
+// blueblood, not "any son of Tapit." On Derby Day at Churchill many horses sit at
+// $250K stud fees; only the genuine $200K+ category should pop as ELITE.
+// Capped at +1.0 raw pts — tiebreaker only, never overturns a real performance gap.
+function pedigreeBoost(studFee){
+  if(!studFee || studFee <= 0) return 0;
+  if(studFee >= 200) return 1.0;  // ELITE — true blueblood (Frankel, Tapit, Into Mischief, Gun Runner, Curlin, Justify, Not This Time)
+  if(studFee >= 100) return 0.6;  // UPPER — elite-proven (Quality Road, Constitution, Vekoma, Uncle Mo, Nyquist, Medaglia d'Oro)
+  if(studFee >= 50)  return 0.3;  // SOLID — strong commercial (McKinzie, Authentic, Practical Joke, Munnings, Twirling Candy)
+  if(studFee >= 20)  return 0.1;  // BUDGET — developing/regional
+  return 0;
+}
+function pedigreeTier(studFee){
+  if(!studFee || studFee <= 0) return '';
+  if(studFee >= 200) return 'ELITE';
+  if(studFee >= 100) return 'UPPER';
+  if(studFee >= 50)  return 'SOLID';
+  if(studFee >= 20)  return 'BUDGET';
+  return '';
 }
 
 function stineBoostReason(name){
@@ -2138,8 +2278,14 @@ function stinePanel(s, raceNum){
       '<span style="font-weight:'+(s.stineManualOn?'700':'500')+'">Manual hunch — give it the nudge</span>'+
     '</label>'+
     '<div style="font-size:10.5px;color:var(--muted);font-style:italic;line-height:1.5;margin-top:6px">'+
-      'Austin Bryant\'s tiebreaker — auto-fires on CU Buffaloes / CO pro sports / whimsical names. '+
-      'Sub-point bump: only resolves ties, never overturns a real score gap.'+
+      'Austin Bryant\'s tiebreaker — auto-flags candidates whose names hit any of: '+
+      '<b>CU Buffaloes / CSU Rams</b>, <b>Colorado pro sports</b> (Broncos, Avs, Nuggets, Rockies, Rapids), '+
+      '<b>ski + outdoor culture</b> (shred, gnar, gondola, bluebird day, telemark, ski-town names), '+
+      '<b>sailor / nautical</b> (anchor, kraken, schooner, lighthouse, davy jones), '+
+      '<b>risqué / whimsical</b> (rebel, outlaw, bandit, mischief, vixen, naughty, trouble, boogie, bigfoot, plot twist), '+
+      'or <b>formal titles</b> (sir, dame, captain, professor, admiral). '+
+      'Auto-detection only flags with a 🦬 by the name — boost (+0.30 flat) applies only when you tick the manual checkbox above. '+
+      'Tiebreaker only — never overturns a real score gap.'+
     '</div>'+
   '</div>';
 }
@@ -2152,31 +2298,32 @@ function setStineManual(rn, name, on){
 
 function kaciPanel(raceNum,name,k,km){
   var safeN=name.replace(/'/g,"\\'");
-  var opts=['N/A','Poor','Good','Excellent'];
+  var opts=['N/A','Poor','Good','Great'];
   var cats=[['🐎 Carriage','carry','How horse carries itself'],['🏗️ Conformation','conformation','Physical build & tone'],['🧠 Temperament','temperament','Calm, focused, ready']];
-  var html='<div class="kaci-panel" style="border:1px solid '+(k.enabled?'var(--purple)':'var(--border)')+'">'+
-    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:'+(k.enabled?'10':'0')+'px">'+
+  // Always render the category boxes — clicking any value auto-enables Kaci.
+  // Disabled state is dimmed but still interactive so the rating UI is visible
+  // without an extra click to "open" it.
+  var html='<div class="kaci-panel" style="border:1px solid '+(k.enabled?'var(--kaci)':'var(--border)')+'">'+
+    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">'+
     '<label style="display:flex;align-items:center;gap:7px;cursor:pointer">'+
-    '<input type="checkbox" '+(k.enabled?'checked':'')+' onchange="setKaciEnabled('+raceNum+',\''+safeN+'\',this.checked)" style="accent-color:var(--purple);width:14px;height:14px">'+
-    '<span style="font-size:12px;font-weight:600;color:'+(k.enabled?'#c49bf4':'var(--dim)')+'">✨ Kaci\'s Score</span>'+
+    '<input type="checkbox" '+(k.enabled?'checked':'')+' onchange="setKaciEnabled('+raceNum+',\''+safeN+'\',this.checked)" style="accent-color:var(--kaci);width:14px;height:14px">'+
+    '<span style="font-size:12px;font-weight:700;color:'+(k.enabled?'#6e5728':'var(--text)')+'">✨ Kaci\'s Score</span>'+
     '</label>'+
-    '<span style="font-size:10px;color:var(--dim);flex:1">On-track paddock / post parade observation</span>'+
-    (k.enabled?'<span class="pill on-p" style="font-size:10px">×'+km.toFixed(3)+'</span>':'')+
+    '<span style="font-size:10px;color:var(--muted);flex:1">On-track paddock / post parade observation</span>'+
+    (k.enabled?'<span class="pill" style="font-size:10px;border-color:var(--kaci);background:var(--kaci-soft);color:#6e5728;font-weight:700">×'+km.toFixed(3)+'</span>':'')+
     '</div>';
-  if(k.enabled){
-    html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">';
-    cats.forEach(function(cat){
-      html+='<div class="kaci-cat">'+
-        '<div class="kaci-cat-l">'+cat[0]+'</div>'+
-        '<div class="kaci-cat-d">'+cat[2]+'</div>'+
-        '<div class="kaci-opts">';
-      opts.forEach(function(lbl,v){
-        html+='<button class="kopt'+(k[cat[1]]===v?' on':'')+'" onclick="setKaciVal('+raceNum+',\''+safeN+'\',\''+cat[1]+'\','+v+')">'+lbl+'</button>';
-      });
-      html+='</div></div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;'+(k.enabled?'':'opacity:0.78')+'">';
+  cats.forEach(function(cat){
+    html+='<div class="kaci-cat">'+
+      '<div class="kaci-cat-l">'+cat[0]+'</div>'+
+      '<div class="kaci-cat-d">'+cat[2]+'</div>'+
+      '<div class="kaci-opts">';
+    opts.forEach(function(lbl,v){
+      html+='<button class="kopt'+(k[cat[1]]===v?' on':'')+'" onclick="setKaciVal('+raceNum+',\''+safeN+'\',\''+cat[1]+'\','+v+')">'+lbl+'</button>';
     });
-    html+='</div>';
-  }
+    html+='</div></div>';
+  });
+  html+='</div>';
   html+='</div>';
   return html;
 }
@@ -6475,7 +6622,13 @@ async function loadSelectedCard(){
         eq: { lf: false, lo: h.H_Lasix==='L'||h.H_Lasix==='l', bf: false, bl: !!h.H_Blinker },
         wk: workData.wk, bullets: workData.bullets,
         notes: (h.CL_Comment||'').substring(0,120).trim(),
-        sire: h.H_Sire, dam: h.H_Dam,
+        sire: h.H_Sire, dam: h.H_Dam, sireSire: h.H_SireSire, damSire: h.H_DamSire,
+        breeder: (h.H_Breeder||'').trim(),
+        sale: (h.H_Sale||'').trim(),
+        saleYear: (h.H_SaleYear||'').trim(),
+        salePrice: (function(){ var v = parseFloat(h.H_SalePrice); return isFinite(v) && v > 0 ? v : 0; })(),
+        // Stud fee in $K (e.g. "75.000" → 75). Empty / "Pensioned" → 0. Drives pedigreeBoost.
+        studFee: (function(){ var v = parseFloat(h.H_StudFee); return isFinite(v) && v > 0 ? v : 0; })(),
         claimPrice: nv(h.H_ClaimPrice), earnings: nv(h.H_Earnings),
         lastClaimPrice: nv(h.HR_ClaimPrice_1),
         lastClass: h.HR_LongClass_1 || '',
@@ -6533,7 +6686,9 @@ async function loadSelectedCard(){
         j: Math.round(h._jDispPct*100), tr: Math.round(h._tDispPct*100),
         layoff: h.days, cc: 0, wins: h.wins, notes: h.notes, eq: h.eq, wk: h.wk,
         distFit: _distLabel, jockeyName: h.jockey, trainerName: h.trainer,
-        sire: h.sire, dam: h.dam, claimPrice: h.claimPrice, earnings: h.earnings,
+        sire: h.sire, dam: h.dam, sireSire: h.sireSire, damSire: h.damSire, studFee: h.studFee,
+        breeder: h.breeder, sale: h.sale, saleYear: h.saleYear, salePrice: h.salePrice,
+        claimPrice: h.claimPrice, earnings: h.earnings,
         lastClaimPrice: h.lastClaimPrice, lastClass: h.lastClass,
         starts: h.starts, places: h.places, shows: h.shows,
         jockMeetWinPct: h._jDispPct, trnrMeetWinPct: h._tDispPct,
