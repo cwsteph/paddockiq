@@ -1538,10 +1538,6 @@ function renderRankings(){
           return '<div class="hcard-stat"><div class="hcard-stat-l">'+x[0]+'</div><div class="hcard-stat-v" style="color:'+vc+'">'+x[1]+'</div></div>';
         }).join('')+
         '</div>'+
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;margin-top:8px">'+
-          kaciPanel(race.n,s.name,k,s.km)+
-          stinePanel(s, race.n)+
-        '</div>'+
         liveUpdatesPanel(race.n,s.name,s.horse)+
         // ── Past races log (matches workout panel style) ──
         (function(){
@@ -1705,6 +1701,13 @@ function renderRankings(){
             +(s.wkLabel?'<div style="font-size:10px;color:var(--muted);margin-top:3px">Score: +'+s.wkScore+' — '+s.wkLabel+'</div>':'')
             +'</div>';
         })():'')
+        +
+        // Kaci's Score + Stine's Boost — moved below Workouts + Past Races so the
+        // observational/manual inputs sit at the bottom of the dossier.
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;margin-top:10px">'+
+          kaciPanel(race.n,s.name,k,s.km)+
+          stinePanel(s, race.n)+
+        '</div>'
         +'</div>':'')+
       '</div>';
   });
@@ -2159,11 +2162,9 @@ function renderCompsStrip(comps, score, stineBoost, stineReason, pedBoost, pedTi
 // can only break ties, never overturn a legitimate score gap.
 var STINE_KEYWORDS = {
   cu: [
-    // CU Boulder + signature Buffaloes football
+    // CU Boulder + signature Buffaloes football (Stine's alma mater)
     'buffalo','buffaloes','buff','buffs','folsom','boulder','coach prime','sanders',
-    'shedeur','travis hunter','black and gold','ralphie',
-    // CSU Rams (Charles's secondary CO college signal)
-    'csu','ram nation','colorado state'
+    'shedeur','travis hunter','black and gold','ralphie'
   ],
   pro: [
     // Pro teams — Broncos / Avalanche / Nuggets / Rockies / Rapids
@@ -2190,6 +2191,10 @@ var STINE_KEYWORDS = {
     'bamboozle','flapjack','noodle','pickle','muffin','biscuit','waffle','pancake',
     'bigfoot','sasquatch','yeti','unicorn','wizard','ninja','pirate','cowboy',
     'awol','yolo','swag','vibes','wild card','plot twist','no chill',
+    // Hawaiian / island
+    'aloha','mahalo','ohana','hula','luau','mai tai','hawaii','hawaiian','wahine','kahuna',
+    'maui','kauai','oahu','waikiki','lahaina','hanalei','haleakala','mauna kea','mauna loa',
+    'big island','north shore','diamond head','pipeline','tiki','poke bowl','shaka','honu',
     // Sailor / nautical (dropped reef/harbor/port/tide — too generic)
     'anchor','sailor','ahoy','yacht','schooner','mariner','starboard',
     'jolly roger','kraken','leviathan','davy jones','lighthouse',
@@ -2278,14 +2283,8 @@ function stinePanel(s, raceNum){
       '<span style="font-weight:'+(s.stineManualOn?'700':'500')+'">Manual hunch — give it the nudge</span>'+
     '</label>'+
     '<div style="font-size:10.5px;color:var(--muted);font-style:italic;line-height:1.5;margin-top:6px">'+
-      'Austin Bryant\'s tiebreaker — auto-flags candidates whose names hit any of: '+
-      '<b>CU Buffaloes / CSU Rams</b>, <b>Colorado pro sports</b> (Broncos, Avs, Nuggets, Rockies, Rapids), '+
-      '<b>ski + outdoor culture</b> (shred, gnar, gondola, bluebird day, telemark, ski-town names), '+
-      '<b>sailor / nautical</b> (anchor, kraken, schooner, lighthouse, davy jones), '+
-      '<b>risqué / whimsical</b> (rebel, outlaw, bandit, mischief, vixen, naughty, trouble, boogie, bigfoot, plot twist), '+
-      'or <b>formal titles</b> (sir, dame, captain, professor, admiral). '+
-      'Auto-detection only flags with a 🦬 by the name — boost (+0.30 flat) applies only when you tick the manual checkbox above. '+
-      'Tiebreaker only — never overturns a real score gap.'+
+      'Austin Bryant\'s tiebreaker — auto-flags names tied to <b>CU Buffaloes</b>, <b>Colorado pro sports</b>, <b>outdoor culture</b>, <b>Hawaiian / island</b>, <b>nautical</b>, <b>risqué/whimsical</b>, or <b>formal titles</b>. '+
+      'The 🦬 marks a candidate; tick the box above to apply a flat <b>+0.30</b> tiebreaker. Never overturns a real score gap.'+
     '</div>'+
   '</div>';
 }
