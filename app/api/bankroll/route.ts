@@ -1,13 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 
-const prisma = new PrismaClient();
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    let bankroll = await prisma.bankroll.findFirst({ orderBy: { updatedAt: "desc" } });
-    if (!bankroll) bankroll = await prisma.bankroll.create({ data: { amount: 100 } });
-    const bets = await prisma.bet.findMany({ orderBy: { createdAt: "desc" } });
+    const user = await getCurrentUser();
+    const userId = user?.id ?? null;
+
+    let bankroll = await prisma.bankroll.findFirst({
+      where: { userId },
+      orderBy: { updatedAt: "desc" },
+    });
+    if (!bankroll) {
+      bankroll = await prisma.bankroll.create({ data: { amount: 100, userId } });
+    }
+    const bets = await prisma.bet.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+    });
     return NextResponse.json({ bankroll: bankroll.amount, bets });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Unknown error";
@@ -17,20 +29,22 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    const userId = user?.id ?? null;
     const { bankroll, bets } = await req.json();
-    // Update bankroll
-    const existing = await prisma.bankroll.findFirst();
+
+    const existing = await prisma.bankroll.findFirst({ where: { userId } });
     if (existing) {
       await prisma.bankroll.update({ where: { id: existing.id }, data: { amount: bankroll } });
     } else {
-      await prisma.bankroll.create({ data: { amount: bankroll } });
+      await prisma.bankroll.create({ data: { amount: bankroll, userId } });
     }
-    // Sync bets — replace all bets for today
+
     const today = new Date().toISOString().slice(0, 10);
-    await prisma.bet.deleteMany({ where: { raceDate: today } });
+    await prisma.bet.deleteMany({ where: { raceDate: today, userId } });
     if (bets && bets.length > 0) {
       await prisma.bet.createMany({
-        data: bets.map((b: {track?:string;race?:number;betType?:string;horses?:string;amount?:number;toWin?:number;result?:string;payout?:number}) => ({
+        data: bets.map((b: { track?: string; race?: number; betType?: string; horses?: string; amount?: number; toWin?: number; result?: string; payout?: number }) => ({
           track: b.track || "OP",
           raceDate: today,
           race: b.race || 0,
@@ -40,6 +54,7 @@ export async function POST(req: NextRequest) {
           toWin: b.toWin || null,
           result: b.result || "pending",
           payout: b.payout || null,
+          userId,
         })),
       });
     }

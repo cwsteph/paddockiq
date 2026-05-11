@@ -316,7 +316,7 @@ select{font-family:'Inter',system-ui,sans-serif}
     <div id="hdr-sub" style="font-size:11px;color:var(--muted);letter-spacing:1.5px;font-family:'DM Sans',sans-serif">OAKLAWN PARK · 10 RACES</div>
   </div>
   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-    <div id="br-wrap">
+    <div id="br-wrap" data-premium="1">
       <span class="pill on-g" id="br-badge">$100.00 Bankroll</span>
       <button id="br-edit" onclick="toggleBankrollPop(event)" title="Edit bankroll / reset day">&#9998;</button>
       <div id="br-pop">
@@ -327,6 +327,13 @@ select{font-family:'Inter',system-ui,sans-serif}
         </div>
         <button onclick="if(confirm('Reset today — clear bets and bankroll?'))clearTodayState()" style="background:transparent;border:1px solid var(--red);color:var(--red);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:11px;width:100%">Reset Day</button>
       </div>
+    </div>
+    <div id="paywall-cta" style="display:none;align-items:center;gap:6px">
+      <a id="paywall-signin" href="/sign-in" class="pill" style="text-decoration:none;font-size:11px">Sign in</a>
+      <a id="paywall-subscribe" href="/pricing" class="pill on-g" style="text-decoration:none;font-size:11px">Subscribe</a>
+    </div>
+    <div id="account-link" style="display:none;align-items:center">
+      <a href="/account" class="pill" style="text-decoration:none;font-size:11px">Account</a>
     </div>
     <div id="betting-today-wrap" style="position:relative;">
       <button id="betting-today-btn" onclick="toggleBettingDropdown()" style="background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 12px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--gold);font-family:'DM Sans',sans-serif;">
@@ -4603,7 +4610,7 @@ function buildAnalysisView() {
   '</div>';
 
   // ── Real-world buy-ins (Venmo → Caesars, matched to uploaded card days) ──
-  html += '<div class="card"><div class="ctitle">Real-World Caesars Buy-Ins (Venmo)</div>' +
+  html += '<div class="card" data-premium="1"><div class="ctitle">Real-World Caesars Buy-Ins (Venmo)</div>' +
     '<div style="font-size:11px;color:var(--dim);margin-bottom:8px">Export your Venmo statement (app → ⚙ Settings → Statements → Download CSV) and drop it here. Matches Caesars Entertainment payments to the dates you uploaded a PP card.</div>' +
     '<label for="venmo-csv-input" style="display:inline-block;font-size:12px;padding:8px 18px;border-radius:6px;border:1px solid var(--gold);background:#fbf3d8;color:var(--gold);cursor:pointer;font-weight:600">📄 Choose Venmo CSV</label>' +
     '<input type="file" id="venmo-csv-input" accept=".csv" style="display:none" onchange="importVenmoCSV(event); document.getElementById(\'venmo-filename\').textContent = this.files[0] ? this.files[0].name : \'\';">' +
@@ -4921,6 +4928,7 @@ function buildAnalysisView() {
     _renderComponentCharts(compLabels, winnerCompSums, pickCompSums, totalRaces);
     if (races.length >= 5) _renderWeightTrendChart(races, compLabels, compKeys);
     if (_venmoData) _renderVenmoResult();  // restore after buildView rebuilds the placeholder
+    if (typeof applyGates === 'function') applyGates();
   }, 60);
 }
 
@@ -5866,6 +5874,70 @@ function clearTodayState(){
     localStorage.removeItem(LS_KEY);
     location.reload();
   }
+}
+
+// ── Paywall gating (POC) ──
+window.IS_PREMIUM = false;
+window.SIGNED_IN = false;
+
+function applyGates(){
+  var els = document.querySelectorAll('[data-premium="1"]');
+  els.forEach(function(el){
+    if (window.IS_PREMIUM) {
+      el.style.filter = '';
+      el.style.pointerEvents = '';
+      el.style.userSelect = '';
+      var existing = el.querySelector('[data-premium-overlay]');
+      if (existing) existing.remove();
+    } else {
+      if (!el.querySelector('[data-premium-overlay]')) {
+        el.style.position = 'relative';
+        el.style.filter = 'blur(4px)';
+        el.style.pointerEvents = 'none';
+        el.style.userSelect = 'none';
+        var overlay = document.createElement('a');
+        overlay.setAttribute('data-premium-overlay','');
+        overlay.href = '/pricing';
+        overlay.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.55);filter:none;pointer-events:auto;text-decoration:none;color:#0d3d2e;font-weight:700;font-size:14px;border-radius:6px;z-index:5';
+        overlay.textContent = '🔒 Subscribe to unlock';
+        el.appendChild(overlay);
+      }
+    }
+  });
+
+  // Header chrome — hide bankroll badge group entirely for non-premium; show Subscribe/Sign in cluster
+  var brWrap = document.getElementById('br-wrap');
+  var paywallCta = document.getElementById('paywall-cta');
+  var accountLink = document.getElementById('account-link');
+  if (brWrap && paywallCta && accountLink) {
+    if (window.IS_PREMIUM) {
+      brWrap.style.display = '';
+      brWrap.style.filter = '';
+      brWrap.style.pointerEvents = '';
+      var ov = brWrap.querySelector('[data-premium-overlay]');
+      if (ov) ov.remove();
+      paywallCta.style.display = 'none';
+      accountLink.style.display = window.SIGNED_IN ? 'inline-flex' : 'none';
+    } else {
+      brWrap.style.display = 'none';
+      paywallCta.style.display = 'inline-flex';
+      accountLink.style.display = window.SIGNED_IN ? 'inline-flex' : 'none';
+    }
+  }
+}
+
+function loadMe(){
+  fetch('/api/me').then(function(r){return r.json();}).then(function(d){
+    window.IS_PREMIUM = !!d.isPremium;
+    window.SIGNED_IN = !!d.signedIn;
+    applyGates();
+  }).catch(function(){ applyGates(); });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadMe);
+} else {
+  loadMe();
 }
 
 (function(){
