@@ -7,10 +7,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id                   String    @id @default(cuid())
+  clerkId              String    @unique
+  email                String    @unique
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  plan                 String    @default("free")
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  bankrolls Bankroll[]
+  bets      Bet[]
+  snapshots BankrollSnapshot[]
+}
+
 model Bankroll {
   id        Int      @id @default(autoincrement())
   amount    Float
   updatedAt DateTime @updatedAt
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model Bet {
@@ -25,22 +45,71 @@ model Bet {
   result    String?
   payout    Float?
   createdAt DateTime @default(now())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model BankrollSnapshot {
   id        Int      @id @default(autoincrement())
   amount    Float
   createdAt DateTime @default(now())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model RaceCard {
-  id        Int      @id @default(autoincrement())
-  track     String
-  raceDate  String
-  numRaces  Int      @default(10)
-  label     String
-  data      String
-  savedAt   DateTime @default(now())
+  id       Int      @id @default(autoincrement())
+  track    String
+  raceDate String
+  numRaces Int      @default(10)
+  label    String
+  data     String
+  savedAt  DateTime @default(now())
 
   @@unique([track, raceDate])
+}
+
+model RaceResult {
+  id             Int       @id @default(autoincrement())
+  card_id        Int
+  race_num       Int
+  race_date      DateTime  @db.Date
+  horse_name     String
+  finish_pos     Int?
+  paddockiq_rank Int?
+  score          Decimal?  @db.Decimal
+  spd            Decimal?  @default(0) @db.Decimal
+  frm            Decimal?  @default(0) @db.Decimal
+  cls            Decimal?  @default(0) @db.Decimal
+  pce            Decimal?  @default(0) @db.Decimal
+  jck            Decimal?  @default(0) @db.Decimal
+  trn            Decimal?  @default(0) @db.Decimal
+  wk             Decimal?  @default(0) @db.Decimal
+  trend          Decimal?  @default(0) @db.Decimal
+  ml             Decimal?  @default(0) @db.Decimal
+  won            Boolean?  @default(false)
+  bet_amount     Decimal?  @db.Decimal
+  bet_type       String?
+  bet_payout     Decimal?  @db.Decimal
+  win_payoff     Decimal?  @db.Decimal
+  place_payoff   Decimal?  @db.Decimal
+  show_payoff    Decimal?  @db.Decimal
+  source         String?   @default("manual")
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime? @default(now()) @db.Timestamptz(6)
+  closing_odds   String?
+  morning_line   String?
+  model_prob     Decimal?  @db.Decimal
+  snapshot_at    DateTime? @db.Timestamptz(6)
+  track          String?
+
+  @@unique([card_id, race_num, horse_name])
+  @@index([card_id], map: "idx_raceresult_card")
+  @@index([race_date], map: "idx_raceresult_date")
+  @@index([track], map: "idx_raceresult_track")
+  @@index([won], map: "idx_raceresult_won")
 }
