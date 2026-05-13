@@ -32,6 +32,7 @@ export async function POST() {
     line_items: [{ price: priceId, quantity: 1 }],
     client_reference_id: user.id,
     metadata: { userId: user.id },
+    subscription_data: { trial_period_days: 7 },
     success_url: `${appUrl}/account?subscribed=1`,
     cancel_url: `${appUrl}/pricing?canceled=1`,
   });

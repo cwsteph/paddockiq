@@ -91,6 +91,8 @@ select{font-family:'Inter',system-ui,sans-serif}
 
 /* Cards — regular cards get a green left accent; card-gold stays brass */
 .card{background:var(--bg3);border:1px solid var(--border);border-left:4px solid var(--green);border-radius:6px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(13,61,46,0.05)}
+details:not([open]) .bl-chevron{transform:rotate(-90deg);display:inline-block}
+summary::-webkit-details-marker{display:none}
 .card-gold{background:linear-gradient(135deg,var(--header-bg) 0%,#0f4736 50%,var(--header-bg) 100%);border:1.5px solid var(--gold);border-left:4px solid var(--gold);border-radius:8px;padding:18px 20px;margin-bottom:12px;box-shadow:0 4px 14px rgba(13,61,46,0.25);color:var(--header-ink)}
 .card-gold .ctitle{color:var(--header-accent) !important}
 .card-gold,.card-gold *{color:inherit}
@@ -1034,6 +1036,7 @@ function render(){
   }
   var brBadge=document.getElementById('br-badge');
   if(brBadge) brBadge.textContent='$'+rem().toFixed(2)+' Bankroll';
+  if (typeof applyGates === 'function') applyGates();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1202,6 +1205,11 @@ function renderRankings(){
         '<div class="card-gold" style="text-align:center;padding:36px 20px">' +
           '<div class="bebas" style="font-size:24px;color:var(--gold);letter-spacing:1.5px;margin-bottom:8px">No card loaded</div>' +
           '<div style="font-size:13px;color:var(--muted);max-width:420px;margin:0 auto;line-height:1.6">' + msg + '</div>' +
+          '<div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(201,167,106,0.25)">' +
+            '<div style="font-size:11px;color:var(--dim);letter-spacing:0.08em;margin-bottom:10px">— OR TRY THE DEMO —</div>' +
+            '<button onclick="loadDemoCard()" style="font-size:13px;padding:11px 26px;border-radius:6px;border:1.5px solid var(--gold);background:var(--gold);color:#0d3d2e;cursor:pointer;font-weight:700;letter-spacing:0.04em;box-shadow:0 1px 4px rgba(201,167,106,0.35)">🏇 Kentucky Derby Demo</button>' +
+            '<div style="font-size:11px;color:var(--dim);margin-top:8px">May 2, 2026 — Churchill Downs · 14 races</div>' +
+          '</div>' +
         '</div>';
     }
     return;
@@ -2954,8 +2962,14 @@ function renderNews(){
   };
 
   // ── Bloodlines & Backgrounds — Today's Card ──
-  html+='<div class="card"><div class="ctitle">Bloodlines & Backgrounds</div>'+
-    '<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Breeding, connections, and background on today\'s runners.</div>';
+  html+='<div class="card">'+
+    '<details open style="margin:0">'+
+      '<summary style="cursor:pointer;list-style:none;outline:none;display:flex;align-items:center;gap:8px;user-select:none">'+
+        '<span style="font-size:11px;color:var(--muted);transition:transform 0.15s" class="bl-chevron">▼</span>'+
+        '<span class="ctitle" style="margin:0">Bloodlines & Backgrounds</span>'+
+      '</summary>'+
+      '<div data-premium-blur="1" style="margin-top:8px">'+
+        '<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Breeding, connections, and background on today\'s runners.</div>';
   R.forEach(function(race,ri){
     if(!race.horses||!race.horses.length) return;
     var scr=scratches[ri]||{};
@@ -3037,7 +3051,7 @@ function renderNews(){
     });
     html+='</div>';
   });
-  html+='</div>';
+  html+='</div></details></div>';
 
   // ── Quick Tips ──
   if(tips.tips&&tips.tips.length){
@@ -4163,6 +4177,18 @@ var _venmoData = null;       // { caesarsTxns, racingDates, cards } — survives
 function renderAnalysis() {
   var el = document.getElementById('tab-analysis');
   if (!el) return;
+
+  if (!window.IS_PREMIUM) {
+    el.innerHTML =
+      '<div data-premium-wall style="padding:48px 28px;text-align:center;border:1px dashed #c9a76a;background:rgba(245,236,211,0.45);border-radius:8px;margin:8px 0">' +
+        '<div style="font-weight:700;font-size:15px;color:#0d3d2e;letter-spacing:0.04em;margin-bottom:8px">PREMIUM FEATURE</div>' +
+        '<div style="font-size:14px;color:#3a3530;margin-bottom:6px;font-weight:600">Full Analysis — model performance, backtests, Kelly sim, bet log</div>' +
+        '<div style="font-size:13px;color:#6b6052;margin-bottom:22px;max-width:440px;margin-left:auto;margin-right:auto">609K runner backtest, component charts, ROI by gap-size, Kelly-replay bankroll curve, Venmo importer, and your personal bet log.</div>' +
+        '<a href="/pricing" style="display:inline-block;padding:12px 26px;background:#0d3d2e;color:#f5ecd3;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;margin-right:8px">Try free for 7 days</a>' +
+        '<div style="font-size:11px;color:#6b6052;margin-top:10px">Free signup. Cancel anytime during trial.</div>' +
+      '</div>';
+    return;
+  }
 
   el.innerHTML =
     '<div class="card-gold" style="text-align:center;padding:20px">' +
@@ -5879,27 +5905,99 @@ function clearTodayState(){
 // ── Paywall gating (POC) ──
 window.IS_PREMIUM = false;
 window.SIGNED_IN = false;
+window.DEMO_CARD_ID = 189; // May 2, 2026 — Churchill Downs (Kentucky Derby)
+window.IS_DEMO_LOADED = false;
+
+function loadDemoCard(){
+  if (typeof loadCardById === 'function') loadCardById(window.DEMO_CARD_ID);
+}
+
+function renderDemoBanner(){
+  var existing = document.getElementById('demo-banner');
+  var isDemo = window._loadedCardId === window.DEMO_CARD_ID;
+  if (isDemo && !window.IS_PREMIUM) {
+    if (!existing) {
+      var bar = document.createElement('div');
+      bar.id = 'demo-banner';
+      bar.style.cssText = 'background:linear-gradient(135deg,#0d3d2e 0%,#0f4736 50%,#0d3d2e 100%);color:#f5ecd3;padding:14px 18px;margin:0 0 12px 0;border-radius:8px;border:1px solid #c9a76a;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap';
+      bar.innerHTML =
+        '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:240px">' +
+          '<span style="font-size:18px">🏇</span>' +
+          '<div>' +
+            '<div style="font-weight:700;font-size:13px;letter-spacing:0.04em">DEMO MODE — KENTUCKY DERBY 2026</div>' +
+            '<div style="font-size:11px;color:rgba(245,236,211,0.75);margin-top:2px">You\'re seeing the May 2 Churchill Downs card. Subscribe to load your own cards, run Kelly sim, and unlock full Analysis.</div>' +
+          '</div>' +
+        '</div>' +
+        '<a href="/pricing" style="display:inline-block;padding:10px 20px;background:#c9a76a;color:#0d3d2e;border-radius:6px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:0.04em;white-space:nowrap">Subscribe for full access →</a>';
+      var rankings = document.getElementById('tab-rankings');
+      if (rankings && rankings.firstChild) rankings.insertBefore(bar, rankings.firstChild);
+    }
+  } else if (existing) {
+    existing.remove();
+  }
+}
 
 function applyGates(){
   var els = document.querySelectorAll('[data-premium="1"]');
   els.forEach(function(el){
+    if (el.id === 'br-wrap') return; // header bankroll uses its own hide/show below
+    el.style.filter = '';
+    el.style.pointerEvents = '';
+    el.style.userSelect = '';
+    var wall = el.querySelector(':scope > [data-premium-wall]');
+    var legacyOverlay = el.querySelector('[data-premium-overlay]');
+    if (legacyOverlay) legacyOverlay.remove();
+    if (window.IS_PREMIUM) {
+      if (wall) wall.remove();
+      Array.prototype.forEach.call(el.children, function(c){
+        if (c.hasAttribute && c.hasAttribute('data-premium-hidden')) {
+          c.style.display = '';
+          c.removeAttribute('data-premium-hidden');
+        }
+      });
+    } else {
+      if (!wall) {
+        Array.prototype.forEach.call(el.children, function(c){
+          if (c.style.display !== 'none') {
+            c.setAttribute('data-premium-hidden','');
+            c.style.display = 'none';
+          }
+        });
+        wall = document.createElement('div');
+        wall.setAttribute('data-premium-wall','');
+        wall.style.cssText = 'padding:36px 24px;text-align:center;border:1px dashed #c9a76a;background:rgba(245,236,211,0.45);border-radius:8px;margin:8px 0';
+        wall.innerHTML =
+          '<div style="font-weight:700;font-size:15px;color:#0d3d2e;letter-spacing:0.04em;margin-bottom:8px">PREMIUM FEATURE</div>' +
+          '<div style="font-size:13px;color:#6b6052;margin-bottom:18px;max-width:380px;margin-left:auto;margin-right:auto">Bankroll tracking, Kelly sim, Venmo importer, and your personal bet log are part of PaddockIQ Premium.</div>' +
+          '<a href="/pricing" style="display:inline-block;padding:11px 22px;background:#0d3d2e;color:#f5ecd3;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">Try free for 7 days</a>' +
+          '<div style="font-size:11px;color:#6b6052;margin-top:10px">Free signup. Cancel anytime during trial.</div>';
+        el.appendChild(wall);
+      }
+    }
+  });
+
+  // ── Blur-and-overlay variant (preview-style, lets the silhouette show through) ──
+  var blurEls = document.querySelectorAll('[data-premium-blur="1"]');
+  blurEls.forEach(function(el){
+    var existing = el.querySelector('[data-premium-blur-overlay]');
     if (window.IS_PREMIUM) {
       el.style.filter = '';
       el.style.pointerEvents = '';
       el.style.userSelect = '';
-      var existing = el.querySelector('[data-premium-overlay]');
       if (existing) existing.remove();
     } else {
-      if (!el.querySelector('[data-premium-overlay]')) {
+      if (!existing) {
         el.style.position = 'relative';
-        el.style.filter = 'blur(4px)';
+        el.style.filter = 'blur(5px)';
         el.style.pointerEvents = 'none';
         el.style.userSelect = 'none';
         var overlay = document.createElement('a');
-        overlay.setAttribute('data-premium-overlay','');
+        overlay.setAttribute('data-premium-blur-overlay','');
         overlay.href = '/pricing';
-        overlay.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.55);filter:none;pointer-events:auto;text-decoration:none;color:#0d3d2e;font-weight:700;font-size:14px;border-radius:6px;z-index:5';
-        overlay.textContent = '🔒 Subscribe to unlock';
+        overlay.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(245,236,211,0.35);filter:none;pointer-events:auto;text-decoration:none;color:#0d3d2e;font-weight:700;font-size:14px;border-radius:6px;z-index:5;gap:6px;padding:20px';
+        overlay.innerHTML =
+          '<div style="font-size:12px;font-weight:700;letter-spacing:0.06em">PREMIUM FEATURE</div>' +
+          '<div style="background:#0d3d2e;color:#f5ecd3;padding:9px 20px;border-radius:6px;font-size:13px;font-weight:600">Try free for 7 days</div>';
         el.appendChild(overlay);
       }
     }
@@ -5924,13 +6022,21 @@ function applyGates(){
       accountLink.style.display = window.SIGNED_IN ? 'inline-flex' : 'none';
     }
   }
+
+  renderDemoBanner();
 }
 
 function loadMe(){
   fetch('/api/me').then(function(r){return r.json();}).then(function(d){
+    var wasPremium = window.IS_PREMIUM;
     window.IS_PREMIUM = !!d.isPremium;
     window.SIGNED_IN = !!d.signedIn;
     applyGates();
+    // Re-render analysis tab if premium state changed and tab is currently visible
+    var tab = document.getElementById('tab-analysis');
+    if (tab && tab.style.display !== 'none' && wasPremium !== window.IS_PREMIUM && typeof renderAnalysis === 'function') {
+      renderAnalysis();
+    }
   }).catch(function(){ applyGates(); });
 }
 
@@ -5939,6 +6045,81 @@ if (document.readyState === 'loading') {
 } else {
   loadMe();
 }
+
+// ── Onboarding tour (POC) ──
+var TOUR_KEY = 'paddockiq_tour_v1';
+var TOUR_STEPS = [
+  {
+    title: 'Welcome to PaddockIQ 🏇',
+    body: 'Data-driven horse racing handicapping. Quick tour — 30 seconds.<br><br>Start by clicking <b>🏇 Kentucky Derby Demo</b> on the home screen, or pick a track and card from the dropdowns up top.'
+  },
+  {
+    title: 'Five tabs across the top',
+    body: '<b>📊 Rankings</b> — top picks with confidence levels<br><b>🎰 Exotics</b> — trifecta / superfecta plays<br><b>📡 Odds</b> — live tote board<br><b>📈 Analysis</b> — 609K-runner backtests <span style="color:#c9a76a">(Premium)</span><br><b>📰 News</b> — race-day insights'
+  },
+  {
+    title: 'News tab — Bloodlines & Backgrounds',
+    body: 'Click into <b>📰 News</b> for race-day insights. The <b>Bloodlines & Backgrounds</b> section breaks down breeding, connections, and notable runners — <span style="color:#c9a76a">unlocked with Premium</span>.'
+  },
+  {
+    title: 'Try Premium free for 7 days',
+    body: 'Full Analysis tab, Kelly sim using your bankroll, personal bet log, Venmo importer, and Bloodlines.<br><br>No charge during the trial. Cancel anytime.'
+  }
+];
+var _tourStep = 0;
+
+function startTour(force){
+  if (!force && localStorage.getItem(TOUR_KEY) === 'done') return;
+  _tourStep = 0;
+  showTourStep();
+}
+
+function showTourStep(){
+  closeTour(true); // remove any existing
+  var step = TOUR_STEPS[_tourStep];
+  if (!step) { endTour(); return; }
+  var backdrop = document.createElement('div');
+  backdrop.id = 'tour-backdrop';
+  backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(13,30,22,0.55);z-index:9998;backdrop-filter:blur(2px)';
+  backdrop.onclick = function(e){ if (e.target === backdrop) endTour(); };
+  var card = document.createElement('div');
+  card.id = 'tour-card';
+  card.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:linear-gradient(135deg,#0d3d2e 0%,#0f4736 50%,#0d3d2e 100%);color:#f5ecd3;border:1.5px solid #c9a76a;border-radius:10px;padding:24px 26px;max-width:440px;width:calc(100% - 40px);z-index:9999;box-shadow:0 12px 40px rgba(0,0,0,0.4);font-family:"DM Sans",sans-serif';
+  var lastStep = _tourStep === TOUR_STEPS.length - 1;
+  card.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px">' +
+      '<div>' +
+        '<div style="font-size:10px;color:#c9a76a;letter-spacing:0.1em;font-weight:700">STEP ' + (_tourStep+1) + ' OF ' + TOUR_STEPS.length + '</div>' +
+        '<div style="font-size:18px;font-weight:700;margin-top:4px">' + step.title + '</div>' +
+      '</div>' +
+      '<button onclick="endTour()" style="background:transparent;border:none;color:rgba(245,236,211,0.6);font-size:20px;cursor:pointer;padding:0;line-height:1" title="Skip">×</button>' +
+    '</div>' +
+    '<div style="font-size:13px;line-height:1.6;color:rgba(245,236,211,0.92);margin-bottom:20px">' + step.body + '</div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px">' +
+      '<button onclick="endTour()" style="background:transparent;border:none;color:rgba(245,236,211,0.55);font-size:12px;cursor:pointer;padding:4px 0;text-decoration:underline">Skip tour</button>' +
+      '<div style="display:flex;gap:8px">' +
+        (_tourStep > 0 ? '<button onclick="prevTourStep()" style="background:transparent;border:1px solid rgba(201,167,106,0.5);color:#c9a76a;border-radius:6px;padding:8px 14px;font-size:13px;cursor:pointer;font-weight:600">← Back</button>' : '') +
+        (lastStep
+          ? '<a href="/pricing" onclick="endTour()" style="background:#c9a76a;color:#0d3d2e;border-radius:6px;padding:9px 18px;font-size:13px;font-weight:700;text-decoration:none;letter-spacing:0.02em">Start free trial →</a>'
+          : '<button onclick="nextTourStep()" style="background:#c9a76a;color:#0d3d2e;border:none;border-radius:6px;padding:9px 18px;font-size:13px;cursor:pointer;font-weight:700;letter-spacing:0.02em">Next →</button>') +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(backdrop);
+  document.body.appendChild(card);
+}
+
+function nextTourStep(){ _tourStep++; showTourStep(); }
+function prevTourStep(){ if (_tourStep > 0) { _tourStep--; showTourStep(); } }
+function endTour(){ closeTour(); localStorage.setItem(TOUR_KEY, 'done'); }
+function closeTour(silent){
+  var b = document.getElementById('tour-backdrop');
+  var c = document.getElementById('tour-card');
+  if (b) b.remove();
+  if (c) c.remove();
+}
+
+// Kick off tour on first visit (after a short delay so the UI paints first)
+setTimeout(function(){ startTour(); }, 800);
 
 (function(){
   // Reset to "no track selected" on every page load. Persistent state (bankroll,

@@ -39,19 +39,23 @@ export default function PricingPage() {
 
       <h1 style={{ fontSize: 28, marginBottom: 8 }}>PaddockIQ Premium</h1>
       <p style={{ color: "#666", marginBottom: 24 }}>
-        Personal bankroll tracking, Kelly sim, Venmo importer, your bet log.
+        Full analysis, backtests, Kelly sim, Venmo importer, and your personal bet log.
       </p>
 
       <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: 24 }}>
+        <div style={{ display: "inline-block", background: "#0d3d2e", color: "#f5ecd3", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", padding: "4px 10px", borderRadius: 4, marginBottom: 10 }}>
+          7-DAY FREE TRIAL
+        </div>
         <div style={{ fontSize: 32, fontWeight: 700 }}>
           $9<span style={{ fontSize: 14, color: "#888" }}>/mo</span>
+          <span style={{ fontSize: 13, color: "#0d3d2e", fontWeight: 600, marginLeft: 10 }}>after 7-day trial</span>
         </div>
         <ul style={{ margin: "16px 0", paddingLeft: 20, fontSize: 14, lineHeight: 1.7 }}>
-          <li>Personal bankroll, persisted across sessions</li>
-          <li>Kelly sim using your actual bankroll</li>
+          <li>Full Analysis tab — 609K-runner backtests, component charts, ROI by gap-size</li>
+          <li>Kelly sim using your actual bankroll, compounded race-by-race</li>
+          <li>Personal bet log with date filters</li>
           <li>Venmo CSV importer for buy-in matching</li>
-          <li>Full bet log + date filters over your bets</li>
-          <li>All public features (rankings, odds, exotics, backtest charts)</li>
+          <li>Personal bankroll, persisted across sessions</li>
         </ul>
         <button
           onClick={subscribe}
@@ -68,8 +72,11 @@ export default function PricingPage() {
             cursor: "pointer",
           }}
         >
-          {loading ? "Loading…" : signedIn ? "Subscribe — $9/mo (test mode)" : "Sign up to subscribe"}
+          {loading ? "Loading…" : signedIn ? "Start 7-day free trial" : "Sign up to start free trial"}
         </button>
+        <div style={{ fontSize: 12, color: "#888", marginTop: 10, textAlign: "center" }}>
+          Card required. You won't be charged for 7 days. Cancel anytime before then — no charge.
+        </div>
       </div>
 
       <p style={{ marginTop: 24, fontSize: 12, color: "#999" }}>
