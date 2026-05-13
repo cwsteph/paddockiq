@@ -5960,8 +5960,10 @@ function loadState(){
       localStorage.removeItem(LS_KEY);
       return;
     }
-    // Only restore bankroll/wagered/returned if the save looks like a real session
-    if(state.bankroll&&state.bankroll!==DEFAULT_BANKROLL)bankroll=state.bankroll;
+    // Bankroll always boots at DEFAULT_BANKROLL ($100) on every page load —
+    // intentional reset so users see a consistent starting position regardless
+    // of yesterday's session. wagered/returned still restore so today's betting
+    // math (rem() = bankroll - wagered + returned) reflects in-progress wagers.
     if(state.wagered!==undefined)wagered=state.wagered;
     if(state.returned!==undefined)returned=state.returned;
     if(state.scratches)scratches=state.scratches;
