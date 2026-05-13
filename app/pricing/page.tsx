@@ -75,7 +75,7 @@ export default function PricingPage() {
           {loading ? "Loading…" : signedIn ? "Start 7-day free trial" : "Sign up to start free trial"}
         </button>
         <div style={{ fontSize: 12, color: "#888", marginTop: 10, textAlign: "center" }}>
-          Card required. You won't be charged for 7 days. Cancel anytime before then — no charge.
+          Card required. You won&apos;t be charged for 7 days. Cancel anytime before then — no charge.
         </div>
       </div>
 
