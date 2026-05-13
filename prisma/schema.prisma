@@ -18,9 +18,36 @@ model User {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
-  bankrolls Bankroll[]
-  bets      Bet[]
-  snapshots BankrollSnapshot[]
+  bankrolls   Bankroll[]
+  bets        Bet[]
+  snapshots   BankrollSnapshot[]
+  redemptions InviteRedemption[]
+}
+
+model InviteCode {
+  id         Int       @id @default(autoincrement())
+  code       String    @unique
+  createdAt  DateTime  @default(now())
+  maxUses    Int       @default(1)
+  uses       Int       @default(0)
+  grantsDays Int?
+  note       String?
+  disabled   Boolean   @default(false)
+
+  redemptions InviteRedemption[]
+}
+
+model InviteRedemption {
+  id           Int      @id @default(autoincrement())
+  inviteCodeId Int
+  userId       String
+  redeemedAt   DateTime @default(now())
+
+  inviteCode InviteCode @relation(fields: [inviteCodeId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
+
+  @@unique([inviteCodeId, userId])
+  @@index([userId])
 }
 
 model Bankroll {

@@ -83,11 +83,13 @@ select{font-family:'Inter',system-ui,sans-serif}
 .ntab.on{color:var(--header-ink);background:var(--green);border-top-left-radius:6px;border-top-right-radius:6px;border-bottom-color:var(--green);position:relative;top:2px}
 
 /* Bankroll popover */
-#br-pop{display:none;position:absolute;top:100%;right:0;margin-top:6px;background:var(--bg3);border:1px solid var(--gold);border-radius:8px;padding:12px;min-width:220px;z-index:999;box-shadow:0 8px 24px rgba(13,61,46,0.2)}
+#br-pop{display:none;position:absolute;top:100%;right:0;margin-top:8px;background:linear-gradient(180deg,#0d3d2e,#0a2e22);border:1.5px solid var(--gold);border-radius:10px;padding:14px 14px 12px;min-width:230px;z-index:999;box-shadow:0 12px 32px rgba(0,0,0,0.45)}
 #br-pop.on{display:block}
-#br-wrap{position:relative;display:inline-flex;align-items:center}
-#br-edit{background:transparent;border:none;color:rgba(245,236,211,0.6);cursor:pointer;padding:0 4px;font-size:11px;transition:color .15s}
-#br-edit:hover{color:var(--header-accent)}
+#br-wrap{position:relative;display:inline-flex;align-items:center;gap:0}
+#br-badge{display:inline-flex;align-items:center;background:linear-gradient(135deg,rgba(201,167,106,0.18),rgba(201,167,106,0.05))!important;border:1px solid var(--gold)!important;color:var(--gold)!important;border-radius:18px 0 0 18px!important;padding:5px 12px!important;font-family:'DM Sans',sans-serif;font-weight:700;font-size:12px;letter-spacing:0.03em;cursor:pointer;transition:background 0.15s}
+#br-badge:hover{background:linear-gradient(135deg,rgba(201,167,106,0.3),rgba(201,167,106,0.12))!important}
+#br-edit{background:linear-gradient(135deg,var(--gold),#b39055);border:1px solid var(--gold);border-left:none;color:#0d3d2e;cursor:pointer;padding:5px 10px 6px;font-size:13px;font-weight:700;border-radius:0 18px 18px 0;transition:all 0.15s;line-height:1}
+#br-edit:hover{background:linear-gradient(135deg,#d8b878,#c19c61);box-shadow:0 0 0 1px rgba(201,167,106,0.4),0 0 10px rgba(201,167,106,0.3)}
 
 /* Cards — regular cards get a green left accent; card-gold stays brass */
 .card{background:var(--bg3);border:1px solid var(--border);border-left:4px solid var(--green);border-radius:6px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(13,61,46,0.05)}
@@ -304,6 +306,69 @@ summary::-webkit-details-marker{display:none}
 
 /* Turf Club footer ornament (subtle, appended via existing markup if present) */
 .turf-footer{padding:20px;text-align:center;border-top:1px solid var(--border);background:var(--bg2);color:var(--muted);font-family:'Playfair Display',serif;font-style:italic;font-size:12px}
+
+/* ── Live races header strip ─────────────────────────────────── */
+.live-races-bar{display:flex;gap:6px;align-items:center;overflow-x:auto;max-width:580px;min-width:0;padding:2px 0;scrollbar-width:thin;scrollbar-color:rgba(201,167,106,0.5) transparent}
+.live-races-bar::-webkit-scrollbar{height:5px}
+.live-races-bar::-webkit-scrollbar-thumb{background:rgba(201,167,106,0.5);border-radius:3px}
+.live-races-bar::-webkit-scrollbar-track{background:transparent}
+.live-races-bar .lr-label{display:inline-flex;align-items:center;gap:5px;font-size:9px;color:#9fd9b4;letter-spacing:0.14em;font-weight:800;text-transform:uppercase;flex-shrink:0;padding:3px 8px;font-family:'DM Sans',sans-serif;background:rgba(13,79,60,0.45);border:1px solid rgba(127,200,156,0.4);border-radius:12px}
+.live-races-bar .lr-label::before{content:"●";color:#7fc89c;font-size:10px;animation:lrPulse 1.6s ease-in-out infinite}
+.live-races-bar .lr-pill{display:inline-flex;align-items:center;gap:6px;flex-shrink:0;background:#1a1d1f;border:1px solid #2d3133;color:#c2bfb6;border-radius:14px;padding:4px 11px;font-size:11px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.15s;white-space:nowrap;font-weight:600;line-height:1.2}
+.live-races-bar .lr-pill:hover{background:#23272a;border-color:rgba(201,167,106,0.6);color:#f0e1bd}
+.live-races-bar .lr-pill .lr-track{font-weight:700;color:#e8e5dc}
+.live-races-bar .lr-pill .lr-date{font-size:10px;opacity:0.85;font-family:'JetBrains Mono','Menlo',monospace;letter-spacing:0.02em}
+/* Status: UP NEXT (race imminent) — bright gold pulse */
+.live-races-bar .lr-pill.lr-up-next{background:linear-gradient(135deg,rgba(201,167,106,0.22),rgba(201,167,106,0.1));border-color:#c9a76a;color:#f0e1bd;box-shadow:0 0 0 1px rgba(201,167,106,0.25),0 0 14px rgba(201,167,106,0.28)}
+.live-races-bar .lr-pill.lr-up-next .lr-track{color:#f5e6c2}
+.live-races-bar .lr-pill.lr-up-next .lr-date{color:#c9a76a}
+.live-races-bar .lr-pill.lr-up-next::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#c9a76a;box-shadow:0 0 6px #c9a76a;animation:lrPulse 1.2s ease-in-out infinite}
+/* Status: OPEN (wagering open, race scheduled) — green accent */
+.live-races-bar .lr-pill.lr-open{background:rgba(13,61,46,0.4);border-color:rgba(127,200,156,0.45);color:#cfe9d7}
+.live-races-bar .lr-pill.lr-open .lr-track{color:#dff0e5}
+.live-races-bar .lr-pill.lr-open .lr-date{color:#9fd9b4}
+.live-races-bar .lr-pill.lr-open::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#7fc89c}
+/* Status: SCHEDULED (later today) — muted blue */
+.live-races-bar .lr-pill.lr-scheduled{background:rgba(26,58,94,0.32);border-color:rgba(159,181,212,0.35);color:#c2cee0}
+.live-races-bar .lr-pill.lr-scheduled .lr-track{color:#dde4ef}
+.live-races-bar .lr-pill.lr-scheduled .lr-date{color:#9fb5d4}
+.live-races-bar .lr-pill.lr-scheduled::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#7a9ac4;opacity:0.7}
+/* Active = this track is loaded — solid gold */
+.live-races-bar .lr-pill.lr-active{background:linear-gradient(135deg,#c9a76a,#b39055);border-color:#c9a76a;color:#0d3d2e;box-shadow:0 1px 4px rgba(201,167,106,0.35)}
+.live-races-bar .lr-pill.lr-active .lr-track{color:#0d3d2e}
+.live-races-bar .lr-pill.lr-active .lr-date{color:rgba(13,61,46,0.78)}
+.live-races-bar .lr-pill.lr-active::before{background:#0d3d2e;box-shadow:none;animation:none;width:5px;height:5px}
+.live-races-bar .lr-empty{font-size:10px;color:var(--dim);font-style:italic;letter-spacing:0.04em;padding-left:4px}
+@keyframes lrPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.45;transform:scale(0.85)}}
+@media(max-width:900px){.live-races-bar{max-width:100%;width:100%;order:99}}
+
+/* ── Tutorial overlay ────────────────────────────────────────── */
+/* Backdrop is the click-target for skip; dim is done entirely by the
+   highlight's outset shadow so the cutout interior stays at full brightness. */
+#tut-backdrop{position:fixed;inset:0;background:transparent;z-index:9000;display:none}
+#tut-highlight{position:absolute;border:3px solid #c9a76a;border-radius:8px;box-shadow:0 0 0 9999px rgba(10,10,10,0.72),0 0 24px rgba(201,167,106,0.7),inset 0 0 32px rgba(255,236,180,0.08);pointer-events:none;transition:all 0.25s ease;z-index:9001}
+#tut-highlight.pulse{animation:tutPulse 1.6s ease-in-out infinite}
+@keyframes tutPulse{0%,100%{box-shadow:0 0 0 9999px rgba(10,10,10,0.72),0 0 24px rgba(201,167,106,0.7),inset 0 0 32px rgba(255,236,180,0.08)}50%{box-shadow:0 0 0 9999px rgba(10,10,10,0.72),0 0 36px rgba(201,167,106,1),inset 0 0 40px rgba(255,236,180,0.14)}}
+#tut-tip{position:absolute;max-width:340px;min-width:260px;background:#0d3d2e;color:#f5ecd3;border:1.5px solid #c9a76a;border-radius:10px;padding:16px 18px;z-index:9002;box-shadow:0 12px 32px rgba(0,0,0,0.5);font-family:'DM Sans',system-ui,sans-serif;line-height:1.55;transition:all 0.25s ease}
+#tut-tip .tut-badge{display:inline-block;background:#c9a76a;color:#0d3d2e;font-size:10px;font-weight:700;letter-spacing:0.08em;padding:3px 9px;border-radius:4px;margin-bottom:8px}
+#tut-tip .tut-title{font-size:16px;font-weight:700;color:#f5ecd3;margin-bottom:6px}
+#tut-tip .tut-body{font-size:13px;color:rgba(245,236,211,0.85);margin-bottom:14px}
+#tut-tip .tut-clickhere{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#c9a76a;font-weight:700;letter-spacing:0.05em;margin-bottom:10px}
+#tut-tip .tut-clickhere::before{content:"👉";font-size:13px}
+#tut-tip .tut-row{display:flex;gap:8px;align-items:center;justify-content:space-between}
+#tut-tip .tut-count{font-size:11px;color:rgba(245,236,211,0.55);letter-spacing:0.06em}
+#tut-tip .tut-btns{display:flex;gap:6px}
+#tut-tip button{font-family:inherit;font-size:12px;font-weight:600;padding:6px 12px;border-radius:5px;cursor:pointer;border:1px solid #c9a76a;background:transparent;color:#c9a76a}
+#tut-tip button.primary{background:#c9a76a;color:#0d3d2e}
+#tut-tip button:disabled{opacity:0.4;cursor:not-allowed}
+#tut-tip .tut-skip{font-size:11px;color:rgba(245,236,211,0.55);background:none;border:none;padding:4px 6px;text-decoration:underline;cursor:pointer;margin-top:4px}
+#tut-tip .tut-arrow{position:absolute;width:14px;height:14px;background:#0d3d2e;border:1.5px solid #c9a76a;transform:rotate(45deg)}
+#tut-tip .tut-arrow.top{top:-9px;left:24px;border-right:none;border-bottom:none}
+#tut-tip .tut-arrow.bottom{bottom:-9px;left:24px;border-left:none;border-top:none}
+#tut-tip .tut-arrow.left{left:-9px;top:24px;border-right:none;border-top:none}
+#tut-tip .tut-arrow.right{right:-9px;top:24px;border-left:none;border-bottom:none}
+.tut-relaunch{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#c9a76a;border:1px solid #c9a76a;background:transparent;border-radius:6px;padding:5px 10px;cursor:pointer;font-weight:600;letter-spacing:0.04em}
+.tut-relaunch:hover{background:rgba(201,167,106,0.15)}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="/lib/betting-core.js"></script>
@@ -315,19 +380,30 @@ summary::-webkit-details-marker{display:none}
     <div class="bebas" style="font-size:24px;color:var(--gold);letter-spacing:1px">PaddockIQ</div>
     <select id="hdr-track-sel" onchange="switchTrack(this.value)" style="background:var(--bg2);border:1px solid var(--gold);color:var(--gold);border-radius:7px;padding:6px 12px;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:700;cursor:pointer;min-width:200px"></select>
     <select id="hdr-card-sel" onchange="if(this.value)loadCardById(parseInt(this.value))" style="background:var(--bg2);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 10px;font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;min-width:180px"><option value="">Loading cards…</option></select>
+    <div id="hdr-live-races" class="live-races-bar"></div>
     <div id="hdr-sub" style="font-size:11px;color:var(--muted);letter-spacing:1.5px;font-family:'DM Sans',sans-serif">OAKLAWN PARK · 10 RACES</div>
   </div>
   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-    <div id="br-wrap" data-premium="1">
-      <span class="pill on-g" id="br-badge">$100.00 Bankroll</span>
-      <button id="br-edit" onclick="toggleBankrollPop(event)" title="Edit bankroll / reset day">&#9998;</button>
+    <div id="br-wrap">
+      <span id="br-badge" onclick="toggleBankrollPop(event)" title="Click to edit bankroll">$100.00 Bankroll</span>
+      <button id="br-edit" onclick="toggleBankrollPop(event)" title="Edit bankroll / reset day" aria-label="Edit bankroll">&#9998;</button>
       <div id="br-pop">
-        <div style="font-size:10px;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Bankroll</div>
-        <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
-          <input class="inp" type="number" id="br-inp" value="100" min="1" style="width:100px;font-size:14px;color:var(--gold);font-weight:600"/>
-          <button class="btn on" onclick="updateBR()">Update</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:10px;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:0.08em">Bankroll</div>
+          <div style="font-size:10px;color:rgba(245,236,211,0.55)">Drives bet sizing</div>
         </div>
-        <button onclick="if(confirm('Reset today — clear bets and bankroll?'))clearTodayState()" style="background:transparent;border:1px solid var(--red);color:var(--red);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:11px;width:100%">Reset Day</button>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
+          <span style="color:var(--gold);font-weight:700;font-size:15px">$</span>
+          <input class="inp" type="number" id="br-inp" value="100" min="1" style="flex:1;padding:7px 10px;font-size:14px;color:var(--gold);font-weight:700;background:rgba(0,0,0,0.25);border:1px solid rgba(201,167,106,0.4);border-radius:6px"/>
+          <button onclick="updateBR()" style="background:linear-gradient(135deg,var(--gold),#b39055);color:#0d3d2e;border:none;border-radius:6px;padding:7px 14px;font-weight:700;font-size:12px;cursor:pointer;letter-spacing:0.04em">Update</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <button onclick="document.getElementById('br-inp').value=50;updateBR();" style="flex:1;background:transparent;border:1px solid rgba(201,167,106,0.35);color:rgba(245,236,211,0.85);border-radius:6px;padding:5px;cursor:pointer;font-size:11px;font-weight:600">$50</button>
+          <button onclick="document.getElementById('br-inp').value=100;updateBR();" style="flex:1;background:transparent;border:1px solid rgba(201,167,106,0.35);color:rgba(245,236,211,0.85);border-radius:6px;padding:5px;cursor:pointer;font-size:11px;font-weight:600">$100</button>
+          <button onclick="document.getElementById('br-inp').value=250;updateBR();" style="flex:1;background:transparent;border:1px solid rgba(201,167,106,0.35);color:rgba(245,236,211,0.85);border-radius:6px;padding:5px;cursor:pointer;font-size:11px;font-weight:600">$250</button>
+          <button onclick="document.getElementById('br-inp').value=500;updateBR();" style="flex:1;background:transparent;border:1px solid rgba(201,167,106,0.35);color:rgba(245,236,211,0.85);border-radius:6px;padding:5px;cursor:pointer;font-size:11px;font-weight:600">$500</button>
+        </div>
+        <button onclick="if(confirm('Reset today — clear bets and bankroll?'))clearTodayState()" style="background:transparent;border:1px solid rgba(212,154,154,0.5);color:#e8b8b8;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:11px;width:100%;font-weight:600;letter-spacing:0.04em">Reset Day</button>
       </div>
     </div>
     <div id="paywall-cta" style="display:none;align-items:center;gap:6px">
@@ -1202,13 +1278,46 @@ function renderRankings(){
         ? 'Pick a card date for <b style="color:var(--gold)">'+(cardInfo.track||cardInfo.code)+'</b> from the dropdown above.'
         : 'Pick a track and a card date from the dropdowns above to start.';
       el.innerHTML =
-        '<div class="card-gold" style="text-align:center;padding:36px 20px">' +
-          '<div class="bebas" style="font-size:24px;color:var(--gold);letter-spacing:1.5px;margin-bottom:8px">No card loaded</div>' +
+        '<div class="card-gold" style="padding:28px 32px;margin-bottom:14px">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">' +
+            '<div style="display:inline-block;background:rgba(201,167,106,0.18);color:var(--gold);font-size:11px;font-weight:700;letter-spacing:0.08em;padding:4px 12px;border-radius:4px;border:1px solid rgba(201,167,106,0.5)">WELCOME TO PADDOCKIQ</div>' +
+            '<div style="display:inline-block;color:rgba(245,236,211,0.55);font-size:10px;letter-spacing:0.1em;font-weight:600">A VALUE-BETTING ASSISTANT</div>' +
+          '</div>' +
+          '<div class="bebas" style="font-size:34px;color:var(--gold);letter-spacing:1.4px;margin-bottom:14px;line-height:1.05">Find the value. Bet smart.</div>' +
+          '<div style="font-size:14px;line-height:1.65;color:rgba(245,236,211,0.85);margin-bottom:20px">' +
+            'PaddockIQ ranks every horse using the same factors experienced handicappers rely on, weighted by a proprietary model. It pulls live odds and re-sizes your recommended bet as race time approaches — giving you a handicapper\'s edge without doing the math yourself. Use it to guide your bets, place wagers at the right price, and keep a running bet log.' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:22px">' +
+            '<div style="border:1px solid rgba(201,167,106,0.3);border-radius:6px;padding:12px 14px">' +
+              '<div style="font-size:10px;color:var(--gold);letter-spacing:0.08em;font-weight:700;margin-bottom:4px">🏇 RANK</div>' +
+              '<div style="font-size:12px;color:rgba(245,236,211,0.8);line-height:1.5">Composite score per horse from 9 model components</div>' +
+            '</div>' +
+            '<div style="border:1px solid rgba(201,167,106,0.3);border-radius:6px;padding:12px 14px">' +
+              '<div style="font-size:10px;color:var(--gold);letter-spacing:0.08em;font-weight:700;margin-bottom:4px">📡 GAP</div>' +
+              '<div style="font-size:12px;color:rgba(245,236,211,0.8);line-height:1.5">Model probability vs. live odds — value lives in the gap</div>' +
+            '</div>' +
+            '<div style="border:1px solid rgba(201,167,106,0.3);border-radius:6px;padding:12px 14px">' +
+              '<div style="font-size:10px;color:var(--gold);letter-spacing:0.08em;font-weight:700;margin-bottom:4px">💰 SIZE</div>' +
+              '<div style="font-size:12px;color:rgba(245,236,211,0.8);line-height:1.5">Algorithm-sized bets scaled to your bankroll, capped per race</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="border-top:1px solid rgba(201,167,106,0.3);padding-top:18px">' +
+            '<div style="display:inline-block;background:rgba(110,26,38,0.45);color:#f0c8c8;font-size:10px;font-weight:700;letter-spacing:0.08em;padding:3px 10px;border-radius:4px;border:1px solid rgba(212,154,154,0.5);margin-bottom:10px">⚠️ NOT A GUARANTEE</div>' +
+            '<div style="font-size:13px;line-height:1.65;color:rgba(245,236,211,0.78)">' +
+              '<b style="color:#f0c8c8">No bet is guaranteed.</b> PaddockIQ surfaces <i>value</i> — bets where a horse\'s probability of winning is higher than the implied odds suggest. Even value bets can lose. Bet only what you can afford to lose, and use the algorithm\'s recommended sizing to manage variance.' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="card-gold" style="text-align:center;padding:32px 20px">' +
+          '<div class="bebas" style="font-size:22px;color:var(--gold);letter-spacing:1.5px;margin-bottom:8px">No card loaded</div>' +
           '<div style="font-size:13px;color:var(--muted);max-width:420px;margin:0 auto;line-height:1.6">' + msg + '</div>' +
           '<div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(201,167,106,0.25)">' +
             '<div style="font-size:11px;color:var(--dim);letter-spacing:0.08em;margin-bottom:10px">— OR TRY THE DEMO —</div>' +
-            '<button onclick="loadDemoCard()" style="font-size:13px;padding:11px 26px;border-radius:6px;border:1.5px solid var(--gold);background:var(--gold);color:#0d3d2e;cursor:pointer;font-weight:700;letter-spacing:0.04em;box-shadow:0 1px 4px rgba(201,167,106,0.35)">🏇 Kentucky Derby Demo</button>' +
-            '<div style="font-size:11px;color:var(--dim);margin-top:8px">May 2, 2026 — Churchill Downs · 14 races</div>' +
+            '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">' +
+              '<button onclick="loadDemoCard()" style="font-size:13px;padding:11px 26px;border-radius:6px;border:1.5px solid var(--gold);background:var(--gold);color:#0d3d2e;cursor:pointer;font-weight:700;letter-spacing:0.04em;box-shadow:0 1px 4px rgba(201,167,106,0.35)">🏇 Kentucky Derby Demo</button>' +
+              '<button onclick="startTutorial(true)" style="font-size:13px;padding:11px 22px;border-radius:6px;border:1.5px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:700;letter-spacing:0.04em">🎓 Take the Tutorial</button>' +
+            '</div>' +
+            '<div style="font-size:11px;color:var(--dim);margin-top:10px">May 2, 2026 — Churchill Downs · 14 races</div>' +
           '</div>' +
         '</div>';
     }
@@ -1282,19 +1391,19 @@ function renderRankings(){
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">'+
     '<div style="flex:1;min-width:240px">'+
       '<div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;margin-bottom:3px">Top Pick — Race '+race.n+(function(){var rn=(typeof resolveRaceName==='function')?resolveRaceName(race):'';var label=rn||race.gradeName||'';return label?' &nbsp;<span style="color:#f0c850;text-transform:none">'+label+'</span>':'';})()+'</div>'+
-      '<div class="bebas" style="font-size:28px;color:var(--gold);line-height:1.1">'+(top.horse.disp||top.name)+((top.stineAuto||0)>0?' <span title="Stine candidate — '+(top.stineReason||'auto-detected')+'. Apply manually in expanded panel." style="font-size:22px;cursor:help">🦬</span>':'')+'</div>'+
+      '<div class="bebas" style="font-size:28px;color:var(--gold);line-height:1.1">'+(top.horse.disp||top.name)+(window.IS_PREMIUM&&(top.stineAuto||0)>0?' <span title="Stine candidate — '+(top.stineReason||'auto-detected')+'. Apply manually in expanded panel." style="font-size:22px;cursor:help">🦬</span>':'')+'</div>'+
       '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center">'+
-        '<span class="pill on-b">ML: '+top.horse.ml+'</span>'+
-        (_topHasLive?'<span style="font-size:11px;font-weight:700;color:'+(_topMovColor||'var(--blue)')+';background:#ede5cc;padding:2px 10px;border-radius:20px;border:1px solid '+(_topMovColor||'var(--blue)')+'">LIVE: '+_topLive+(_topMovLabel?' '+_topMovLabel:'')+'</span>':'')+
-        '<span class="pill on-g">Score: '+top.score+'</span>'+
+        '<span class="pill on-b" data-tut="top-ml">ML: '+top.horse.ml+'</span>'+
+        (_topHasLive?'<span data-tut="top-live" style="font-size:11px;font-weight:700;color:'+(_topMovColor||'var(--blue)')+';background:#ede5cc;padding:2px 10px;border-radius:20px;border:1px solid '+(_topMovColor||'var(--blue)')+'">LIVE: '+_topLive+(_topMovLabel?' '+_topMovLabel:'')+'</span>':'')+
+        '<span class="pill on-g" data-tut="top-score">Score: '+top.score+'</span>'+
         '<span class="'+cfBadge+'">'+cf.toUpperCase()+' CONF</span>'+
         (top.wkScore>0?'<span style="font-size:10px;background:var(--purple-soft);color:var(--purple);border:1px solid var(--purple);padding:2px 8px;border-radius:20px;font-weight:600">WRK +'+top.wkScore+' pts</span>':'')+
-        (top.kaciOn?'<span class="pill" style="border-color:var(--kaci);background:var(--kaci-soft);color:var(--kaci);font-weight:600">✨ Kaci ×'+top.km.toFixed(2)+'</span>':'')+
-        (top.stineManualOn?'<span class="pill" style="border-color:#c97a3a;background:rgba(201,122,58,0.15);color:#c97a3a;font-weight:600">🦬 Stine</span>':'')+
+        (window.IS_PREMIUM&&top.kaciOn?'<span class="pill" style="border-color:var(--kaci);background:var(--kaci-soft);color:var(--kaci);font-weight:600">✨ Kaci ×'+top.km.toFixed(2)+'</span>':'')+
+        (window.IS_PREMIUM&&top.stineManualOn?'<span class="pill" style="border-color:#c97a3a;background:rgba(201,122,58,0.15);color:#c97a3a;font-weight:600">🦬 Stine</span>':'')+
         (top.pedBoost>=1.0?'<span class="pill" style="border-color:#8a7fc8;background:rgba(106,99,168,0.15);color:#8a7fc8;font-weight:600" title="'+(top.horse.sire||'')+' · $'+(top.horse.studFee||0)+'K stud fee">🧬 Elite Pedigree</span>':'')+
       '</div>'+
       // ── Thesis narrative ──
-      '<div style="margin-top:10px;font-size:13px;color:var(--text);line-height:1.7;padding:10px 14px;background:rgba(212,175,55,0.04);border-left:3px solid var(--gold);border-radius:0 8px 8px 0">'+
+      '<div data-tut="top-thesis" style="margin-top:10px;font-size:13px;color:var(--text);line-height:1.7;padding:10px 14px;background:rgba(212,175,55,0.04);border-left:3px solid var(--gold);border-radius:0 8px 8px 0">'+
         (function(){
           var parts=[];
           var c=top._components||{};
@@ -1453,7 +1562,7 @@ function renderRankings(){
         '<div style="display:flex;align-items:center;gap:6px;min-width:0">'+
         (function(){var pc=PP_COLORS[s.horse.pp]||{bg:'#555',t:'#fff'};return '<span style="display:inline-flex;align-items:center;justify-content:center;background:'+pc.bg+';color:'+pc.t+';font-size:15px;font-weight:800;min-width:30px;height:26px;border-radius:4px;flex-shrink:0;border:2px solid rgba(255,255,255,0.2)">'+s.horse.pp+'</span>';})()+
         '<span class="horse-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.horse.disp||s.name)+'</span>'+
-        ((s.stineAuto||0)>0?'<span title="Stine candidate — '+(s.stineReason||'auto-detected')+'. Apply manually in expanded panel." style="font-size:14px;line-height:1;cursor:help;flex-shrink:0">🦬</span>':'')+
+        (window.IS_PREMIUM&&(s.stineAuto||0)>0?'<span title="Stine candidate — '+(s.stineReason||'auto-detected')+'. Apply manually in expanded panel." style="font-size:14px;line-height:1;cursor:help;flex-shrink:0">🦬</span>':'')+
         (i===0?'<span class="pill" style="border-color:var(--gold);color:var(--gold);background:var(--brass-soft);font-weight:600;letter-spacing:1px;font-size:10px">★ TOP PICK</span>':'')+
         '</div>'+
         ((s.horse.jockey||s.horse.trainer)?'<div class="horse-sub">'+[s.horse.jockey?'J. '+s.horse.jockey:'',s.horse.trainer?'T. '+s.horse.trainer:''].filter(Boolean).join(' · ')+'</div>':'')+
@@ -1485,7 +1594,7 @@ function renderRankings(){
         })():'')+
         (s.newTrnBonus>0?'<span class="pill pill-purple">NEW TRN +'+s.newTrnBonus+'</span>':'')+
         (s.extremeDropBonus>0?'<span class="pill pill-green">BIG DROP +'+s.extremeDropBonus+'</span>':'')+
-        (s.stineManualOn?'<span class="pill" style="border-color:#c97a3a;color:#c97a3a;background:rgba(201,122,58,0.12);font-weight:600">🦬 STINE</span>':'')+
+        (window.IS_PREMIUM&&s.stineManualOn?'<span class="pill" style="border-color:#c97a3a;color:#c97a3a;background:rgba(201,122,58,0.12);font-weight:600">🦬 STINE</span>':'')+
         (s.pedBoost>=1.0?'<span class="pill" style="border-color:#8a7fc8;color:#8a7fc8;background:rgba(106,99,168,0.12);font-weight:600" title="'+(s.horse.sire||'')+' · $'+(s.horse.studFee||0)+'K stud fee">🧬 ELITE PEDIGREE</span>':'')+
         ((s.distFitAdj&&s.distFitAdj!==0&&s.distFitAdj!==2)?(function(){
           var df=s.horse.distFit||'';
@@ -1554,6 +1663,7 @@ function renderRankings(){
         }).join('')+
         '</div>'+
         liveUpdatesPanel(race.n,s.name,s.horse)+
+        '<div data-tut="history">'+
         // ── Past races log (matches workout panel style) ──
         (function(){
           var pr=s.horse.pastRaces;
@@ -1716,13 +1826,16 @@ function renderRankings(){
             +(s.wkLabel?'<div style="font-size:10px;color:var(--muted);margin-top:3px">Score: +'+s.wkScore+' — '+s.wkLabel+'</div>':'')
             +'</div>';
         })():'')
+        +'</div>'  /* close data-tut="history" wrapper */
         +
-        // Kaci's Score + Stine's Boost — moved below Workouts + Past Races so the
-        // observational/manual inputs sit at the bottom of the dossier.
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;margin-top:10px">'+
-          kaciPanel(race.n,s.name,k,s.km)+
-          stinePanel(s, race.n)+
-        '</div>'
+        // Kaci's Score + Stine's Boost — premium-only insider tools, hidden for
+        // non-premium users. Observational/manual inputs at the bottom of the dossier.
+        (window.IS_PREMIUM
+          ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;margin-top:10px">'+
+              kaciPanel(race.n,s.name,k,s.km)+
+              stinePanel(s, race.n)+
+            '</div>'
+          : '')
         +'</div>':'')+
       '</div>';
   });
@@ -2102,7 +2215,7 @@ function renderCompsStrip(comps, score, stineBoost, stineReason, pedBoost, pedTi
     '</div>';
   }).join('');
 
-  var stineLine = (stineBoost>0)
+  var stineLine = (window.IS_PREMIUM && stineBoost>0)
     ? '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding:5px 8px;background:rgba(201,122,58,0.1);border:1px solid rgba(201,122,58,0.3);border-radius:4px;font-size:10.5px;color:#c97a3a"><span>🦬 Stine\'s tiebreaker'+(stineReason?' · '+stineReason:'')+'</span><span style="font-family:\'JetBrains Mono\',monospace;font-weight:700">+'+stineBoost.toFixed(2)+'</span></div>'
     : '';
 
@@ -5903,7 +6016,26 @@ function clearTodayState(){
 }
 
 // ── Paywall gating (POC) ──
-window.IS_PREMIUM = false;
+// Invite-code redemption sets a localStorage flag that grants premium without a
+// Clerk account. Check it first so the SPA can boot with premium unlocked even
+// before /api/me responds (and even if the user never made an account).
+function _hasInvitePremium(){
+  try {
+    var raw = localStorage.getItem('paddockiq_invite_premium');
+    if (!raw) return false;
+    var rec = JSON.parse(raw);
+    if (!rec || !rec.code) return false;
+    if (rec.grantsDays && rec.at) {
+      var expiresAt = rec.at + rec.grantsDays * 24 * 60 * 60 * 1000;
+      if (Date.now() > expiresAt) {
+        localStorage.removeItem('paddockiq_invite_premium');
+        return false;
+      }
+    }
+    return true;
+  } catch (e) { return false; }
+}
+window.IS_PREMIUM = _hasInvitePremium();
 window.SIGNED_IN = false;
 window.DEMO_CARD_ID = 189; // May 2, 2026 — Churchill Downs (Kentucky Derby)
 window.IS_DEMO_LOADED = false;
@@ -5928,7 +6060,11 @@ function renderDemoBanner(){
             '<div style="font-size:11px;color:rgba(245,236,211,0.75);margin-top:2px">You\'re seeing the May 2 Churchill Downs card. Subscribe to load your own cards, run Kelly sim, and unlock full Analysis.</div>' +
           '</div>' +
         '</div>' +
-        '<a href="/pricing" style="display:inline-block;padding:10px 20px;background:#c9a76a;color:#0d3d2e;border-radius:6px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:0.04em;white-space:nowrap">Subscribe for full access →</a>';
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+          '<button onclick="startTutorial(true)" class="tut-relaunch">🎓 Overview</button>' +
+          '<button onclick="startHorseTour(true)" class="tut-relaunch">🐎 Horse Tour</button>' +
+          '<a href="/pricing" style="display:inline-block;padding:10px 20px;background:#c9a76a;color:#0d3d2e;border-radius:6px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:0.04em;white-space:nowrap">Subscribe for full access →</a>' +
+        '</div>';
       var rankings = document.getElementById('tab-rankings');
       if (rankings && rankings.firstChild) rankings.insertBefore(bar, rankings.firstChild);
     }
@@ -6003,21 +6139,22 @@ function applyGates(){
     }
   });
 
-  // Header chrome — hide bankroll badge group entirely for non-premium; show Subscribe/Sign in cluster
+  // Header chrome — bankroll widget is now visible for all users (controls bet
+  // sizing in-session; premium adds Neon persistence). Paywall CTA shows alongside
+  // it for non-premium so users can upgrade.
   var brWrap = document.getElementById('br-wrap');
   var paywallCta = document.getElementById('paywall-cta');
   var accountLink = document.getElementById('account-link');
   if (brWrap && paywallCta && accountLink) {
+    brWrap.style.display = 'inline-flex';
+    brWrap.style.filter = '';
+    brWrap.style.pointerEvents = '';
+    var ov = brWrap.querySelector('[data-premium-overlay]');
+    if (ov) ov.remove();
     if (window.IS_PREMIUM) {
-      brWrap.style.display = '';
-      brWrap.style.filter = '';
-      brWrap.style.pointerEvents = '';
-      var ov = brWrap.querySelector('[data-premium-overlay]');
-      if (ov) ov.remove();
       paywallCta.style.display = 'none';
       accountLink.style.display = window.SIGNED_IN ? 'inline-flex' : 'none';
     } else {
-      brWrap.style.display = 'none';
       paywallCta.style.display = 'inline-flex';
       accountLink.style.display = window.SIGNED_IN ? 'inline-flex' : 'none';
     }
@@ -6029,7 +6166,8 @@ function applyGates(){
 function loadMe(){
   fetch('/api/me').then(function(r){return r.json();}).then(function(d){
     var wasPremium = window.IS_PREMIUM;
-    window.IS_PREMIUM = !!d.isPremium;
+    // Premium = real Clerk premium plan OR an active invite-code unlock.
+    window.IS_PREMIUM = !!d.isPremium || _hasInvitePremium();
     window.SIGNED_IN = !!d.signedIn;
     applyGates();
     // Re-render analysis tab if premium state changed and tab is currently visible
@@ -6063,7 +6201,7 @@ var TOUR_STEPS = [
   },
   {
     title: 'Try Premium free for 7 days',
-    body: 'Full Analysis tab, Kelly sim using your bankroll, personal bet log, Venmo importer, and Bloodlines.<br><br>No charge during the trial. Cancel anytime.'
+    body: '$5 per race day after the trial — pay only on days you use PaddockIQ.<br><br>Full Analysis tab, algorithm-sized bet recommendations using your bankroll, personal bet log, Venmo importer, and Bloodlines.<br><br>No charge during the trial. Cancel anytime.'
   }
 ];
 var _tourStep = 0;
@@ -6118,8 +6256,8 @@ function closeTour(silent){
   if (c) c.remove();
 }
 
-// Kick off tour on first visit (after a short delay so the UI paints first)
-setTimeout(function(){ startTour(); }, 800);
+// Old auto-tour disabled — replaced by the welcome card + startTutorial() overlay tour.
+// startTour() function preserved for any callers that still invoke it directly.
 
 (function(){
   // Reset to "no track selected" on every page load. Persistent state (bankroll,
@@ -6506,6 +6644,81 @@ async function saveCardToServer(){
 window._cardsCache = window._cardsCache || null;
 
 // Render the header card dropdown from a given cards array. Pure DOM + no network.
+function renderLiveRacesBanner(){
+  var el = document.getElementById('hdr-live-races');
+  if (!el) return;
+  if (!window._liveRacesData) {
+    el.innerHTML = '<div class="lr-label">Live Today</div><div class="lr-empty">loading…</div>';
+    return;
+  }
+  // Build a quick lookup of supported track codes from TRACK_LIST. TVG returns
+  // global tracks (AU, GB, FR, etc.); we only show those we can actually load
+  // cards for in this app.
+  if (!window._supportedTrackCodes && typeof TRACK_LIST !== 'undefined') {
+    window._supportedTrackCodes = TRACK_LIST.reduce(function(s,t){ s[t.code]=true; return s; }, {});
+  }
+  var supported = window._supportedTrackCodes || {};
+  var tracks = ((window._liveRacesData && window._liveRacesData.tracks) || [])
+    .filter(function(t){ return !!supported[t.code]; });
+  if (!tracks.length) {
+    el.innerHTML = '<div class="lr-label">Live Today</div><div class="lr-empty">no US tracks running right now</div>';
+    return;
+  }
+  var loadedCode = (typeof cardInfo !== 'undefined' && cardInfo && cardInfo.code) ? cardInfo.code : '';
+  function trackLabel(name, shortName){
+    var n = shortName || name || '';
+    if (n.length > 16) n = n.substring(0,14) + '…';
+    return n;
+  }
+  function mtpLabel(t){
+    if (t.status === 'IC') return 'UP NEXT';
+    if (typeof t.mtp === 'number') {
+      if (t.mtp <= 0) return 'POST';
+      if (t.mtp < 60) return t.mtp + 'm';
+      var h = Math.floor(t.mtp/60), m = t.mtp%60;
+      return h+'h'+(m?' '+m+'m':'');
+    }
+    return t.statusName || '';
+  }
+  function statusClass(t){
+    if (t.status === 'IC') return 'lr-up-next';
+    if (t.status === 'O' || t.status === 'RO' || t.status === 'MO') return 'lr-open';
+    if (t.status === 'SK') return 'lr-scheduled';
+    return 'lr-scheduled';
+  }
+  var html = '<div class="lr-label">Live Today</div>' + tracks.map(function(t){
+    var classes = ['lr-pill', statusClass(t)];
+    if (t.code === loadedCode) classes.push('lr-active');
+    var title = t.name + (t.raceNumber?' · Race '+t.raceNumber:'') + (t.totalRaces?' of '+t.totalRaces:'') + (t.statusName?' · '+t.statusName:'');
+    return '<div class="' + classes.join(' ') + '" onclick="onLiveRaceClick(\''+t.code+'\')" title="' + title.replace(/"/g,'&quot;') + '">' +
+      '<span class="lr-track">' + trackLabel(t.name, t.shortName) + '</span>' +
+      '<span class="lr-date">' + (t.raceNumber?'R'+t.raceNumber+' · ':'') + mtpLabel(t) + '</span>' +
+    '</div>';
+  }).join('');
+  el.innerHTML = html;
+}
+
+async function fetchLiveRacesBanner(){
+  try {
+    var resp = await fetch('/api/live-races', { cache: 'no-store' });
+    if (!resp.ok) return;
+    window._liveRacesData = await resp.json();
+    renderLiveRacesBanner();
+  } catch (e) { /* swallow — banner just stays on previous state */ }
+}
+
+function onLiveRaceClick(code){
+  // Switch the header track dropdown to this track if it's in our list; user can then
+  // pick a saved card (or upload one). Does NOT auto-load a card.
+  if (typeof switchTrack === 'function' && code) switchTrack(code);
+}
+
+// Initial fetch + 30s poll. Polling pauses while the tab is hidden.
+fetchLiveRacesBanner();
+setInterval(function(){
+  if (document.visibilityState !== 'hidden') fetchLiveRacesBanner();
+}, 30000);
+
 function renderHeaderCardDropdown(cards){
   var hdrSel=document.getElementById("hdr-card-sel");
   if(!hdrSel) return;
@@ -6590,6 +6803,7 @@ async function loadCardById(id){
     var hdrSel=document.getElementById("hdr-card-sel");
     if(hdrSel) hdrSel.value=String(id);
     syncTrackDropdown();
+    if (typeof renderLiveRacesBanner === 'function') renderLiveRacesBanner();
     // Initialize auto-pipeline for this card
     initRaceStatus();
     // Persist jockey/trainer stats for this track
@@ -7133,6 +7347,474 @@ async function loadSelectedCard(){
 // Public aliases
 window.parseSFCSV  = window._csvParseSF;
 window.loadCSVCard = window._csvLoadCard;
+
+// ═══════════════════════════════════════════════════════════
+// TUTORIAL WALKTHROUGH (overview + horses tours)
+// ═══════════════════════════════════════════════════════════
+(function(){
+  var TUT_KEYS = {
+    overview: 'paddockiq_tutorial_seen_v1',
+    horses:   'paddockiq_horse_tour_seen_v1'
+  };
+  var overviewSteps = [
+    {
+      sel: '#hdr',
+      title: 'Welcome to PaddockIQ',
+      body: 'Quick tour of the major features. About 60 seconds. You can skip any time.',
+      badge: 'STEP 1 OF 9',
+      clickhere: null,
+      pos: 'bottom',
+      noPulse: true
+    },
+    {
+      sel: '#hdr-track-sel',
+      title: 'Pick your track',
+      body: 'Switch between Oaklawn, Keeneland, Churchill Downs, and the other tracks PaddockIQ covers.',
+      clickhere: 'Click the dropdown to change track',
+      pos: 'bottom'
+    },
+    {
+      sel: '#hdr-card-sel',
+      title: 'Pick a card date',
+      body: 'Race cards are organized by track + date. Demo shows the May 2 Churchill Downs Derby card.',
+      clickhere: 'Click to pick a card date',
+      pos: 'bottom'
+    },
+    {
+      sel: '#paywall-cta',
+      title: 'Sign up to unlock full access',
+      body: 'Premium unlocks your bankroll widget, full Analysis tab, Kelly sim, bet log, and Venmo importer. Or use an invite code on the Pricing page for free access.',
+      clickhere: 'Click Sign in or Subscribe',
+      pos: 'bottom'
+    },
+    {
+      sel: '[onclick="goTab(\'rankings\')"]',
+      title: '🏇 Rankings',
+      body: 'Per-race horse rankings with composite score, win probability, ML, and algorithm-sized suggested bet. The Horse Tour (next) walks through reading a race in detail.',
+      clickhere: null,
+      pos: 'bottom'
+    },
+    {
+      sel: '[onclick="goTab(\'exotics\')"]',
+      title: '🎰 Exotics',
+      body: 'Build exactas, trifectas, and multi-race tickets (Pick 3/4/5) from the model\'s top contenders.',
+      clickhere: null,
+      pos: 'bottom'
+    },
+    {
+      sel: '[onclick="goTab(\'odds\')"]',
+      title: '📡 Odds',
+      body: 'Live odds vs. the model\'s implied probability. Big gaps are where value lives.',
+      clickhere: null,
+      pos: 'bottom'
+    },
+    {
+      sel: '[onclick="goTab(\'analysis\')"]',
+      title: '📈 Analysis',
+      body: 'Premium tab. Backtests over 609K runners, component charts, ROI by gap-size. Shows what the algorithm has actually done historically.',
+      clickhere: null,
+      pos: 'bottom'
+    },
+    {
+      sel: '[onclick="goTab(\'news\')"]',
+      title: '📰 News',
+      body: 'Track-day info and tips — dress code, food, parking, signature drinks, insider notes. Especially handy if you\'re actually at the track for the card.',
+      clickhere: null,
+      pos: 'bottom'
+    }
+  ];
+  var horsesSteps = [
+    {
+      sel: '#race-tabs',
+      title: 'Navigate races',
+      body: 'Every race on the card shows up here. Click a number to jump — color tells you confidence and bet-worthiness at a glance.',
+      clickhere: 'Click any race number to switch',
+      pos: 'bottom'
+    },
+    {
+      sel: '#tc-bar',
+      title: 'Track conditions',
+      body: 'Surface (fast / sloppy / turf), bias (speed / closer / neutral), wind, and temp all feed into the model. Adjust if conditions change on race day.',
+      clickhere: 'Click to expand and edit',
+      pos: 'bottom'
+    },
+    {
+      sel: '#tab-rankings .card-gold',
+      title: 'Top Pick',
+      body: 'The model\'s top-ranked horse for this race, with confidence level, model score, and live odds vs. morning line.',
+      clickhere: null,
+      pos: 'bottom'
+    },
+    {
+      sel: '[data-tut="top-thesis"]',
+      title: 'The thesis',
+      body: 'Plain-English commentary on why the model likes this horse — relative strengths, Beyer trend, class moves, running style, layoff, distance fit, pedigree, and the value edge at current odds.',
+      clickhere: null,
+      pos: 'top'
+    },
+    {
+      sel: '[data-tut="top-score"]',
+      title: 'Composite Score',
+      body: 'The model\'s composite score for this horse — a single number that blends speed figures, current form, class, pace fit, jockey + trainer stats, workouts, and class trend. Bigger gap between #1 and #2 = more confident pick.<br><br>To see the breakdown — Base, Track Adj, component scores, and Final Score — click any horse row to expand.',
+      clickhere: null,
+      pos: 'bottom'
+    },
+    {
+      sel: '[data-tut="top-ml"]',
+      title: 'ML — Morning Line',
+      body: 'The track handicapper\'s opening odds estimate, published before live betting opens. Use ML as the baseline — if the LIVE price drifts above ML, the public is fading the horse; if it steams in below ML, money\'s flowing to it.',
+      clickhere: null,
+      pos: 'bottom'
+    },
+    {
+      sel: '[data-tut="top-live"]',
+      title: 'LIVE — Live Tote Odds',
+      body: 'Real-time tote-board odds, updating as the pool changes. STEAM = money pouring in (odds dropping). DRIFT = horse being faded (odds rising). The model re-sizes your recommended bet against these live numbers.',
+      clickhere: null,
+      pos: 'bottom'
+    },
+    {
+      sel: '#tab-rankings button[onclick^="logBet"]',
+      title: 'Recommended bet',
+      body: 'Algorithm-sized bet for the top pick — scaled to your bankroll and capped per race. Click to log the wager so it tracks in your bet log.',
+      clickhere: 'Click to log this bet',
+      pos: 'left'
+    },
+    {
+      sel: '#tab-rankings .hcard.silver .hcard-row',
+      title: 'Horse rows',
+      body: 'Every horse in the field ranked top-to-bottom by composite score. The row shows rank, post-position color, ML / live odds, win probability, pace bar, and per-row score.',
+      clickhere: null,
+      pos: 'bottom'
+    },
+    {
+      sel: '#tab-rankings .hcard.silver',
+      title: 'Click expands the full panel',
+      body: 'Tapping any horse row opens its full handicapping panel. Watch — I\'ll open #2 now so you can see what\'s inside.',
+      clickhere: null,
+      pos: 'top',
+      onShow: function(){
+        var hcard = document.querySelector('#tab-rankings .hcard.silver');
+        if (!hcard) return;
+        // Idempotent: only click if the panel isn't already expanded
+        if (hcard.querySelector('.hcard-grid')) return;
+        var row = hcard.querySelector('.hcard-row');
+        if (row && typeof row.click === 'function') row.click();
+      }
+    },
+    {
+      sel: '#tab-rankings .hcard.silver .hcard-grid',
+      title: 'The handicapping panel — what each box means',
+      maxWidth: 420,
+      body:
+        '<div style="font-size:12.5px;line-height:1.55">' +
+          '<b>Beyer</b> — speed figure. 75+ is strong, 90+ is graded-stakes level.<br>' +
+          '<b>Style</b> — running style (Leader / Presser / Stalker / Closer). Tells you who\'ll be where in the pace setup.<br>' +
+          '<b>Jockey% / Trainer%</b> — win rates at this meet. 15%+ each is solid.<br>' +
+          '<b>Layoff</b> — days since last race. Over 60d raises a fitness question.<br>' +
+          '<b>Equipment</b> — Lasix or blinkers. LASIX 1ST or BLINK 1ST can signal a sharper move.<br>' +
+          '<b>Class Chg</b> — claiming-price move. Drop = easier spot, Up = test.<br>' +
+          '<b>Workout Pts</b> — bullets and elite-ranked works add points to the score.<br>' +
+          '<b>Dist Fit</b> — proven at this distance, or first try.<br>' +
+          '<b>Pedigree</b> — stud-fee-tiered bloodline boost.<br>' +
+          '<b>Base → Track Adj → Final Score</b> — that\'s the breakdown: Base is the raw model output, Track Adj layers in the track\'s bias, and the sum is the Final Score you see up top.' +
+        '</div>',
+      clickhere: null,
+      pos: 'top'
+    },
+    {
+      sel: '#tab-rankings .hcard.silver [data-tut="history"]',
+      title: 'Past Races + Workouts',
+      maxWidth: 440,
+      body:
+        '<div style="font-size:12.5px;line-height:1.55">' +
+          '<b>Past Races</b> — last 6 starts, most-recent first. Columns: Date, Track, Class, <b>Beyer</b>, Finish, and <b>Δ Beyer</b> (move vs prior race; green = improving, red = regressing). The bar is the Beyer scaled to the horse\'s personal max so you can eyeball the form curve. Wins shaded gold, last-out row shaded.<br><br>' +
+          '<b>Workouts</b> — last 5 drills with Days-ago, Distance, Time, Rank-in-set, and Flag:<br>' +
+          '&nbsp;&nbsp;<span style="color:#9fd9b4;font-weight:700">★ Elite</span> — top 10% of horses that breezed that distance at the track that day<br>' +
+          '&nbsp;&nbsp;<span style="color:#c9a76a;font-weight:700">✓ Top 20%</span> — solid work, not elite<br>' +
+          '&nbsp;&nbsp;<span style="color:#b48cf8;font-weight:700">🔵 B</span> — bullet, the fastest work of the day at that distance' +
+        '</div>',
+      clickhere: null,
+      pos: 'top'
+    },
+    {
+      sel: '#tab-rankings [class*="pill-muted"], #tab-rankings .hcard[style*="opacity"]',
+      title: 'Scratches handled automatically',
+      body: 'Scratched horses are detected in real-time and lined out on the field. No need to manually adjust — the model re-runs without them so your top pick and bet sizing always reflect who\'s actually running. You can still toggle scratches manually from the Odds tab if the live feed hasn\'t caught up.',
+      clickhere: null,
+      pos: 'top'
+    },
+    {
+      sel: '[onclick^="openResultsModal"]',
+      title: 'Log results',
+      body: 'After the race runs, click 📋 Log Results to enter the finish order and payouts. Drives your ROI tracking and the Analysis backtest.',
+      clickhere: 'Click after the race',
+      pos: 'left'
+    }
+  ];
+  var tours = { overview: overviewSteps, horses: horsesSteps };
+  var current = 'overview';
+  var idx = 0;
+  var active = false;
+
+  function findEl(sel){
+    try { return document.querySelector(sel); } catch (e) { return null; }
+  }
+
+  function ensureDom(){
+    if (document.getElementById('tut-backdrop')) return;
+    var bd = document.createElement('div');
+    bd.id = 'tut-backdrop';
+    bd.onclick = function(e){ if (e.target.id === 'tut-backdrop') skip(); };
+    document.body.appendChild(bd);
+    var hl = document.createElement('div');
+    hl.id = 'tut-highlight';
+    document.body.appendChild(hl);
+    var tip = document.createElement('div');
+    tip.id = 'tut-tip';
+    document.body.appendChild(tip);
+  }
+
+  function position(){
+    var steps = tours[current];
+    var step = steps[idx];
+    var target = findEl(step.sel);
+    var bd = document.getElementById('tut-backdrop');
+    var hl = document.getElementById('tut-highlight');
+    var tip = document.getElementById('tut-tip');
+    bd.style.display = 'block';
+    if (!target){
+      hl.style.display = 'none';
+      tip.style.position = 'fixed';
+      tip.style.left = '50%';
+      tip.style.top = '50%';
+      tip.style.transform = 'translate(-50%,-50%)';
+      return;
+    }
+    // First scroll the target into the middle of the viewport so we have room
+    // for the tip above OR below. Body scroll is locked during the tour, so
+    // unlock momentarily to honor the smooth-scroll, then re-lock.
+    var rectInitial = target.getBoundingClientRect();
+    var targetCenterY = rectInitial.top + rectInitial.height/2;
+    var idealCenter = window.innerHeight/2;
+    if (Math.abs(targetCenterY - idealCenter) > 80) {
+      document.body.style.overflow = '';
+      window.scrollTo(0, rectInitial.top + window.scrollY - idealCenter + rectInitial.height/2);
+      document.body.style.overflow = 'hidden';
+    }
+    var rect = target.getBoundingClientRect();
+    var pad = 6;
+    hl.style.display = 'block';
+    hl.style.left = (rect.left + window.scrollX - pad) + 'px';
+    hl.style.top = (rect.top + window.scrollY - pad) + 'px';
+    hl.style.width = (rect.width + pad*2) + 'px';
+    hl.style.height = (rect.height + pad*2) + 'px';
+    hl.classList.toggle('pulse', !step.noPulse);
+    tip.style.position = 'absolute';
+    tip.style.transform = '';
+    // Per-step max width — long-body steps get a wider tooltip
+    var stepMaxW = step.maxWidth || 340;
+    tip.style.maxWidth = stepMaxW + 'px';
+    var tipW = Math.min(stepMaxW, window.innerWidth - 28);
+    var tipH = tip.offsetHeight || 200;
+    var margin = 14;
+    // Auto-flip position if the requested side doesn't have room.
+    var pos = step.pos || 'bottom';
+    var spaceBelow = window.innerHeight - rect.bottom;
+    var spaceAbove = rect.top;
+    var spaceRight = window.innerWidth - rect.right;
+    var spaceLeft  = rect.left;
+    function fits(p){
+      if (p === 'bottom') return spaceBelow >= tipH + margin + 8;
+      if (p === 'top')    return spaceAbove >= tipH + margin + 8;
+      if (p === 'right')  return spaceRight >= tipW + margin + 8;
+      if (p === 'left')   return spaceLeft  >= tipW + margin + 8;
+      return false;
+    }
+    if (!fits(pos)) {
+      var order = ['top','bottom','right','left'].filter(function(p){ return p !== pos; });
+      for (var i = 0; i < order.length; i++) {
+        if (fits(order[i])) { pos = order[i]; break; }
+      }
+    }
+    var left, top;
+    if (pos === 'bottom'){
+      left = rect.left + window.scrollX;
+      top  = rect.bottom + window.scrollY + margin;
+    } else if (pos === 'top'){
+      left = rect.left + window.scrollX;
+      top  = rect.top + window.scrollY - tipH - margin;
+    } else if (pos === 'right'){
+      left = rect.right + window.scrollX + margin;
+      top  = rect.top + window.scrollY;
+    } else {
+      left = rect.left + window.scrollX - tipW - margin;
+      top  = rect.top + window.scrollY;
+    }
+    // Update arrow direction to match the chosen side
+    var arrow = pos === 'top' ? 'bottom' : pos === 'right' ? 'left' : pos === 'left' ? 'right' : 'top';
+    var arrowEl = tip.querySelector('.tut-arrow');
+    if (arrowEl) arrowEl.className = 'tut-arrow ' + arrow;
+    // Clamp horizontally + vertically to the viewport so the next button stays reachable.
+    var minLeft = window.scrollX + margin;
+    var maxLeft = window.scrollX + window.innerWidth - tipW - margin;
+    if (left > maxLeft) left = maxLeft;
+    if (left < minLeft) left = minLeft;
+    var minTop = window.scrollY + margin;
+    var maxTop = window.scrollY + window.innerHeight - tipH - margin;
+    if (top > maxTop) top = maxTop;
+    if (top < minTop) top = minTop;
+    tip.style.left = left + 'px';
+    tip.style.top  = top + 'px';
+  }
+
+  function render(){
+    var steps = tours[current];
+    var step = steps[idx];
+    // Run any per-step side effects (e.g. expanding a row) before measuring DOM.
+    if (typeof step.onShow === 'function') {
+      try { step.onShow(); } catch (e) { /* swallow */ }
+    }
+    var tip = document.getElementById('tut-tip');
+    var arrow = step.pos === 'top' ? 'bottom' : step.pos === 'right' ? 'left' : step.pos === 'left' ? 'right' : 'top';
+    var isLast = idx === steps.length - 1;
+    var tourLabel = current === 'horses' ? 'HORSE TOUR' : 'OVERVIEW';
+    var nextBtn;
+    if (isLast && current === 'overview') {
+      nextBtn = '<button class="primary" onclick="window.tutGotoHorses()">Next: Horse Tour →</button>';
+    } else if (isLast) {
+      nextBtn = '<button class="primary" onclick="window.tutFinish()">Finish ✓</button>';
+    } else {
+      nextBtn = '<button class="primary" onclick="window.tutNext()">Next →</button>';
+    }
+    tip.innerHTML =
+      '<div class="tut-arrow ' + arrow + '"></div>' +
+      '<div class="tut-badge">' + (step.badge || (tourLabel + ' · STEP ' + (idx+1) + ' OF ' + steps.length)) + '</div>' +
+      '<div class="tut-title">' + step.title + '</div>' +
+      '<div class="tut-body">' + step.body + '</div>' +
+      (step.clickhere ? '<div class="tut-clickhere">' + step.clickhere + '</div>' : '') +
+      '<div class="tut-row">' +
+        '<div class="tut-count">' + (idx+1) + ' / ' + steps.length + '</div>' +
+        '<div class="tut-btns">' +
+          '<button onclick="window.tutPrev()" ' + (idx===0?'disabled':'') + '>← Back</button>' +
+          nextBtn +
+        '</div>' +
+      '</div>' +
+      '<button class="tut-skip" onclick="window.tutSkip()">Skip tutorial</button>';
+    // If the step needed an onShow, give the DOM a beat to settle before measuring
+    // (renderRankings is synchronous but layout still needs a frame).
+    if (typeof step.onShow === 'function') {
+      requestAnimationFrame(function(){ requestAnimationFrame(position); });
+    } else {
+      position();
+    }
+  }
+
+  function start(force, tour){
+    tour = tour || 'overview';
+    var key = TUT_KEYS[tour];
+    if (!force && localStorage.getItem(key) === '1') return;
+    // Horse tour needs a loaded card. If R is empty, load demo first.
+    if (tour === 'horses' && (!window.R || !window.R.length || !window.R.some(function(r){return r.horses && r.horses.length;}))) {
+      if (typeof window.loadDemoCard === 'function') window.loadDemoCard();
+      // Loader will re-fire overview tour first; defer horse-tour start until user reaches it via the chain.
+      return;
+    }
+    ensureDom();
+    current = tour;
+    idx = 0;
+    active = true;
+    document.body.style.overflow = 'hidden';
+    render();
+  }
+  function next(){
+    var steps = tours[current];
+    if (idx < steps.length-1){ idx++; render(); }
+    else if (current === 'overview') gotoHorses();
+    else finish();
+  }
+  function prev(){ if (idx > 0){ idx--; render(); } }
+  var _gotoRetries = 0;
+  function gotoHorses(){
+    localStorage.setItem(TUT_KEYS.overview, '1');
+    var hasCard = window.R && window.R.length && window.R.some(function(r){return r.horses && r.horses.length;});
+    if (!hasCard && _gotoRetries < 8) {
+      _gotoRetries++;
+      if (typeof window.loadDemoCard === 'function') window.loadDemoCard();
+      setTimeout(gotoHorses, 1000);
+      return;
+    }
+    _gotoRetries = 0;
+    if (!hasCard) { finish(); return; }
+    current = 'horses';
+    idx = 0;
+    render();
+  }
+  function finish(){
+    localStorage.setItem(TUT_KEYS[current], '1');
+    if (current === 'horses') localStorage.setItem(TUT_KEYS.overview, '1');
+    active = false;
+    teardown();
+  }
+  function skip(){ finish(); }
+  function teardown(){
+    var bd = document.getElementById('tut-backdrop');
+    var hl = document.getElementById('tut-highlight');
+    var tip = document.getElementById('tut-tip');
+    if (bd) bd.style.display = 'none';
+    if (hl) hl.style.display = 'none';
+    if (tip) tip.innerHTML = '';
+    document.body.style.overflow = '';
+  }
+
+  window.startTutorial = start;
+  window.startHorseTour = function(force){ start(force, 'horses'); };
+  window.tutNext = next;
+  window.tutPrev = prev;
+  window.tutSkip = skip;
+  window.tutFinish = finish;
+  window.tutGotoHorses = gotoHorses;
+
+  // Reposition on resize
+  window.addEventListener('resize', function(){ if (active) position(); });
+
+  // Wrap loadDemoCard to clear the empty-state welcome immediately, auto-launch
+  // the tour, and suppress the dark-green Big Race Spotlight panel for the demo
+  // flow (it's redundant once the Top Pick card is on screen).
+  var _origLoadDemo = window.loadDemoCard;
+  var _origRenderBRS = window.renderBigRaceSpotlight;
+  window.loadDemoCard = function(){
+    var el = document.getElementById('tab-rankings');
+    if (el) {
+      el.innerHTML =
+        '<div id="demo-loading" style="text-align:center;padding:40px 20px;color:var(--dim);font-size:13px;letter-spacing:0.04em">' +
+          'Loading Kentucky Derby card…' +
+        '</div>';
+    }
+    // Monkey-patch the spotlight render so it stays hidden across every re-render.
+    window._suppressBigRaceSpotlight = true;
+    window.renderBigRaceSpotlight = function(){
+      var brs = document.getElementById('big-race-spotlight');
+      if (brs) brs.style.display = 'none';
+    };
+    if (typeof _origLoadDemo === 'function') _origLoadDemo();
+    // Belt-and-braces: clear any orphan loader after 4s.
+    setTimeout(function(){
+      var ld = document.getElementById('demo-loading');
+      if (ld) ld.remove();
+      var brs = document.getElementById('big-race-spotlight');
+      if (brs) brs.style.display = 'none';
+    }, 4000);
+    if (localStorage.getItem(TUT_KEYS.overview) !== '1'){
+      setTimeout(function(){ start(true); }, 900);
+    }
+  };
+  // Expose a restore hook in case a non-demo card loads later.
+  window.restoreBigRaceSpotlight = function(){
+    if (_origRenderBRS) window.renderBigRaceSpotlight = _origRenderBRS;
+    window._suppressBigRaceSpotlight = false;
+  };
+})();
 
 </script>
 </body>

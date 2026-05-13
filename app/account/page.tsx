@@ -83,7 +83,7 @@ export default function AccountPage() {
             textDecoration: "none",
           }}
         >
-          Subscribe — $9/mo
+          Subscribe — $5 / race day
         </a>
       )}
 
