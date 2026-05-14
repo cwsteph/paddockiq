@@ -341,6 +341,29 @@ summary::-webkit-details-marker{display:none}
 .live-races-bar .lr-empty{font-size:10px;color:var(--dim);font-style:italic;letter-spacing:0.04em;padding-left:4px}
 @keyframes lrPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.45;transform:scale(0.85)}}
 @media(max-width:900px){.live-races-bar{max-width:100%;width:100%;order:99}}
+/* Phones: the strip can run 30-50 pills wide. Force it to its own row, give it
+   edge-to-edge scrollroom, drop pill font + padding so 4-5 fit per viewport, and
+   chop track labels harder. The strip itself becomes a horizontal scroller; the
+   rest of the header chrome compacts to one or two short rows. */
+@media(max-width:600px){
+  #hdr{padding:10px 12px;min-height:0;gap:6px}
+  #hdr-sub{display:none}
+  #hdr-track-sel{min-width:0;max-width:170px;font-size:12px;padding:5px 8px}
+  #hdr-card-sel{min-width:0;max-width:170px;font-size:11px;padding:4px 6px}
+  .live-races-bar{margin:2px -12px 0;padding:4px 12px;width:calc(100% + 24px);max-width:none;border-top:1px solid rgba(201,167,106,0.15);border-bottom:1px solid rgba(201,167,106,0.15);background:rgba(0,0,0,0.18);scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+  .live-races-bar .lr-label{font-size:8px;padding:2px 6px;letter-spacing:0.1em}
+  .live-races-bar .lr-pill{font-size:10px;padding:3px 8px;gap:4px;scroll-snap-align:start}
+  .live-races-bar .lr-pill .lr-date{font-size:9px}
+  /* Tour-launch + paywall pills tighten too so the right-side cluster stays one row */
+  #hdr-tour-launch .tour-label{display:none}
+  #hdr-tour-launch .tut-relaunch{padding:5px 9px;font-size:13px}
+  #paywall-cta .pill{font-size:10px;padding:3px 9px}
+  #account-link .pill{font-size:10px;padding:3px 9px}
+  #br-wrap #br-badge{font-size:11px;padding:3px 10px}
+  #br-wrap #br-edit{font-size:13px;padding:3px 7px}
+  #race-badge{font-size:10px;padding:3px 9px}
+  #betting-today-btn{padding:3px 9px;font-size:10px}
+}
 
 /* ── Tutorial overlay ────────────────────────────────────────── */
 /* Backdrop is the click-target for skip; dim is done entirely by the
@@ -405,6 +428,10 @@ summary::-webkit-details-marker{display:none}
         </div>
         <button onclick="if(confirm('Reset today — clear bets and bankroll?'))clearTodayState()" style="background:transparent;border:1px solid rgba(212,154,154,0.5);color:#e8b8b8;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:11px;width:100%;font-weight:600;letter-spacing:0.04em">Reset Day</button>
       </div>
+    </div>
+    <div id="hdr-tour-launch" style="display:inline-flex;align-items:center;gap:4px">
+      <button onclick="startTutorial(true)" class="tut-relaunch" title="Overview tour" aria-label="Overview tour">🎓 <span class="tour-label">Overview</span></button>
+      <button onclick="startHorseTour(true)" class="tut-relaunch" title="Horse tour" aria-label="Horse tour">🐎 <span class="tour-label">Horse Tour</span></button>
     </div>
     <div id="paywall-cta" style="display:none;align-items:center;gap:6px">
       <a id="paywall-signin" href="/sign-in" class="pill" style="text-decoration:none;font-size:11px">Sign in</a>
@@ -1358,7 +1385,7 @@ function renderRankings(){
   var html='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:12px">'+
     '<span class="bebas" style="font-size:14px;color:var(--gold);background:#f5efe0;border:1px solid var(--gold);padding:2px 10px;border-radius:4px">Race '+race.n+'</span>'+
     '<span style="color:var(--muted)">'+race.t+' · '+race.d+' · '+race.ty+'</span>'+
-    '<button onclick="openResultsModal('+CUR+')" style="margin-left:auto;font-size:10px;padding:3px 12px;border-radius:20px;border:1px solid #3a5a3a;background:#e8f2e8;color:#4ec97e;cursor:pointer;font-weight:600">📋 Log Results</button>'+
+    '<button data-tut="log-results" onclick="openResultsModal('+CUR+')" style="margin-left:auto;font-size:10px;padding:3px 12px;border-radius:20px;border:1px solid #3a5a3a;background:#e8f2e8;color:#4ec97e;cursor:pointer;font-weight:600">📋 Log Results</button>'+
     '</div>';
 
   // Track profile info banner
@@ -1484,7 +1511,7 @@ function renderRankings(){
           // Primary recommended bet
           '<div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;text-align:right">Recommended Bet'+(_kellyAmt<=0?' <span style="color:#b89040">(min. conf bet)</span>':'')+'</div>'+
           '<div style="font-size:9px;color:#555;text-align:right">Budget: $'+perRaceCap.toFixed(0)+'/race · '+qualCount+' qualifying races</div>'+
-          '<button onclick="logBet(\''+top.name.replace(/'/g,'\\\'')+'\',' +ka+')" style="'+
+          '<button data-tut="top-bet" onclick="logBet(\''+top.name.replace(/'/g,'\\\'')+'\',' +ka+')" style="'+
             'background:rgba(8,28,22,0.55);border:1.5px solid #c99a4a;color:#c99a4a;font-weight:800;'+
             'border-radius:8px;padding:10px 18px;cursor:pointer;font-family:\'Oswald\',sans-serif;font-size:15px;letter-spacing:2.5px;min-width:200px;text-align:center;text-transform:uppercase">'+
             (cf==='high'?'WIN — $'+ka:cf==='medium'?'WIN / PLACE — $'+ka:'NO BET')+
@@ -7383,10 +7410,10 @@ window.loadCSVCard = window._csvLoadCard;
       pos: 'bottom'
     },
     {
-      sel: '#paywall-cta',
-      title: 'Sign up to unlock full access',
-      body: 'Premium unlocks your bankroll widget, full Analysis tab, Kelly sim, bet log, and Venmo importer. Or use an invite code on the Pricing page for free access.',
-      clickhere: 'Click Sign in or Subscribe',
+      sel: '#br-wrap',
+      title: 'Your bankroll — drives bet sizing',
+      body: 'Every recommended bet is scaled to this number, with a 20% cap per race and an even split across qualifying races. Click the pencil to set it. Premium persists your bankroll across sessions and tracks wagered/returned automatically.',
+      clickhere: 'Click ✎ to set yours',
       pos: 'bottom'
     },
     {
@@ -7476,9 +7503,9 @@ window.loadCSVCard = window._csvLoadCard;
       pos: 'bottom'
     },
     {
-      sel: '#tab-rankings button[onclick^="logBet"]',
+      sel: '[data-tut="top-bet"]',
       title: 'Recommended bet',
-      body: 'Algorithm-sized bet for the top pick — scaled to your bankroll and capped per race. Click to log the wager so it tracks in your bet log.',
+      body: 'Kelly-sized bet for the top pick — scaled to <b>your bankroll</b> (shown up in the header), capped at 20% per race, and split evenly across qualifying races on the card so one bet can\'t blow up the day. <b>NO BET</b> shows here when the model sees no edge — pass and wait for a better spot. Click the pill to log the wager into your bet log.',
       clickhere: 'Click to log this bet',
       pos: 'left'
     },
@@ -7547,7 +7574,7 @@ window.loadCSVCard = window._csvLoadCard;
       pos: 'top'
     },
     {
-      sel: '[onclick^="openResultsModal"]',
+      sel: '[data-tut="log-results"]',
       title: 'Log results',
       body: 'After the race runs, click 📋 Log Results to enter the finish order and payouts. Drives your ROI tracking and the Analysis backtest.',
       clickhere: 'Click after the race',
@@ -7677,6 +7704,22 @@ window.loadCSVCard = window._csvLoadCard;
     if (typeof step.onShow === 'function') {
       try { step.onShow(); } catch (e) { /* swallow */ }
     }
+    // Skip steps whose anchor isn't on the page. Covers:
+    //   - #paywall-cta hidden for premium users (display:none → 0×0 box)
+    //   - data-tut="top-live" missing when the top pick has no live odds yet
+    //   - data-tut="top-bet" missing on NO BET races (logBet button isn't rendered)
+    //   - data-tut="log-results" missing if the rankings race header hasn't drawn yet
+    // Steps marked allowMissing show a centered tip with no highlight (welcome card).
+    if (step.sel && !step.allowMissing) {
+      var probe = findEl(step.sel);
+      var visible = probe && (probe.offsetWidth > 0 || probe.offsetHeight > 0 || probe.getClientRects().length > 0);
+      if (!visible) {
+        if (idx < steps.length - 1) { idx++; render(); return; }
+        if (current === 'overview') { gotoHorses(); return; }
+        finish();
+        return;
+      }
+    }
     var tip = document.getElementById('tut-tip');
     var arrow = step.pos === 'top' ? 'bottom' : step.pos === 'right' ? 'left' : step.pos === 'left' ? 'right' : 'top';
     var isLast = idx === steps.length - 1;
@@ -7722,6 +7765,26 @@ window.loadCSVCard = window._csvLoadCard;
       // Loader will re-fire overview tour first; defer horse-tour start until user reaches it via the chain.
       return;
     }
+    // Horse tour anchors on the top-pick recommended bet + live odds. If the currently
+    // viewed race has neither (NO BET race, or pre-open with no live tote), jump to a
+    // race that has both so the highlight lands on real content for Dave-style first-runs.
+    if (tour === 'horses' && typeof window.scoreRace === 'function' && typeof window.goRace === 'function') {
+      try {
+        var bestIdx = -1;
+        for (var i = 0; i < window.R.length; i++) {
+          var sc = window.scoreRace(i);
+          if (!sc || !sc.length || !sc[0]) continue;
+          var topName = sc[0].name;
+          var cf = (typeof window.conf === 'function') ? window.conf(sc, window.R[i]) : 'low';
+          if (cf === 'low') continue;
+          var live = (typeof window.getOdds === 'function') ? window.getOdds(i, topName) : '';
+          var hasLive = live && live !== '—' && live !== sc[0].horse.ml;
+          if (hasLive) { bestIdx = i; break; }
+          if (bestIdx === -1) bestIdx = i; // fallback: a race with a recommended bet but no live yet
+        }
+        if (bestIdx >= 0 && bestIdx !== window.CUR) window.goRace(bestIdx);
+      } catch (e) { /* fall through — skipForward will handle missing anchors */ }
+    }
     ensureDom();
     current = tour;
     idx = 0;
@@ -7748,6 +7811,24 @@ window.loadCSVCard = window._csvLoadCard;
     }
     _gotoRetries = 0;
     if (!hasCard) { finish(); return; }
+    // Same race-pick as start(tour='horses') — jump to a race with a real recommended bet
+    // so steps 7-8 land on populated anchors.
+    if (typeof window.scoreRace === 'function' && typeof window.goRace === 'function') {
+      try {
+        var bestIdx = -1;
+        for (var i = 0; i < window.R.length; i++) {
+          var sc = window.scoreRace(i);
+          if (!sc || !sc.length || !sc[0]) continue;
+          var cf = (typeof window.conf === 'function') ? window.conf(sc, window.R[i]) : 'low';
+          if (cf === 'low') continue;
+          var live = (typeof window.getOdds === 'function') ? window.getOdds(i, sc[0].name) : '';
+          var hasLive = live && live !== '—' && live !== sc[0].horse.ml;
+          if (hasLive) { bestIdx = i; break; }
+          if (bestIdx === -1) bestIdx = i;
+        }
+        if (bestIdx >= 0 && bestIdx !== window.CUR) window.goRace(bestIdx);
+      } catch (e) { /* swallow */ }
+    }
     current = 'horses';
     idx = 0;
     render();
