@@ -16,8 +16,8 @@ const mono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "PaddockIQ — Horse Racing Analysis",
-  description: "Professional horse racing analysis and handicapping",
+  title: "PaddockIQ — Thoroughbred Handicapping",
+  description: "Thoroughbred value-betting assistant. Per-horse rankings, live odds vs. model, Kelly-sized bet recs.",
 }
 
 const hasClerk = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
