@@ -878,6 +878,37 @@ function softmax(sc){
   return ex.map(function(e){return e/sum;});
 }
 
+// Two probability views per horse:
+//   modelProb  — softmax of our scores (the model's own belief)
+//   winProb    — calibrated estimate: model blended with de-overrounded market consensus
+//   marketFair — pure de-overrounded market implied probabilities (for edge calc)
+//
+// ALPHA fitted by max-likelihood on the 66K-race / 526K-runner closing-odds backtest:
+//   pure Model  (α=1)  Brier 0.10580   logL -129,455
+//   pure Market (α=0)  Brier 0.09564   logL -111,399  ← best
+//   every α>0 monotonically worse.
+// The closing market is sharper than the current model on probability calibration,
+// so Win % defaults to a near-market read (small α keeps a token model lean for
+// races where you trust the model's separation). Bet triggers still come from
+// modelProb − marketFair (edge), so this only affects how the Win % column reads.
+function calibrateField(sc, modelProbs, raceIdx){
+  var market = sc.map(function(s){
+    var ml = (s.horse && s.horse.ml) || '5-1';
+    var live = (typeof getOdds==='function' && raceIdx!=null) ? getOdds(raceIdx, s.name) : null;
+    var oddsStr = (live && live !== '—') ? live : ml;
+    var dec = (typeof BettingCore !== 'undefined' && BettingCore.mlToDecimal) ? BettingCore.mlToDecimal(oddsStr) : 5;
+    // BettingCore.mlToDecimal returns European decimal (4-1 → 5.0). Implied = 1/dec.
+    return dec > 1 ? 1/dec : 0;
+  });
+  var msum = market.reduce(function(a,b){return a+b;},0);
+  var marketFair = market.map(function(m){ return msum > 0 ? m/msum : 1/Math.max(1,market.length); });
+  var ALPHA = 0.10;  // fitted from 66K-race backtest — market dominates calibration
+  var blended = modelProbs.map(function(p,i){ return ALPHA*p + (1-ALPHA)*marketFair[i]; });
+  var bsum = blended.reduce(function(a,b){return a+b;},0);
+  var winProbs = blended.map(function(b){ return bsum > 0 ? b/bsum : 0; });
+  return { winProbs: winProbs, marketProbs: marketFair };
+}
+
 function kellyBet(prob,ml,bank){
   var dec = BettingCore.mlToDecimal(ml);
   // Scale Kelly fraction by bankroll size — small bankrolls need to be more aggressive
@@ -1396,7 +1427,7 @@ function renderRankings(){
     }
     return;
   }
-  var race=R[CUR], sc=scoreRace(CUR), pr=softmax(sc), cf=conf(sc, race);
+  var race=R[CUR], sc=scoreRace(CUR), pr=softmax(sc), _cal=calibrateField(sc, pr, CUR), winPr=_cal.winProbs, marketPr=_cal.marketProbs, cf=conf(sc, race);
   var scr=scratches[CUR]||{};
   if(!sc.length){el.innerHTML='<div style="color:var(--dim);padding:20px">All horses scratched.</div>';return;}
   var top=sc[0], top2=sc[1]||{name:'—',score:0}, top3=sc[2]||{name:'—',score:0};
@@ -1469,6 +1500,8 @@ function renderRankings(){
         '<span class="pill on-b" data-tut="top-ml">ML: '+top.horse.ml+'</span>'+
         (_topHasLive?'<span data-tut="top-live" style="font-size:11px;font-weight:700;color:'+(_topMovColor||'var(--blue)')+';background:#ede5cc;padding:2px 10px;border-radius:20px;border:1px solid '+(_topMovColor||'var(--blue)')+'">LIVE: '+_topLive+(_topMovLabel?' '+_topMovLabel:'')+'</span>':'')+
         '<span class="pill on-g" data-tut="top-score">Score: '+top.score+'</span>'+
+        '<span class="pill" title="Model probability — pure model belief from scores" style="border-color:var(--muted);color:var(--muted)">Model '+((pr[0]||0)*100).toFixed(1)+'%</span>'+
+        '<span class="pill" title="Calibrated win probability — model blended 50/50 with market consensus" style="border-color:var(--blue);color:var(--blue)">Win '+((winPr[0]||0)*100).toFixed(1)+'%</span>'+
         '<span class="'+cfBadge+'">'+cf.toUpperCase()+' CONF</span>'+
         (top.wkScore>0?'<span style="font-size:10px;background:var(--purple-soft);color:var(--purple);border:1px solid var(--purple);padding:2px 8px;border-radius:20px;font-weight:600">WRK +'+top.wkScore+' pts</span>':'')+
         (window.IS_PREMIUM&&top.kaciOn?'<span class="pill" style="border-color:var(--kaci);background:var(--kaci-soft);color:var(--kaci);font-weight:600">✨ Kaci ×'+top.km.toFixed(2)+'</span>':'')+
@@ -1492,13 +1525,26 @@ function renderRankings(){
           } else if(strengths[0].v>0){
             parts.push('Slight edge in <b style="color:var(--blue)">'+strengths[0].l+'</b>.');
           }
-          // Beyers
+          // Beyers — compare to the field, not just this horse
           var bf=top.horse.beyerFigs||[];
+          var _fieldMaxBeyer = 0, _fieldMaxLastBeyer = 0;
+          sc.forEach(function(x){
+            var xb = (x.horse && x.horse.b) || 0;
+            if(xb > _fieldMaxBeyer) _fieldMaxBeyer = xb;
+            var xbf = (x.horse && x.horse.beyerFigs) || [];
+            if(xbf[0] > _fieldMaxLastBeyer) _fieldMaxLastBeyer = xbf[0];
+          });
+          var _topBest = top.horse.b || 0;
           if(bf.length>=2){
             var trend=bf[0]-bf[1];
             if(trend>=5) parts.push('Beyers trending up (<b>'+bf.slice(0,3).slice().reverse().join('→')+'</b>).');
             else if(trend<=-5) parts.push('Beyers declining ('+bf.slice(0,3).slice().reverse().join('→')+') — regression risk.');
-            else if(bf[0]>=70) parts.push('Top Beyer of <b>'+bf[0]+'</b>.');
+            else if(bf[0]>=70){
+              if(_topBest>=_fieldMaxBeyer && _topBest>0) parts.push('Top Beyer in the field at <b>'+_topBest+'</b> (last: '+bf[0]+').');
+              else parts.push('Last Beyer of <b>'+bf[0]+'</b> (best <b>'+_topBest+'</b>; field max <b>'+_fieldMaxBeyer+'</b>).');
+            }
+          } else if(_topBest>0){
+            if(_topBest>=_fieldMaxBeyer) parts.push('Top Beyer in the field at <b>'+_topBest+'</b>.');
           }
           // Class
           if(top.horse.cc!=null&&top.horse.cc<=-10) parts.push('<span style="color:var(--green)">Significant class drop</span> ($'+Math.abs(top.horse.cc)+'K) — should dominate.');
@@ -1530,7 +1576,7 @@ function renderRankings(){
           }
           // Value
           var topProb=pr[0]||0;
-          var impliedProb=_topHasLive?(1/(_topLiveDec+1)):(_topMLDec>0?(1/(_topMLDec+1)):0);
+          var impliedProb=_topHasLive?(_topLiveDec>1?1/_topLiveDec:0):(_topMLDec>1?1/_topMLDec:0);
           var edgePct=((topProb-impliedProb)*100).toFixed(1);
           var oddsLabel=_topHasLive?_topLive:top.horse.ml;
           if(topProb-impliedProb>0.05) parts.push('<span style="color:var(--green)"><b>At '+oddsLabel+', offers +'+edgePct+'% edge.</b></span> Model: '+(topProb*100).toFixed(0)+'% win vs '+(impliedProb*100).toFixed(0)+'% implied by odds.');
@@ -1626,6 +1672,7 @@ function renderRankings(){
     var nc=['var(--gold)','#9eaac8','#c09060'][i]||'var(--dim)';
     var isExp=expanded[CUR+'_'+s.name];
     var pr2=pr[i]?(pr[i]*100).toFixed(1):'0.0';
+    var wp2=winPr[i]?(winPr[i]*100).toFixed(1):'0.0';
     var k=kaci[race.n]&&kaci[race.n][s.name]||{enabled:false,carry:0,conformation:0,temperament:0};
 
     html+='<div class="hcard'+(i===0?' top-pick':i===1?' silver':i===2?' bronze':'')+'">'+
@@ -1638,7 +1685,7 @@ function renderRankings(){
         (window.IS_PREMIUM&&(s.stineAuto||0)>0?'<span title="Stine candidate — '+(s.stineReason||'auto-detected')+'. Apply manually in expanded panel." style="font-size:14px;line-height:1;cursor:help;flex-shrink:0">🦬</span>':'')+
         (i===0?'<span class="pill" style="border-color:var(--gold);color:var(--gold);background:var(--brass-soft);font-weight:600;letter-spacing:1px;font-size:10px">★ TOP PICK</span>':'')+
         '</div>'+
-        ((s.horse.jockey||s.horse.trainer)?'<div class="horse-sub">'+[s.horse.jockey?'J. '+s.horse.jockey:'',s.horse.trainer?'T. '+s.horse.trainer:''].filter(Boolean).join(' · ')+'</div>':'')+
+        (function(){var jn=s.horse.jockeyName||s.horse.jockey||'';var tn=s.horse.trainerName||s.horse.trainer||'';return (jn||tn)?'<div class="horse-sub">'+[jn?'J. '+jn:'',tn?'T. '+tn:''].filter(Boolean).join(' · ')+'</div>':'';})()+
         flagPills(s.horse,race.n)+
         whyBadge(s)+
         // Beyer trend pill — only show if we have 2+ actual Beyer figures to compare
@@ -1680,7 +1727,10 @@ function renderRankings(){
       '<div class="pbar" onclick="event.stopPropagation();toggleComps('+CUR+',\''+s.name.replace(/\\/g,"\\\\").replace(/'/g,"\\'")+'\')" title="Click for score breakdown" style="flex:1;min-width:60px;max-width:120px;cursor:pointer">'+
         '<div class="pbar-fill" style="width:'+Math.min(100,s.score)+'%"></div>'+
       '</div>'+
-      '<div class="pct" style="font-size:11px;color:var(--dim);min-width:44px;text-align:right">'+pr2+'%</div>'+
+      '<div class="pct" title="Model: pure model belief from scores. Win: calibrated (model blended 50/50 with market)." style="display:flex;flex-direction:column;align-items:flex-end;font-size:10px;min-width:62px;line-height:1.25;gap:1px">'+
+        '<div style="color:var(--muted)"><span style="color:var(--dim);font-size:8.5px;letter-spacing:.5px">M</span> '+pr2+'%</div>'+
+        '<div style="color:var(--blue)"><span style="color:var(--dim);font-size:8.5px;letter-spacing:.5px">W</span> '+wp2+'%</div>'+
+      '</div>'+
       '<div class="score-num" style="font-size:22px;color:'+nc+';min-width:40px;text-align:right">'+s.score+'</div>'+
       // ML + Live odds — DRF-style stacked: Oswald caps label above monospace value
       (function(){
@@ -1725,12 +1775,38 @@ function renderRankings(){
           if (meta.length) parts.push('<span style="color:var(--blue);font-size:10px">' + meta.join(' · ') + '</span>');
           return '<div style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:6px">' + parts.join('<br>') + '</div>';
         })()+
+        // ── Last-5 Beyer chip strip + stale-best flag ──
+        (function(){
+          var fd = s.horse.beyerFigsDated || [];
+          if(!fd.length){
+            // Fallback if we don't have dated figs (older saved cards) — show plain figs
+            var bf=s.horse.beyerFigs||[];
+            if(!bf.length) return '';
+            return '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;align-items:center"><span style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px">Recent Beyers:</span>'+
+              bf.slice(0,5).map(function(b){return '<span class="pill" style="font-size:11px;padding:2px 8px">'+b+'</span>';}).join('')+'</div>';
+          }
+          var maxRecent = Math.max.apply(null, fd.map(function(f){return f.beyer;}));
+          var chips = fd.map(function(f, idx){
+            var isMax = f.beyer === maxRecent;
+            var color = isMax ? 'var(--green)' : 'var(--muted)';
+            var bg    = isMax ? 'rgba(74,180,120,0.12)' : 'transparent';
+            return '<span class="pill" title="'+(f.date||'')+'" style="border-color:'+color+';color:'+color+';background:'+bg+';font-size:11px;padding:2px 8px">'+f.beyer+'<span style="font-size:8.5px;color:var(--dim);margin-left:4px">'+(f.date||'').slice(0,5)+'</span></span>';
+          }).join('');
+          var stale = s.horse.staleBest && s.horse.bestBeyerCareer > (s.horse.b||0);
+          var staleLine = '';
+          if(stale){
+            var d = s.horse.bestBeyerDaysAgo||0;
+            var ago = d >= 365 ? Math.round(d/365*10)/10+'yr' : d >= 30 ? Math.round(d/30)+'mo' : d+'d';
+            staleLine = '<div style="font-size:10px;color:#c08030;margin-top:4px;font-style:italic">⚠ Career best Beyer '+s.horse.bestBeyerCareer+' was '+ago+' ago — not used in current score.</div>';
+          }
+          return '<div style="margin-bottom:8px"><div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center"><span style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;font-weight:600">Last 5 Beyers:</span>'+chips+'</div>'+staleLine+'</div>';
+        })()+
         '<div class="hcard-grid">'+
-        [['Beyer',s.horse.b],['Style',s.horse.sty],['Jockey%',s.horse.j+'%'],['Trainer%',s.horse.tr+'%'],['Layoff',(s.horse.layoff!=null&&s.horse.layoff>0) ? s.horse.layoff+'d' : (s.horse.wk&&s.horse.wk.length&&typeof s.horse.wk[0]==='object'&&s.horse.wk[0].daysAgo>0 ? s.horse.wk[0].daysAgo+'d wk' : '—')],['Equipment',(s.horse.eq?(s.horse.eq.lf?'LASIX 1ST':s.horse.eq.lo?'LASIX':s.horse.eq.bf?'BLINK 1ST':s.horse.eq.bl?'Blinkers':'None'):'—')],['Class Chg',s.horse.cc!=null?(s.horse.cc===0?'Even':(s.horse.cc<0?'DROP $'+Math.abs(s.horse.cc)+'K':'UP $'+s.horse.cc+'K')):'--'],['Workout Pts',(s.wkScore||0)>0?'+'+s.wkScore+' pts':'—'],['Dist Fit',(function(){
+        [['Best Beyer (last 5)',s.horse.b||'—'],['Career Best',(s.horse.bestBeyerCareer||s.horse.b||'—')+(s.horse.staleBest && s.horse.bestBeyerDaysAgo!=null?(' · '+(s.horse.bestBeyerDaysAgo>=365?Math.round(s.horse.bestBeyerDaysAgo/365*10)/10+'yr':Math.round(s.horse.bestBeyerDaysAgo/30)+'mo')+' ago'):'')],['Last Beyer',(s.horse.beyerFigs&&s.horse.beyerFigs[0])||'—'],['Style',s.horse.sty],['Jockey%',s.horse.j+'%'],['Trainer%',s.horse.tr+'%'],['Layoff',(s.horse.layoff!=null&&s.horse.layoff>0) ? s.horse.layoff+'d' : (s.horse.wk&&s.horse.wk.length&&typeof s.horse.wk[0]==='object'&&s.horse.wk[0].daysAgo>0 ? s.horse.wk[0].daysAgo+'d wk' : '—')],['Equipment',(s.horse.eq?(s.horse.eq.lf?'LASIX 1ST':s.horse.eq.lo?'LASIX':s.horse.eq.bf?'BLINK 1ST':s.horse.eq.bl?'Blinkers':'None'):'—')],['Class Chg',s.horse.cc!=null?(s.horse.cc===0?'Even':(s.horse.cc<0?'DROP $'+Math.abs(s.horse.cc)+'K':'UP $'+s.horse.cc+'K')):'--'],['Workout Pts',(s.wkScore||0)>0?'+'+s.wkScore+' pts':'—'],['Dist Fit',(function(){
   var df=s.horse.distFit||'';
   var label=df==='winner'?'✓ Winner':df==='no wins'?'0 wins':df==='first-time'?'First time':df==='tested'?'Tested':df==='lightly-tested'?'Light':df||'—';
   return (s.distFitAdj&&s.distFitAdj!==0)?((s.distFitAdj>0?'+':'')+s.distFitAdj+' pts ('+label+')'):label;
-})()],['Stakes',(s.stakesBonus||0)>0?'+'+s.stakesBonus+' pts':'—'],['New Trn Bonus',(s.newTrnBonus||0)>0?'+'+s.newTrnBonus+'pts':'—'],['Drop Bonus',(s.extremeDropBonus||0)>0?'+'+s.extremeDropBonus+'pts':'—'],['Pedigree',(s.pedTier?s.pedTier+' +'+s.pedBoost.toFixed(1):'—')],['Base',s.base],['Track Adj',(s.tb>=0?'+':'')+s.tb],['Win Prob',pr2+'%'],['Final Score',s.score]].map(function(x){
+})()],['Stakes',(s.stakesBonus||0)>0?'+'+s.stakesBonus+' pts':'—'],['New Trn Bonus',(s.newTrnBonus||0)>0?'+'+s.newTrnBonus+'pts':'—'],['Drop Bonus',(s.extremeDropBonus||0)>0?'+'+s.extremeDropBonus+'pts':'—'],['Pedigree',(s.pedTier?s.pedTier+' +'+s.pedBoost.toFixed(1):'—')],['Base',s.base],['Track Adj',(s.tb>=0?'+':'')+s.tb],['Model %',pr2+'%'],['Win % (calibrated)',wp2+'%'],['Market implied',((marketPr[i]||0)*100).toFixed(1)+'%'],['Edge',((pr[i]-(marketPr[i]||0))*100).toFixed(1)+' pts'],['Final Score',s.score]].map(function(x){
           var vc=x[0]==='Track Adj'?(parseFloat(x[1])>=0?'var(--green)':'var(--red)'):x[0]==='Final Score'?'var(--gold)':x[0]==='Workout Pts'?'var(--purple)':x[0]==='Dist Fit'?(s.distFitAdj>0?'var(--green)':s.distFitAdj<0?'var(--red)':'var(--muted)'):x[0]==='Stakes'?'#c490f8':x[0]==='Pedigree'?(s.pedBoost>0?'#8a7fc8':'var(--muted)'):'var(--text)';
           return '<div class="hcard-stat"><div class="hcard-stat-l">'+x[0]+'</div><div class="hcard-stat-v" style="color:'+vc+'">'+x[1]+'</div></div>';
         }).join('')+
@@ -2009,7 +2085,7 @@ function generateThesis(s, prob, rank, race, raceIdx, allScored) {
   var h = s.horse;
   var odds = getOdds(raceIdx, s.name);
   var mlDec = BettingCore.mlToDecimal(odds || h.ml);
-  var impliedProb = mlDec > 0 ? 1 / (mlDec + 1) : 0;
+  var impliedProb = mlDec > 1 ? 1 / mlDec : 0;
   var edge = prob - impliedProb;
   var edgePct = (edge * 100).toFixed(1);
   var c = s._components || {};
@@ -2052,13 +2128,32 @@ function generateThesis(s, prob, rank, race, raceIdx, allScored) {
     parts.push('No standout factors vs the field.');
   }
 
-  // Beyer context
+  // Beyer context — only score recent form. _hBest = effectiveBeyer (last 5 races, <365d).
   var bf = h.beyerFigs || [];
+  var _hBest = h.b || 0;
+  var _fldMaxBeyer = 0;
+  if(allScored && allScored.length){
+    allScored.forEach(function(x){
+      var xb = (x.horse && x.horse.b) || 0;
+      if(xb > _fldMaxBeyer) _fldMaxBeyer = xb;
+    });
+  }
   if (bf.length >= 2) {
     var trend = bf[0] - bf[1];
     if (trend >= 5) parts.push('Beyers trending up (' + bf.slice(0, 3).slice().reverse().join('-') + ').');
     else if (trend <= -5) parts.push('Beyers declining (' + bf.slice(0, 3).slice().reverse().join('-') + ') — regression risk.');
-    else if (bf[0] >= 75) parts.push('Top Beyer of ' + bf[0] + ' is best in field.');
+    else if (bf[0] >= 75) {
+      if(_hBest >= _fldMaxBeyer && _hBest > 0) parts.push('Top Beyer in the field at ' + _hBest + ' (last: ' + bf[0] + ').');
+      else parts.push('Last Beyer ' + bf[0] + ' (recent best ' + _hBest + '; field max ' + _fldMaxBeyer + ').');
+    }
+  } else if (_hBest > 0 && _hBest >= 75) {
+    if(_hBest >= _fldMaxBeyer) parts.push('Top Beyer in the field at ' + _hBest + '.');
+  }
+  // Stale-best callout — if career Beyer is meaningfully higher than recent and old, surface it
+  if(h.staleBest && h.bestBeyerCareer && h.bestBeyerCareer > _hBest){
+    var d = h.bestBeyerDaysAgo || 0;
+    var ago = d >= 365 ? Math.round(d/365*10)/10+'yr' : Math.round(d/30)+'mo';
+    parts.push('<span style="color:#c08030">Career best ' + h.bestBeyerCareer + ' was ' + ago + ' ago — discounted in scoring.</span>');
   }
 
   // Class move
@@ -5944,7 +6039,7 @@ function saveState(){
       return {name:h.name,disp:h.disp,pp:h.pp,ml:h.ml,b:h.b,sty:h.sty,
         j:h.j,tr:h.tr,layoff:h.layoff,cc:h.cc,wins:h.wins,notes:h.notes,
         cl:h.cl,starts:h.starts,places:h.places,shows:h.shows,
-        beyerFigs:h.beyerFigs,distFit:h.distFit,
+        beyerFigs:h.beyerFigs,beyerFigsDated:h.beyerFigsDated,bestBeyerCareer:h.bestBeyerCareer,staleBest:h.staleBest,bestBeyerDaysAgo:h.bestBeyerDaysAgo,distFit:h.distFit,
         sire:h.sire,dam:h.dam,earnings:h.earnings,
         jockeyName:h.jockeyName,trainerName:h.trainerName,
         claimPrice:h.claimPrice,lastClass:h.lastClass,
@@ -5993,6 +6088,10 @@ function applyLoadedState(state){
             starts:parseInt(h.starts)||0,places:parseInt(h.places)||0,shows:parseInt(h.shows)||0,
             cl:h.cl!=null?parseInt(h.cl):null,
             beyerFigs:h.beyerFigs||[],
+            beyerFigsDated:h.beyerFigsDated||[],
+            bestBeyerCareer:h.bestBeyerCareer||0,
+            staleBest:!!h.staleBest,
+            bestBeyerDaysAgo:h.bestBeyerDaysAgo!=null?h.bestBeyerDaysAgo:null,
             sire:h.sire||'',dam:h.dam||'',earnings:h.earnings||0,
             jockeyName:h.jockeyName||'',trainerName:h.trainerName||'',
             claimPrice:h.claimPrice||0,lastClass:h.lastClass||'',
@@ -7070,13 +7169,27 @@ async function loadSelectedCard(){
   }
 
   function getBeyerFigs(h) {
-    const figs = [];
+    // Returns figs (numeric only) for back-compat, plus figsDated (with date/index) for recency logic.
+    const figs = [], figsDated = [];
     for (let i = 1; i <= 12; i++) {
       const b = nv(h['HR_Beyer_'+i]), date = h['HR_Date_'+i];
       if (!date) break;
-      if (b > 0 && b < 900) figs.push(b);
+      if (b > 0 && b < 900) { figs.push(b); figsDated.push({ beyer: b, date: date, idx: i }); }
     }
+    figs.figsDated = figsDated;
     return figs;
+  }
+
+  // Days between two date strings ("MM/DD/YYYY" or "YYYY-MM-DD").
+  function _daysBetween(a, b){
+    function parse(s){
+      if(!s) return null;
+      if(s.indexOf('-')>0){ var p=s.split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
+      var q=s.split('/'); return new Date(+q[2], +q[0]-1, +q[1]);
+    }
+    var da=parse(a), db=parse(b);
+    if(!da||!db) return null;
+    return Math.round((db - da)/86400000);
   }
 
   function getPaceData(h, fieldSize) {
@@ -7137,11 +7250,28 @@ async function loadSelectedCard(){
 
   function scoreRaceCSV(horses) {
     const raw = horses.map(h => {
-      // Beyer
+      // Beyer — only score recent form. Window: last 6 months, but ALWAYS keep
+      // the last race even if it's older (handles a horse returning off a long
+      // layoff with a single fresh figure). A 4-year-old career-best Beyer that
+      // hasn't been touched since gets discounted out of the score.
       const beyerFigs = getBeyerFigs(h);
+      const figsDated = beyerFigs.figsDated || [];
+      const raceDate = h.R_RCDate || '';
+      const RECENT_DAYS = 180;
+      const recentFigs = figsDated.filter((f, i) => {
+        if (i === 0) return true; // always include last race, even off a layoff
+        const da = _daysBetween(f.date, raceDate);
+        return da == null || da <= RECENT_DAYS;
+      }).map(f => f.beyer);
+      const effectiveBeyer = recentFigs.length > 0 ? Math.max(...recentFigs) : 0;
       const bestBeyer = beyerFigs.length > 0 ? Math.max(...beyerFigs) : 0;
-      const avg3Beyer = beyerFigs.length > 0 ? beyerFigs.slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,beyerFigs.length) : 0;
-      const beyerRaw = bestBeyer > 0 ? bestBeyer*0.55 + avg3Beyer*0.45 : 0;
+      // Stale-top flag: career best is >5pts above recent max, and dates back >180d
+      const _bestIdx = beyerFigs.indexOf(bestBeyer);
+      const _bestDate = _bestIdx >= 0 && figsDated[_bestIdx] ? figsDated[_bestIdx].date : null;
+      const _bestDaysAgo = _bestDate ? _daysBetween(_bestDate, raceDate) : null;
+      const staleBest = (bestBeyer - effectiveBeyer >= 5) && _bestDaysAgo != null && _bestDaysAgo > 180;
+      const avg3Beyer = recentFigs.length > 0 ? recentFigs.slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,recentFigs.length) : 0;
+      const beyerRaw = effectiveBeyer > 0 ? effectiveBeyer*0.55 + avg3Beyer*0.45 : 0;
 
       // Pace
       const fs = nv(h.R_Starters) || 8;
@@ -7246,12 +7376,14 @@ async function loadSelectedCard(){
         horseName: h.H_Horse, pp: parseInt(h.H_PostPosition)||0,
         jockey: h.H_Jockey, trainer: h.H_Trainer, ml: h.B_MLOdds,
         scratch: h.H_Scratch === 'Y', days,
-        beyerFigs: beyerFigs.slice(0,3), bestBeyer,
+        beyerFigs: beyerFigs.slice(0,5), bestBeyer, effectiveBeyer,
+        beyerFigsDated: figsDated.slice(0,5),
+        staleBest, bestBeyerDaysAgo: _bestDaysAgo,
         pastRaces,
         sty: inferStyle(h, fs),
         eq: { lf: false, lo: h.H_Lasix==='L'||h.H_Lasix==='l', bf: false, bl: !!h.H_Blinker },
         wk: workData.wk, bullets: workData.bullets,
-        notes: (h.CL_Comment||'').substring(0,120).trim(),
+        notes: (h.CL_Comment||'').trim(),
         sire: h.H_Sire, dam: h.H_Dam, sireSire: h.H_SireSire, damSire: h.H_DamSire,
         breeder: (h.H_Breeder||'').trim(),
         sale: (h.H_Sale||'').trim(),
@@ -7312,7 +7444,11 @@ async function loadSelectedCard(){
                        : 'tested';
       return {
         name: h.horseName, disp: h.horseName, pp: h.pp, ml: h.ml,
-        b: h.bestBeyer, beyerFigs: h.beyerFigs, sty: h.sty,
+        // b = effectiveBeyer (recent-capped). bestBeyerCareer + staleBest preserved for flags.
+        b: h.effectiveBeyer || h.bestBeyer || 0, beyerFigs: h.beyerFigs,
+        beyerFigsDated: h.beyerFigsDated || [], bestBeyerCareer: h.bestBeyer,
+        staleBest: !!h.staleBest, bestBeyerDaysAgo: h.bestBeyerDaysAgo,
+        sty: h.sty,
         j: Math.round(h._jDispPct*100), tr: Math.round(h._tDispPct*100),
         layoff: h.days, cc: 0, wins: h.wins, notes: h.notes, eq: h.eq, wk: h.wk,
         distFit: _distLabel, jockeyName: h.jockey, trainerName: h.trainer,
