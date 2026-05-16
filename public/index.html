@@ -426,7 +426,9 @@ summary::-webkit-details-marker{display:none}
 #hdr-demo-btn:hover{filter:brightness(1.08);box-shadow:0 2px 6px rgba(166,124,46,0.55),0 0 0 1px #a67c2e}
 #hdr-demo-btn:active{filter:brightness(0.95)}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- Chart.js: only used in Analysis tab (~200KB). Defer so it doesn't block first paint. -->
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- BettingCore: kelly/odds math used during initial render — keep synchronous. -->
 <script src="/lib/betting-core.js"></script>
 </head>
 <body>
@@ -626,6 +628,15 @@ function scoreRace(ri){
   var results=[];
   // CSV cards: let full scoring run for component analysis, then override final score with _csvScore
   var _hasCSVScores = race.horses.filter(function(h){ return !_isScrH(h) && h._csvScore != null; }).length > 0;
+
+  // ── PACE SHAPE (race-wide pre-pass, Brad Free chapter 6) ──────────────────
+  // Count running styles to figure out whether the race sets up for closers,
+  // for the lone-speed horse, or is neutral. Closer-friendly pace = 4+ speed
+  // horses burning each other up. Lone speed = uncontested lead.
+  var _activeForShape = race.horses.filter(function(h){return !_isScrH(h);});
+  var _nSpeed = _activeForShape.filter(function(h){return h.sty==='Leader'||h.sty==='Speed'||h.sty==='Front';}).length;
+  var _nCloser = _activeForShape.filter(function(h){return h.sty==='Closer';}).length;
+  var _paceShape = _nSpeed >= 4 ? 'meltdown' : _nSpeed === 1 && _activeForShape.length >= 5 ? 'lone-speed' : 'neutral';
   race.horses.forEach(function(h){
     if(_isScrH(h))return;
     // Speed: Beyer weight 18% — best figure
@@ -814,7 +825,56 @@ function scoreRace(ri){
       if(nn.indexOf('graded')>-1) stakesBonus=4;
     }
 
-    var base=spd+beyerTrend+e1e2Score+frm+cls+pce+jck+trn+layoffAdj+ccAdj+bulletBonus+lasixFirst+blinkFirst+blinkCont+eqB+newTrnBonus+extremeDropBonus+distFitAdj+stakesBonus;
+    // ── BRAD FREE additions ────────────────────────────────────────────────
+    // 1) Trip-trouble bonus — last race had a trouble line AND horse didn't win.
+    //    Public underbets these because the finish position looks bad. Brad's #1
+    //    edge angle. Sharp/easy comment cancels the bonus (horse already showed best).
+    var tripBonus = 0;
+    var tripLabel = '';
+    var _lastPR = (h.pastRaces && h.pastRaces[0]) ? h.pastRaces[0] : null;
+    if(_lastPR && _lastPR.comment){
+      var _cm = _lastPR.comment.toLowerCase();
+      var _troubled = /steadied|stumbled|bumped|impeded|checked|in tight|carried wide|wide trip|broke slow|off slow|squeezed back|forced wide|lugged in|lugged out|drifted/.test(_cm);
+      var _sharp = /drew off|drew clear|wire to wire|much best|easy(ly)?|in hand|romped/.test(_cm);
+      if(_troubled && !_sharp && _lastPR.pos > 1){
+        tripBonus = _lastPR.pos >= 4 ? 5 : 3;  // worse finish = more upside on rebound
+        tripLabel = 'trouble last out';
+      }
+    }
+    // 2) Pace-shape adjustment — Brad chapter 6.
+    //    Meltdown: 4+ speed horses → closers benefit, speed horses fade.
+    //    Lone speed: uncontested lead → boost the lone front-runner.
+    var shapeAdj = 0;
+    var shapeLabel = '';
+    if(_paceShape === 'meltdown'){
+      if(h.sty === 'Closer' || h.sty === 'Tracker'){ shapeAdj = 3; shapeLabel = 'closer-friendly pace (' + _nSpeed + ' speed)'; }
+      else if(h.sty === 'Leader' || h.sty === 'Speed' || h.sty === 'Front'){ shapeAdj = -3; shapeLabel = 'pace duel risk'; }
+    } else if(_paceShape === 'lone-speed'){
+      if(h.sty === 'Leader' || h.sty === 'Speed' || h.sty === 'Front'){ shapeAdj = 5; shapeLabel = 'lone speed'; }
+      else if(h.sty === 'Closer'){ shapeAdj = -2; shapeLabel = 'pace too slow'; }
+    }
+    // 3) Beyer consistency — high variance + short price = unreliable favorite.
+    //    Brad chapter on speed figures: range matters as much as average.
+    var consistencyAdj = 0;
+    var bfA = (h.beyerFigs || []).filter(function(v){return v > 0;});
+    if(bfA.length >= 3){
+      var _bMax = Math.max.apply(null, bfA), _bMin = Math.min.apply(null, bfA);
+      var _range = _bMax - _bMin;
+      var _mlDecBC = mlDec(h.ml);
+      if(_range >= 15 && _mlDecBC > 0 && _mlDecBC <= 3){
+        consistencyAdj = -3;  // erratic short favorite
+      } else if(_range <= 6 && bfA[0] >= 65){
+        consistencyAdj = 1;   // consistent solid performer
+      }
+    }
+    // 4) Bounce risk — career-best (or near it) last out + short rest = regression.
+    var bounceAdj = 0;
+    var _careerB = h.bestBeyerCareer || h.b || 0;
+    if(bfA.length && _careerB > 0 && bfA[0] >= _careerB - 1 && lo > 0 && lo <= 14){
+      bounceAdj = -4;
+    }
+
+    var base=spd+beyerTrend+e1e2Score+frm+cls+pce+jck+trn+layoffAdj+ccAdj+bulletBonus+lasixFirst+blinkFirst+blinkCont+eqB+newTrnBonus+extremeDropBonus+distFitAdj+stakesBonus+tripBonus+shapeAdj+consistencyAdj+bounceAdj;
     // Track bonus
     var tb=0;
     if(tc.surface==='sloppy'||tc.surface==='muddy'){
@@ -846,6 +906,7 @@ function scoreRace(ri){
     var final = Math.min(120, Math.round(rawScore));
     var trendDir=wkBeyersRaw&&wkBeyersRaw.length>=2?(wkBeyersRaw[0]-wkBeyersRaw[1]):0;
     results.push({name:h.name,horse:h,score:final,_rawScore:rawScore,base:Math.round(base),tb:Math.round(tb*10)/10,km:km,kaciOn:km>1,stineBoost:sb,stineAuto:sbAuto,stineManualOn:sbManual>0,stineReason:stineBoostReason(h.name),pedBoost:pedBoost,pedTier:pedigreeTier(h.studFee),newTrnBonus:newTrnBonus,extremeDropBonus:extremeDropBonus,wkScore:wkScore,wkLabel:wkLabel,distFitAdj:distFitAdj,stakesBonus:stakesBonus,
+      tripBonus:tripBonus,tripLabel:tripLabel,shapeAdj:shapeAdj,shapeLabel:shapeLabel,consistencyAdj:consistencyAdj,bounceAdj:bounceAdj,paceShape:_paceShape,
       spdRaw:Math.round(spd*10)/10, frmRaw:Math.round(frm*10)/10, clsRaw:Math.round(cls*10)/10, pceRaw:Math.round(pce*10)/10,
       trendScore:trendScore, bulletBonus:bulletBonus, lasixFirst:lasixFirst, blinkFirst:blinkFirst,
       _components:{spd:Math.round(spd*10)/10,frm:Math.round(frm*10)/10,cls:Math.round(cls*10)/10,pce:Math.round(pce*10)/10,jck:Math.round(jck*10)/10,trn:Math.round(trn*10)/10,wk:Math.round((bulletBonus||0)*10)/10,trend:Math.round(beyerTrend*10)/10,ml:Math.round((e1e2Score||0)*10)/10}});
@@ -907,6 +968,22 @@ function calibrateField(sc, modelProbs, raceIdx){
   var bsum = blended.reduce(function(a,b){return a+b;},0);
   var winProbs = blended.map(function(b){ return bsum > 0 ? b/bsum : 0; });
   return { winProbs: winProbs, marketProbs: marketFair };
+}
+
+// Snap a recommended stake to the bet increments Caesars Sportsbook supports.
+// [1, 2, 5, 10, 20, 50, 100], then multiples of 50 above $100. Round to nearest;
+// $4 → $5 (closer than $2). Custom bets still work in-app, this just removes
+// friction on the buttons that 90% of bets use.
+function snapToCaesarsBet(amount){
+  if(!amount || amount < 1) return 0;
+  if(amount > 100) return Math.round(amount/50)*50;
+  var slots = [1, 2, 5, 10, 20, 50, 100];
+  var best = slots[0], bestD = Math.abs(amount - best);
+  for(var i=1;i<slots.length;i++){
+    var d = Math.abs(amount - slots[i]);
+    if(d < bestD){ best = slots[i]; bestD = d; }
+  }
+  return best;
 }
 
 function kellyBet(prob,ml,bank){
@@ -1374,6 +1451,11 @@ function setTC(f,v){tc[f]=v;render();}
 // ═══════════════════════════════════════════════════════════
 function renderRankings(){
   var el=document.getElementById('tab-rankings');
+  // Basic mode (Live Today pill click without PP): TVG odds + upload prompt only.
+  if(window._basicMode){
+    if(el) el.innerHTML = renderBasicTrackView();
+    return;
+  }
   // No card loaded — show explicit pick-a-track-and-card placeholder. Don't run any
   // scoring / budget math against an empty R.
   if(!R || !R.length || !R.some(function(r){return r.horses && r.horses.length;})){
@@ -1452,7 +1534,29 @@ function renderRankings(){
   // MEDIUM/HIGH confidence always gets at least a minimum bet, even if Kelly sees no edge at live odds
   var _kellyAmt = Math.round(Math.min(kellyBet(pr[0]||.01, odds, rem()), perRaceCap));
   var _minConfBet = cf === 'high' ? 4 : cf === 'medium' ? 2 : 0;
-  var ka = (cf === 'low') ? 0 : Math.max(_minConfBet, _kellyAmt);
+  var _kaRaw = (cf === 'low') ? 0 : Math.max(_minConfBet, _kellyAmt);
+  // Snap to Caesars increments [1,2,5,10,20,50,100] so the button matches the
+  // chip values in the sportsbook UI. Kelly's raw $ still drives the cap math
+  // above — only the displayed/logged bet amount snaps.
+  var ka = snapToCaesarsBet(_kaRaw);
+  // ── BET PLAN ─────────────────────────────────────────────────────────────
+  //   HIGH conf   → WIN only (model is decisive)
+  //   MEDIUM conf → WIN + PLACE (60/40 split, hedges the variance)
+  //   LOW conf    → PASS (no bet, no Show — backtest -15.3% vs -12.8% Win)
+  // Show pool is intentionally omitted. The 66K-race backtest showed Win-only
+  // returns more dollars per dollar wagered than any split that includes Show.
+  // Place is closer in ROI to Win, so adding it on MEDIUM is a defensible
+  // variance hedge — it costs ~1-2 pp ROI vs pure Win in exchange for hitting
+  // ~55% of the time instead of ~35%.
+  function _buildBetPlan(totalStake, conf){
+    if(totalStake <= 0) return { type:'PASS', win:0, place:0, show:0, total:0 };
+    if(conf === 'high') return { type:'WIN', win:totalStake, place:0, show:0, total:totalStake };
+    // MEDIUM — split 60/40 Win/Place. Caesars-snap each leg; never overbet.
+    var w = snapToCaesarsBet(Math.round(totalStake * 0.60)) || snapToCaesarsBet(totalStake) || totalStake;
+    var p = snapToCaesarsBet(Math.round(totalStake * 0.40)) || 1;
+    return { type:'WIN/PLACE', win:w, place:p, show:0, total:w + p };
+  }
+  var betPlan = _buildBetPlan(ka, cf);
   // Maiden warning — short favorite in field with 3+ debut horses
   var mlDecTop = mlDec(odds);
   var maidenWarn = (sc._debutWarning && mlDecTop <= 2) ?
@@ -1630,6 +1734,7 @@ function renderRankings(){
       '<span style="color:var(--dim)">Gap: <b style="color:var(--gold)">'+gap+' pts</b></span>'+
     '</div></div>';
 
+
   // Full field — ranked actives interspersed with scratched horses at their PP position
   html+='<div class="slabel" style="margin-top:4px">Full Field Rankings</div>';
 
@@ -1727,8 +1832,8 @@ function renderRankings(){
       '<div class="pbar" onclick="event.stopPropagation();toggleComps('+CUR+',\''+s.name.replace(/\\/g,"\\\\").replace(/'/g,"\\'")+'\')" title="Click for score breakdown" style="flex:1;min-width:60px;max-width:120px;cursor:pointer">'+
         '<div class="pbar-fill" style="width:'+Math.min(100,s.score)+'%"></div>'+
       '</div>'+
-      '<div class="pct" title="Model: pure model belief from scores. Win: calibrated (model blended 50/50 with market)." style="display:flex;flex-direction:column;align-items:flex-end;font-size:10px;min-width:62px;line-height:1.25;gap:1px">'+
-        '<div style="color:var(--muted)"><span style="color:var(--dim);font-size:8.5px;letter-spacing:.5px">M</span> '+pr2+'%</div>'+
+      '<div class="pct" title="Value: pure model belief — Win: calibrated probability blended with market" style="display:flex;flex-direction:column;align-items:flex-end;font-size:10px;min-width:62px;line-height:1.25;gap:1px">'+
+        '<div style="color:var(--muted)"><span style="color:var(--dim);font-size:8.5px;letter-spacing:.5px">V</span> '+pr2+'%</div>'+
         '<div style="color:var(--blue)"><span style="color:var(--dim);font-size:8.5px;letter-spacing:.5px">W</span> '+wp2+'%</div>'+
       '</div>'+
       '<div class="score-num" style="font-size:22px;color:'+nc+';min-width:40px;text-align:right">'+s.score+'</div>'+
@@ -1775,38 +1880,12 @@ function renderRankings(){
           if (meta.length) parts.push('<span style="color:var(--blue);font-size:10px">' + meta.join(' · ') + '</span>');
           return '<div style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:6px">' + parts.join('<br>') + '</div>';
         })()+
-        // ── Last-5 Beyer chip strip + stale-best flag ──
-        (function(){
-          var fd = s.horse.beyerFigsDated || [];
-          if(!fd.length){
-            // Fallback if we don't have dated figs (older saved cards) — show plain figs
-            var bf=s.horse.beyerFigs||[];
-            if(!bf.length) return '';
-            return '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;align-items:center"><span style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px">Recent Beyers:</span>'+
-              bf.slice(0,5).map(function(b){return '<span class="pill" style="font-size:11px;padding:2px 8px">'+b+'</span>';}).join('')+'</div>';
-          }
-          var maxRecent = Math.max.apply(null, fd.map(function(f){return f.beyer;}));
-          var chips = fd.map(function(f, idx){
-            var isMax = f.beyer === maxRecent;
-            var color = isMax ? 'var(--green)' : 'var(--muted)';
-            var bg    = isMax ? 'rgba(74,180,120,0.12)' : 'transparent';
-            return '<span class="pill" title="'+(f.date||'')+'" style="border-color:'+color+';color:'+color+';background:'+bg+';font-size:11px;padding:2px 8px">'+f.beyer+'<span style="font-size:8.5px;color:var(--dim);margin-left:4px">'+(f.date||'').slice(0,5)+'</span></span>';
-          }).join('');
-          var stale = s.horse.staleBest && s.horse.bestBeyerCareer > (s.horse.b||0);
-          var staleLine = '';
-          if(stale){
-            var d = s.horse.bestBeyerDaysAgo||0;
-            var ago = d >= 365 ? Math.round(d/365*10)/10+'yr' : d >= 30 ? Math.round(d/30)+'mo' : d+'d';
-            staleLine = '<div style="font-size:10px;color:#c08030;margin-top:4px;font-style:italic">⚠ Career best Beyer '+s.horse.bestBeyerCareer+' was '+ago+' ago — not used in current score.</div>';
-          }
-          return '<div style="margin-bottom:8px"><div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center"><span style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;font-weight:600">Last 5 Beyers:</span>'+chips+'</div>'+staleLine+'</div>';
-        })()+
         '<div class="hcard-grid">'+
-        [['Best Beyer (last 5)',s.horse.b||'—'],['Career Best',(s.horse.bestBeyerCareer||s.horse.b||'—')+(s.horse.staleBest && s.horse.bestBeyerDaysAgo!=null?(' · '+(s.horse.bestBeyerDaysAgo>=365?Math.round(s.horse.bestBeyerDaysAgo/365*10)/10+'yr':Math.round(s.horse.bestBeyerDaysAgo/30)+'mo')+' ago'):'')],['Last Beyer',(s.horse.beyerFigs&&s.horse.beyerFigs[0])||'—'],['Style',s.horse.sty],['Jockey%',s.horse.j+'%'],['Trainer%',s.horse.tr+'%'],['Layoff',(s.horse.layoff!=null&&s.horse.layoff>0) ? s.horse.layoff+'d' : (s.horse.wk&&s.horse.wk.length&&typeof s.horse.wk[0]==='object'&&s.horse.wk[0].daysAgo>0 ? s.horse.wk[0].daysAgo+'d wk' : '—')],['Equipment',(s.horse.eq?(s.horse.eq.lf?'LASIX 1ST':s.horse.eq.lo?'LASIX':s.horse.eq.bf?'BLINK 1ST':s.horse.eq.bl?'Blinkers':'None'):'—')],['Class Chg',s.horse.cc!=null?(s.horse.cc===0?'Even':(s.horse.cc<0?'DROP $'+Math.abs(s.horse.cc)+'K':'UP $'+s.horse.cc+'K')):'--'],['Workout Pts',(s.wkScore||0)>0?'+'+s.wkScore+' pts':'—'],['Dist Fit',(function(){
+        [['Beyer',s.horse.b||'—'],['Style',s.horse.sty],['Jockey%',s.horse.j+'%'],['Trainer%',s.horse.tr+'%'],['Layoff',(s.horse.layoff!=null&&s.horse.layoff>0) ? s.horse.layoff+'d' : (s.horse.wk&&s.horse.wk.length&&typeof s.horse.wk[0]==='object'&&s.horse.wk[0].daysAgo>0 ? s.horse.wk[0].daysAgo+'d wk' : '—')],['Equipment',(s.horse.eq?(s.horse.eq.lf?'LASIX 1ST':s.horse.eq.lo?'LASIX':s.horse.eq.bf?'BLINK 1ST':s.horse.eq.bl?'Blinkers':'None'):'—')],['Class Chg',s.horse.cc!=null?(s.horse.cc===0?'Even':(s.horse.cc<0?'DROP $'+Math.abs(s.horse.cc)+'K':'UP $'+s.horse.cc+'K')):'--'],['Workout Pts',(s.wkScore||0)>0?'+'+s.wkScore+' pts':'—'],['Dist Fit',(function(){
   var df=s.horse.distFit||'';
   var label=df==='winner'?'✓ Winner':df==='no wins'?'0 wins':df==='first-time'?'First time':df==='tested'?'Tested':df==='lightly-tested'?'Light':df||'—';
   return (s.distFitAdj&&s.distFitAdj!==0)?((s.distFitAdj>0?'+':'')+s.distFitAdj+' pts ('+label+')'):label;
-})()],['Stakes',(s.stakesBonus||0)>0?'+'+s.stakesBonus+' pts':'—'],['New Trn Bonus',(s.newTrnBonus||0)>0?'+'+s.newTrnBonus+'pts':'—'],['Drop Bonus',(s.extremeDropBonus||0)>0?'+'+s.extremeDropBonus+'pts':'—'],['Pedigree',(s.pedTier?s.pedTier+' +'+s.pedBoost.toFixed(1):'—')],['Base',s.base],['Track Adj',(s.tb>=0?'+':'')+s.tb],['Model %',pr2+'%'],['Win % (calibrated)',wp2+'%'],['Market implied',((marketPr[i]||0)*100).toFixed(1)+'%'],['Edge',((pr[i]-(marketPr[i]||0))*100).toFixed(1)+' pts'],['Final Score',s.score]].map(function(x){
+})()],['Stakes',(s.stakesBonus||0)>0?'+'+s.stakesBonus+' pts':'—'],['New Trn Bonus',(s.newTrnBonus||0)>0?'+'+s.newTrnBonus+'pts':'—'],['Drop Bonus',(s.extremeDropBonus||0)>0?'+'+s.extremeDropBonus+'pts':'—'],['Pedigree',(s.pedTier?s.pedTier+' +'+s.pedBoost.toFixed(1):'—')],['Base',s.base],['Track Adj',(s.tb>=0?'+':'')+s.tb],['Value %',pr2+'%'],['Win %',wp2+'%'],['Final Score',s.score]].map(function(x){
           var vc=x[0]==='Track Adj'?(parseFloat(x[1])>=0?'var(--green)':'var(--red)'):x[0]==='Final Score'?'var(--gold)':x[0]==='Workout Pts'?'var(--purple)':x[0]==='Dist Fit'?(s.distFitAdj>0?'var(--green)':s.distFitAdj<0?'var(--red)':'var(--muted)'):x[0]==='Stakes'?'#c490f8':x[0]==='Pedigree'?(s.pedBoost>0?'#8a7fc8':'var(--muted)'):'var(--text)';
           return '<div class="hcard-stat"><div class="hcard-stat-l">'+x[0]+'</div><div class="hcard-stat-v" style="color:'+vc+'">'+x[1]+'</div></div>';
         }).join('')+
@@ -1820,9 +1899,20 @@ function renderRankings(){
           var hasPR=pr&&pr.length>0;
           var hasBF=bf.length>0;
           if(!hasPR&&!hasBF) return '';
-          var maxB=hasPR?Math.max.apply(null,pr.map(function(r){return r.beyer||0;}).concat([80])):Math.max.apply(null,bf.concat([80]));
+          // Limit display to last 5 + use them to compute the "max recent Beyer" highlight.
+          var prShow = hasPR ? pr.slice(0,5) : [];
+          var maxRecentB = hasPR ? Math.max.apply(null, prShow.map(function(r){return r.beyer||0;})) : 0;
+          var maxB=hasPR?Math.max.apply(null,prShow.map(function(r){return r.beyer||0;}).concat([80])):Math.max.apply(null,bf.concat([80]));
+          // Stale-best note — surfaced inline now that the chip strip is gone.
+          var staleNote = '';
+          if(s.horse.staleBest && s.horse.bestBeyerCareer > (s.horse.b||0)){
+            var d = s.horse.bestBeyerDaysAgo||0;
+            var ago = d>=365 ? Math.round(d/365*10)/10+'yr' : d>=30 ? Math.round(d/30)+'mo' : d+'d';
+            staleNote = '<div style="font-size:10px;color:#c08030;margin-bottom:6px;font-style:italic">⚠ Career best Beyer '+s.horse.bestBeyerCareer+' was '+ago+' ago — discounted in scoring.</div>';
+          }
           var hdr='<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">'+
-            '<div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Past Races</div>';
+            '<div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Past Races</div>'+
+            staleNote;
           if(hasPR){
             // Auto-generate commentary from the past race data
             var prComment=(function(){
@@ -1866,15 +1956,42 @@ function renderRankings(){
               var weight = r.pos<=3?'700':'600';
               var posTxt = (medal?medal+' ':'')+'<b style="color:'+color+';font-weight:'+weight+'">'+_ordinal(r.pos)+'</b>';
               var fieldTxt = r.starters>0?' <span style="color:var(--dim);font-size:11px">of '+r.starters+'</span>':'';
-              return posTxt+fieldTxt;
+              // Beaten lengths — only relevant when not the winner. r.beaten is lengths behind.
+              var beatTxt = '';
+              if(r.pos>1 && r.beaten>0){
+                var bShow = r.beaten >= 10 ? Math.round(r.beaten) : r.beaten.toFixed(1).replace(/\.0$/,'');
+                beatTxt = ' <span style="color:var(--dim);font-size:11px;font-style:italic">'+bShow+'L back</span>';
+              }
+              return posTxt+fieldTxt+beatTxt;
+            }
+            // Compact running line: positions at the calls (early → str → final).
+            // Returns "3-2-1" with the final position highlighted, or "—" if no call data.
+            function _runLine(r){
+              var pts = [];
+              if(r.fc>0) pts.push(r.fc);
+              if(r.sc>0 && r.sc!==r.fc) pts.push(r.sc);
+              if(r.str>0 && r.str!==(pts[pts.length-1]||0)) pts.push(r.str);
+              if(r.fin>0 && r.fin!==(pts[pts.length-1]||0)) pts.push(r.fin);
+              if(!pts.length) return '<span style="color:var(--dim)">—</span>';
+              // Color the trajectory: gained = green, lost = red, flat = muted
+              var first = pts[0], last = pts[pts.length-1];
+              var col = last < first ? 'var(--green)' : last > first ? 'var(--red)' : 'var(--muted)';
+              return '<span style="font-family:\'JetBrains Mono\',monospace;color:'+col+';font-weight:600;font-size:12px">'+pts.join('-')+'</span>';
+            }
+            // Track condition pill — only show if not Fast (default), since FT is the assumption.
+            function _condPill(cond){
+              if(!cond || cond === 'FT' || cond === 'FM') return '';
+              var palette = { GD: '#c9a44a', SY: '#7b8df8', MY: '#8a5a3a', SL: '#7b8df8', WF: '#7b8df8' };
+              var c = palette[cond] || 'var(--dim)';
+              return '<span style="font-size:9px;font-weight:700;color:'+c+';border:1px solid '+c+';padding:1px 5px;border-radius:3px;margin-left:5px;letter-spacing:.5px">'+cond+'</span>';
             }
             return hdr+
             (prComment?'<div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:8px;padding:6px 10px;background:rgba(123,141,248,0.04);border-left:2px solid var(--blue);border-radius:0 4px 4px 0">'+prComment+'</div>':'')+
             // Sort label so the chronology is explicit — rows are most-recent-first
             '<div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">↓ most recent first</div>'+
             '<table style="width:100%;border-collapse:collapse;font-size:13px">'+
-            '<tr style="color:var(--muted);font-size:11px"><td style="padding:4px 8px">Date</td>'+(pr[0].trk?'<td style="padding:4px 8px">Trk</td>':'')+'<td style="padding:4px 8px">Class</td><td style="padding:4px 8px">Beyer</td><td style="padding:4px 8px">Finish</td><td style="padding:4px 8px">Δ Beyer</td><td style="padding:4px 8px"></td></tr>'+
-            pr.slice(0,6).map(function(r,ri){
+            '<tr style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px"><td style="padding:4px 8px">Date</td>'+(pr[0].trk?'<td style="padding:4px 8px">Trk · Cond</td>':'')+'<td style="padding:4px 8px">Class</td><td style="padding:4px 8px">Beyer</td><td style="padding:4px 8px" title="Position at calls (early-middle-stretch-final)">Trip</td><td style="padding:4px 8px">Finish</td><td style="padding:4px 8px">ΔByr</td><td style="padding:4px 8px;width:18%"></td></tr>'+
+            prShow.map(function(r,ri){
               var b=r.beyer||0;
               // Compare to the immediately-older race (next index, since most-recent-first)
               var prev=ri<pr.length-1?(pr[ri+1].beyer||0):b;
@@ -1885,19 +2002,39 @@ function renderRankings(){
               var barC=b>=75?'var(--green)':b>=60?'var(--gold)':b>=45?'var(--muted)':'var(--red)';
               var clsShort=(r.cls||'').replace(/Clm /,'C').replace(/Md Sp Wt/,'MSW').replace(/OC /,'OC').replace(/Alw /,'ALW').substring(0,16);
               var trkStr=r.trk?(r.trk+(r.dist?' '+r.dist:'')+(r.surf&&r.surf!=='D'?' '+r.surf:'')):'';
-              // Highlight last-out row + winning-row backgrounds
-              var rowBg = ri===0?'background:rgba(255,255,255,0.02)':r.pos===1?'background:rgba(201,164,74,0.06)':'';
-              return '<tr style="border-top:1px solid #f5efe0'+(rowBg?';'+rowBg:'')+'">'
-                +'<td style="padding:5px 8px;color:var(--muted);white-space:nowrap">'+(r.date||'')+'</td>'
-                +(pr[0].trk?'<td style="padding:5px 8px;color:var(--blue);font-size:11px;white-space:nowrap">'+trkStr+'</td>':'')
-                +'<td style="padding:5px 8px;color:var(--text);white-space:nowrap;max-width:130px;overflow:hidden;text-overflow:ellipsis" title="'+(r.cls||'')+'">'+(clsShort||'—')+'</td>'
-                +'<td style="padding:5px 8px;font-family:monospace;font-weight:700;font-size:14px;color:'+(b>=70?'var(--green)':b>=55?'var(--text)':'var(--red)')+'">'+
-                  (b>0?b:'—')+'</td>'
-                +'<td style="padding:5px 8px;white-space:nowrap">'+_formatPos(r)+'</td>'
-                +'<td style="padding:5px 8px;color:'+dc+';font-weight:600;font-family:monospace">'+ds+'</td>'
-                +'<td style="padding:5px 8px;width:25%"><div style="height:6px;background:#f5efe0;border-radius:3px;overflow:hidden">'
+              // Highlight: max-Beyer row green, winner gold, last-out subtle
+              var isMaxRow = b>0 && b===maxRecentB;
+              var rowBg = isMaxRow ? 'background:rgba(74,180,120,0.08)' : ri===0 ? 'background:rgba(255,255,255,0.02)' : r.pos===1 ? 'background:rgba(201,164,74,0.06)' : '';
+              var beyerCellExtra = isMaxRow ? ';border:1px solid rgba(74,180,120,0.45);border-radius:4px' : '';
+              // Post position badge (small chip next to date) for trip context
+              var postBadge = r.postPos>0 ? ' <span title="Post position" style="font-size:9px;color:var(--dim);background:#f5efe0;border:1px solid var(--border);border-radius:3px;padding:1px 4px;margin-left:3px">P'+r.postPos+'</span>' : '';
+              var oddsBadge = r.odds>0 ? '<div style="font-size:9.5px;color:var(--dim);margin-top:1px">'+(r.odds<10 ? r.odds.toFixed(1) : Math.round(r.odds))+'-1</div>' : '';
+              // Main race row
+              var mainRow = '<tr style="border-top:1px solid #f5efe0'+(rowBg?';'+rowBg:'')+'">'
+                +'<td style="padding:5px 8px;color:var(--muted);white-space:nowrap;font-family:\'JetBrains Mono\',monospace;font-size:11.5px;vertical-align:top">'+(r.date||'')+postBadge+oddsBadge+'</td>'
+                +(pr[0].trk?'<td style="padding:5px 8px;color:var(--blue);font-size:11px;white-space:nowrap;vertical-align:top">'+trkStr+_condPill(r.trkCond)+'</td>':'')
+                +'<td style="padding:5px 8px;color:var(--text);white-space:nowrap;max-width:130px;overflow:hidden;text-overflow:ellipsis;vertical-align:top" title="'+(r.cls||'')+'">'+(clsShort||'—')+'</td>'
+                +'<td style="padding:5px 8px;font-family:monospace;font-weight:700;font-size:14px;vertical-align:top;color:'+(isMaxRow?'var(--green)':b>=70?'var(--green)':b>=55?'var(--text)':'var(--red)')+beyerCellExtra+'">'+
+                  (b>0?b:'—')+(isMaxRow?' <span style="font-size:8.5px;color:var(--green);font-weight:600;letter-spacing:.5px">TOP</span>':'')+'</td>'
+                +'<td style="padding:5px 8px;white-space:nowrap;vertical-align:top">'+_runLine(r)+'</td>'
+                +'<td style="padding:5px 8px;white-space:nowrap;vertical-align:top">'+_formatPos(r)+'</td>'
+                +'<td style="padding:5px 8px;color:'+dc+';font-weight:600;font-family:monospace;vertical-align:top">'+ds+'</td>'
+                +'<td style="padding:5px 8px;vertical-align:top"><div style="height:6px;background:#f5efe0;border-radius:3px;overflow:hidden">'
                   +'<div style="height:100%;width:'+barW+'%;background:'+barC+';border-radius:3px"></div></div></td>'
               +'</tr>';
+              // DRF trip comment sub-row — only render when there's content. Sits
+              // immediately below the race row, italic, indented under Date.
+              var commentRow = '';
+              if(r.comment){
+                // Detect trouble keywords for a small color tag (trip-handicapping signal).
+                var cmLow = r.comment.toLowerCase();
+                var troubled = /steadied|stumbled|bumped|impeded|checked|in tight|carried wide|wide trip|broke slow|off slow|squeezed back|forced wide|lugged in|lugged out|drifted/.test(cmLow);
+                var sharp = /rallied|drew off|drew clear|wire to wire|much best|easy(ly)?|in hand/.test(cmLow);
+                var tag = troubled ? '<span style="color:#c08030;font-weight:700;font-size:9px;letter-spacing:.5px;margin-right:5px">⚠ TROUBLE</span>' : sharp ? '<span style="color:var(--green);font-weight:700;font-size:9px;letter-spacing:.5px;margin-right:5px">✓ SHARP</span>' : '';
+                var colspan = pr[0].trk ? 7 : 6;
+                commentRow = '<tr'+(rowBg?' style="'+rowBg+'"':'')+'><td colspan="'+colspan+'" style="padding:0 8px 8px 8px;color:var(--muted);font-size:11.5px;font-style:italic;line-height:1.4;border-bottom:1px solid #f5efe0">'+tag+'<span style="color:var(--dim);font-size:9px;text-transform:uppercase;letter-spacing:.5px;margin-right:5px">DRF:</span>'+r.comment+'</td><td></td></tr>';
+              }
+              return mainRow + commentRow;
             }).join('')+
             '</table>'+
             '<div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6">'+
@@ -2143,8 +2280,8 @@ function generateThesis(s, prob, rank, race, raceIdx, allScored) {
     if (trend >= 5) parts.push('Beyers trending up (' + bf.slice(0, 3).slice().reverse().join('-') + ').');
     else if (trend <= -5) parts.push('Beyers declining (' + bf.slice(0, 3).slice().reverse().join('-') + ') — regression risk.');
     else if (bf[0] >= 75) {
-      if(_hBest >= _fldMaxBeyer && _hBest > 0) parts.push('Top Beyer in the field at ' + _hBest + ' (last: ' + bf[0] + ').');
-      else parts.push('Last Beyer ' + bf[0] + ' (recent best ' + _hBest + '; field max ' + _fldMaxBeyer + ').');
+      if(_hBest >= _fldMaxBeyer && _hBest > 0) parts.push('Top Beyer in the field at ' + _hBest + '.');
+      else parts.push('Last Beyer of ' + bf[0] + '.');
     }
   } else if (_hBest > 0 && _hBest >= 75) {
     if(_hBest >= _fldMaxBeyer) parts.push('Top Beyer in the field at ' + _hBest + '.');
@@ -3888,8 +4025,9 @@ function submitResults(raceIdx, horses) {
 }
 // ────────────────────────────────────────────────────────────────────────────
 
-function logBet(name,amt){
+function logBet(name,amt,betType){
   amt = Math.round(amt);  // always whole dollars
+  if(amt <= 0) return;
   wagered+=amt;
   var mlOdds = getOdds(CUR, name);
   var sc = scoreRace(CUR);
@@ -3898,7 +4036,7 @@ function logBet(name,amt){
   var prob = idx >= 0 ? pr[idx] : 0;
   bets.push({
     race:R[CUR].n, horse:name, amount:amt,
-    type: conf(sc, R[CUR])==='high'?'WIN':'WIN/PLACE',
+    type: betType || (conf(sc, R[CUR])==='high'?'WIN':'WIN/PLACE'),
     settled:false, payout:0,
     mlOdds: mlOdds,                              // ML odds at bet time (for CLV)
     decOdds: BettingCore.mlToDecimal(mlOdds),    // decimal odds at bet time
@@ -6360,95 +6498,39 @@ if (document.readyState === 'loading') {
   loadMe();
 }
 
-// ── Onboarding tour (POC) ──
-var TOUR_KEY = 'paddockiq_tour_v1';
-var TOUR_STEPS = [
-  {
-    title: 'Welcome to PaddockIQ 🏇',
-    body: 'Data-driven horse racing handicapping. Quick tour — 30 seconds.<br><br>Start by clicking <b>🏇 Kentucky Derby Demo</b> on the home screen, or pick a track and card from the dropdowns up top.'
-  },
-  {
-    title: 'Five tabs across the top',
-    body: '<b>📊 Rankings</b> — top picks with confidence levels<br><b>🎰 Exotics</b> — trifecta / superfecta plays<br><b>📡 Odds</b> — live tote board<br><b>📈 Analysis</b> — 609K-runner backtests <span style="color:#c9a76a">(Premium)</span><br><b>📰 News</b> — race-day insights'
-  },
-  {
-    title: 'News tab — Bloodlines & Backgrounds',
-    body: 'Click into <b>📰 News</b> for race-day insights. The <b>Bloodlines & Backgrounds</b> section breaks down breeding, connections, and notable runners — <span style="color:#c9a76a">unlocked with Premium</span>.'
-  },
-  {
-    title: 'Try Premium free for 7 days',
-    body: '$5 per race day after the trial — pay only on days you use PaddockIQ.<br><br>Full Analysis tab, algorithm-sized bet recommendations using your bankroll, personal bet log, Venmo importer, and Bloodlines.<br><br>No charge during the trial. Cancel anytime.'
-  }
-];
-var _tourStep = 0;
-
-function startTour(force){
-  if (!force && localStorage.getItem(TOUR_KEY) === 'done') return;
-  _tourStep = 0;
-  showTourStep();
-}
-
-function showTourStep(){
-  closeTour(true); // remove any existing
-  var step = TOUR_STEPS[_tourStep];
-  if (!step) { endTour(); return; }
-  var backdrop = document.createElement('div');
-  backdrop.id = 'tour-backdrop';
-  backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(13,30,22,0.55);z-index:9998;backdrop-filter:blur(2px)';
-  backdrop.onclick = function(e){ if (e.target === backdrop) endTour(); };
-  var card = document.createElement('div');
-  card.id = 'tour-card';
-  card.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:linear-gradient(135deg,#0d3d2e 0%,#0f4736 50%,#0d3d2e 100%);color:#f5ecd3;border:1.5px solid #c9a76a;border-radius:10px;padding:24px 26px;max-width:440px;width:calc(100% - 40px);z-index:9999;box-shadow:0 12px 40px rgba(0,0,0,0.4);font-family:"DM Sans",sans-serif';
-  var lastStep = _tourStep === TOUR_STEPS.length - 1;
-  card.innerHTML =
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px">' +
-      '<div>' +
-        '<div style="font-size:10px;color:#c9a76a;letter-spacing:0.1em;font-weight:700">STEP ' + (_tourStep+1) + ' OF ' + TOUR_STEPS.length + '</div>' +
-        '<div style="font-size:18px;font-weight:700;margin-top:4px">' + step.title + '</div>' +
-      '</div>' +
-      '<button onclick="endTour()" style="background:transparent;border:none;color:rgba(245,236,211,0.6);font-size:20px;cursor:pointer;padding:0;line-height:1" title="Skip">×</button>' +
-    '</div>' +
-    '<div style="font-size:13px;line-height:1.6;color:rgba(245,236,211,0.92);margin-bottom:20px">' + step.body + '</div>' +
-    '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px">' +
-      '<button onclick="endTour()" style="background:transparent;border:none;color:rgba(245,236,211,0.55);font-size:12px;cursor:pointer;padding:4px 0;text-decoration:underline">Skip tour</button>' +
-      '<div style="display:flex;gap:8px">' +
-        (_tourStep > 0 ? '<button onclick="prevTourStep()" style="background:transparent;border:1px solid rgba(201,167,106,0.5);color:#c9a76a;border-radius:6px;padding:8px 14px;font-size:13px;cursor:pointer;font-weight:600">← Back</button>' : '') +
-        (lastStep
-          ? '<a href="/pricing" onclick="endTour()" style="background:#c9a76a;color:#0d3d2e;border-radius:6px;padding:9px 18px;font-size:13px;font-weight:700;text-decoration:none;letter-spacing:0.02em">Start free trial →</a>'
-          : '<button onclick="nextTourStep()" style="background:#c9a76a;color:#0d3d2e;border:none;border-radius:6px;padding:9px 18px;font-size:13px;cursor:pointer;font-weight:700;letter-spacing:0.02em">Next →</button>') +
-      '</div>' +
-    '</div>';
-  document.body.appendChild(backdrop);
-  document.body.appendChild(card);
-}
-
-function nextTourStep(){ _tourStep++; showTourStep(); }
-function prevTourStep(){ if (_tourStep > 0) { _tourStep--; showTourStep(); } }
-function endTour(){ closeTour(); localStorage.setItem(TOUR_KEY, 'done'); }
-function closeTour(silent){
-  var b = document.getElementById('tour-backdrop');
-  var c = document.getElementById('tour-card');
-  if (b) b.remove();
-  if (c) c.remove();
-}
-
-// Old auto-tour disabled — replaced by the welcome card + startTutorial() overlay tour.
-// startTour() function preserved for any callers that still invoke it directly.
+// Legacy auto-tour (TOUR_STEPS, startTour, showTourStep, et al.) removed 2026-05-16
+// — had no external callers; active onboarding is window.startTutorial (assigned below).
 
 (function(){
-  // Reset to "no track selected" on every page load. Persistent state (bankroll,
-  // bets, tc) still restores via applyLoadedState — but the active card/track
-  // selection is intentionally cleared so the user must explicitly pick fresh.
-  // Prevents a stale prior-session track from biasing today's recommendations.
+  // Stale-card clear: if the restored card is from a previous day, wipe so today's
+  // load fires fresh. Same-day refresh KEEPS the loaded card so the user lands on
+  // Rankings instead of the welcome screen.
+  function _todayLocalISO(){
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
   function clearActiveCardState(){
     cardInfo.code=''; cardInfo.track=''; cardInfo.date=''; cardInfo.numRaces=0; cardInfo.tz='';
     R=[]; scratches={}; liveOdds={}; kaci={}; tvgCommentary={}; expanded={};
     window._loadedCardId=0;
   }
+  function clearIfStale(){
+    // Keep restored card if its date matches today (or no explicit date — assume same session).
+    var d = cardInfo && cardInfo.date ? String(cardInfo.date) : '';
+    if(!d) return; // nothing to clear / nothing was loaded
+    // Accept "2026-05-16" or "5/16/2026" formats
+    var today = _todayLocalISO();
+    var iso = d.match(/^\d{4}-\d{2}-\d{2}$/) ? d :
+              d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/) ? (RegExp.$3 + '-' + RegExp.$1.padStart(2,'0') + '-' + RegExp.$2.padStart(2,'0')) : '';
+    if(iso && iso === today && R && R.length){
+      return; // same-day, valid card — keep it, skip welcome screen
+    }
+    clearActiveCardState();
+  }
   // Load state from IndexedDB (persistent) then localStorage fallback
   loadPersistedState().then(function(state){
     if(state) try{ applyLoadedState(state); }catch(e){ console.warn('applyState:',e); }
-    clearActiveCardState();
+    clearIfStale();
     populateTrackSelector();
     updateCardHeader();
     // Auto-load today's card from server if no card in state
@@ -6462,7 +6544,7 @@ function closeTour(silent){
   }).catch(function(e){
     console.warn('IDB load failed, trying localStorage:', e);
     try{ loadState(); }catch(le){ console.warn('loadState:',le); }
-    clearActiveCardState();
+    clearIfStale();
     setTimeout(function(){if(typeof loadSavedCardList!=="undefined")loadSavedCardList().catch(function(){});},1000);
     populateTrackSelector();
     updateCardHeader();
@@ -6905,7 +6987,228 @@ async function fetchLiveRacesBanner(){
   } catch (e) { /* swallow — banner just stays on previous state */ }
 }
 
+// ── Basic-view ranker — uses the same weight scheme as the DRF algorithm,
+//    but only fills in the components TVG actually provides. /api/odds gives
+//    us ML + live odds, which maps to the algorithm's `ml` factor (weight 0.04).
+//    With every other factor missing, we renormalize so ml becomes the full
+//    signal — effectively a market-driven rank plus a steam/drift bump.
+//    This is honestly thin (~4% coverage of the full model) and we tell the
+//    user so in the banner.
+function _basicMlToDec(s){
+  if(!s || typeof s !== 'string' || s.indexOf('-') < 0) return 0;
+  var p = s.split('-'); var a = parseFloat(p[0]), b = parseFloat(p[1]);
+  return (a > 0 && b > 0) ? a/b : 0;
+}
+function rankBasicRunners(runners){
+  return runners.filter(function(r){return !r.scratched;}).map(function(r){
+    var mlD = _basicMlToDec(r.ml);
+    var lvD = _basicMlToDec(r.live) || mlD;
+    // Same bucketed mlRaw as scoreRaceCSV — keeps the basic score on the same
+    // 0-1 normalized scale used by the full algorithm.
+    var mlRaw = mlD <= 1 ? 1.00 :
+                mlD <= 2 ? 0.85 :
+                mlD <= 4 ? 0.70 :
+                mlD <= 9 ? 0.55 :
+                mlD <= 19 ? 0.35 : 0.15;
+    var lvRaw = lvD <= 1 ? 1.00 :
+                lvD <= 2 ? 0.85 :
+                lvD <= 4 ? 0.70 :
+                lvD <= 9 ? 0.55 :
+                lvD <= 19 ? 0.35 : 0.15;
+    // 60/40 blend of live + ML — live is the sharper signal closer to post.
+    var marketRaw = lvRaw * 0.6 + mlRaw * 0.4;
+    // Steam (live shorter than ML) = real money moving in → bonus.
+    // Drift (live longer than ML) = the public abandoned the horse → small penalty.
+    var steam = 0, steamLabel = '';
+    if(mlD > 0 && lvD > 0){
+      var ratio = lvD / mlD;
+      if(ratio < 0.7){ steam = 0.10; steamLabel = '↓ HEAVY STEAM'; }
+      else if(ratio < 0.85){ steam = 0.05; steamLabel = '↓ STEAM'; }
+      else if(ratio > 1.4){ steam = -0.07; steamLabel = '↑ HEAVY DRIFT'; }
+      else if(ratio > 1.15){ steam = -0.04; steamLabel = '↑ DRIFT'; }
+    }
+    // Score on the same 0-120 scale as the DRF model (it goes 0-120 because of
+    // bonuses; market-only tops out around 110).
+    var score = Math.max(0, Math.min(120, Math.round((marketRaw + steam) * 100)));
+    return Object.assign({}, r, {
+      score: score, mlDec: mlD, liveDec: lvD, steam: steam, steamLabel: steamLabel
+    });
+  }).sort(function(a, b){ return b.score - a.score; });
+}
+
+// ── Basic-view mode — when a user taps a Live Today pill for a track that has
+//    no PP uploaded yet, drop into a stripped-down "TVG-only" view: live odds
+//    + race numbers + post times + an upload prompt. No model scoring runs.
+window._basicMode = null;          // { code, name, races: [...] } when active
+window._basicModeLoading = false;
+
+async function enterBasicMode(code, name){
+  if(!code) return;
+  // If we have a PP for this code already loaded (cardInfo.code matches and R is
+  // populated), just stay in normal mode — no need to drop into basic.
+  if((cardInfo && cardInfo.code === code) && R && R.length){
+    return;
+  }
+  window._basicMode = { code: code, name: name || code, races: [] };
+  window._basicModeLoading = true;
+  // Trigger an immediate render so the placeholder/loading state shows.
+  if(typeof render === 'function') render();
+  try {
+    // Today's date in local YYYY-MM-DD
+    var d = new Date();
+    var iso = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    var resp = await fetch('/api/odds?track=' + encodeURIComponent(code) + '&date=' + iso, { cache: 'no-store' });
+    var data = resp.ok ? await resp.json() : null;
+    var liveTrack = (window._liveRacesData && window._liveRacesData.tracks || []).find(function(t){return t.code === code;}) || {};
+    var races = [];
+    if(data && data.races){
+      Object.keys(data.races).sort(function(a,b){return parseInt(a) - parseInt(b);}).forEach(function(k){
+        var r = data.races[k];
+        var runners = Object.keys(r.runners||{}).map(function(name){
+          var info = r.runners[name];
+          return { name: name, ml: info.ml || '', live: info.live || '', scratched: !!info.scratched };
+        });
+        races.push({ num: parseInt(k), runners: runners });
+      });
+    }
+    window._basicMode = {
+      code: code,
+      name: name || liveTrack.name || code,
+      currentRace: liveTrack.raceNumber || null,
+      mtp: liveTrack.mtp != null ? liveTrack.mtp : null,
+      statusName: liveTrack.statusName || '',
+      totalRaces: liveTrack.totalRaces || (races.length || null),
+      postTime: liveTrack.postTime || '',
+      races: races,
+    };
+  } catch(e){
+    console.warn('basic-mode fetch failed:', e);
+  } finally {
+    window._basicModeLoading = false;
+    if(typeof render === 'function') render();
+  }
+}
+
+function exitBasicMode(){
+  window._basicMode = null;
+  if(typeof render === 'function') render();
+}
+
+function renderBasicTrackView(){
+  var bm = window._basicMode;
+  if(!bm) return '';
+  var loading = window._basicModeLoading;
+  // Try to pretty-format the next-race post time
+  var nextPost = '';
+  if(bm.postTime){
+    try {
+      var p = new Date(bm.postTime);
+      if(!isNaN(p)) nextPost = p.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    } catch(e){}
+  }
+  var statusChip = bm.statusName ? '<span style="font-size:10px;letter-spacing:.1em;color:var(--gold);background:rgba(201,167,106,0.12);border:1px solid rgba(201,167,106,0.45);border-radius:4px;padding:2px 8px;font-weight:700;margin-left:8px">'+bm.statusName.toUpperCase()+'</span>' : '';
+  var html = '';
+  // Notice — prominent, no false claims, redirects to upload
+  html += '<div class="card-gold" style="padding:18px 22px;margin-bottom:12px;border-left:4px solid #c08030">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">' +
+      '<div style="flex:1;min-width:240px">' +
+        '<div style="font-size:10px;color:#c08030;letter-spacing:.12em;font-weight:700;margin-bottom:4px">⚠ NO DRF PP UPLOADED — ESTIMATE ONLY</div>' +
+        '<div style="font-size:14px;line-height:1.5;color:var(--text)">' +
+          'Ranking horses for <b style="color:var(--gold)">' + bm.name + '</b> from TVG data only. The full algorithm uses 9 components (speed figs, pace, class, form, jockey/trainer, works, distance fit, pedigree, market) — without a PP we only have <b>market signal (~4% of normal model weight)</b>. ' +
+          '<span style="color:var(--muted)">Effectively a "follow the money" ranking. Upload a PP for the full handicap.</span>' +
+        '</div>' +
+      '</div>' +
+      '<button onclick="document.querySelector(\'.upload-btn\')?.click()" style="background:var(--gold);color:var(--green);border:none;border-radius:6px;padding:10px 18px;font-family:\'Oswald\',sans-serif;font-size:12px;font-weight:700;letter-spacing:.1em;cursor:pointer;white-space:nowrap">UPLOAD PP CSV</button>' +
+    '</div>' +
+  '</div>';
+  // Track header
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
+    '<div style="display:flex;align-items:center;gap:8px">' +
+      '<span class="bebas" style="font-size:18px;color:var(--gold)">' + bm.name + '</span>' +
+      (bm.currentRace ? '<span style="font-size:12px;color:var(--muted)">Race ' + bm.currentRace + (bm.totalRaces?' of '+bm.totalRaces:'') + '</span>' : '') +
+      statusChip +
+      (nextPost ? '<span style="font-size:11px;color:var(--dim);margin-left:6px">Next post: <b style="color:var(--text)">'+nextPost+'</b>'+(bm.mtp!=null?' · MTP '+bm.mtp:'')+'</span>' : '') +
+    '</div>' +
+    '<button onclick="exitBasicMode()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:5px 12px;font-size:11px;cursor:pointer">← Back</button>' +
+  '</div>';
+  if(loading){
+    html += '<div style="padding:30px;text-align:center;color:var(--muted)">Loading live odds…</div>';
+    return html;
+  }
+  if(!bm.races.length){
+    html += '<div class="card-gold" style="padding:20px;color:var(--muted);font-style:italic">No live odds available for this track yet. Check back closer to first post.</div>';
+    return html;
+  }
+  // Per-race ranked listing — same shape as the main rankings tab, just thinner.
+  bm.races.forEach(function(r){
+    var ranked = rankBasicRunners(r.runners);
+    var scratched = r.runners.filter(function(x){return x.scratched;});
+    html += '<div class="card-gold" style="padding:12px 16px;margin-bottom:10px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+        '<div class="bebas" style="font-size:14px;color:var(--gold)">Race ' + r.num + '</div>' +
+        '<div style="font-size:10px;color:var(--dim);letter-spacing:.1em">' + ranked.length + ' RUNNERS · MARKET-ONLY RANK</div>' +
+      '</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+        '<tr style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px">' +
+          '<td style="padding:3px 8px;width:28px">#</td>' +
+          '<td style="padding:3px 8px">Horse</td>' +
+          '<td style="padding:3px 8px;text-align:right">Score</td>' +
+          '<td style="padding:3px 8px;text-align:right">ML</td>' +
+          '<td style="padding:3px 8px;text-align:right">Live</td>' +
+          '<td style="padding:3px 8px;text-align:right">Move</td>' +
+        '</tr>' +
+        ranked.map(function(rn, i){
+          var nc = i===0?'var(--gold)':i===1?'#9eaac8':i===2?'#c09060':'var(--dim)';
+          var liveColor = rn.steam > 0 ? 'var(--green)' : rn.steam < 0 ? 'var(--red)' : 'var(--text)';
+          var steamPill = rn.steamLabel ? '<span style="font-size:9px;font-weight:700;color:'+liveColor+';letter-spacing:.5px">'+rn.steamLabel+'</span>' : '';
+          return '<tr style="border-top:1px solid var(--rule2)">' +
+            '<td style="padding:5px 8px;font-weight:700;color:'+nc+';font-size:14px">' + (i+1) + '</td>' +
+            '<td style="padding:5px 8px;color:var(--text)">' + rn.name + (i===0?' <span class="pill" style="border-color:var(--gold);color:var(--gold);background:var(--brass-soft);font-weight:600;letter-spacing:1px;font-size:9px">★ MKT PICK</span>':'') + '</td>' +
+            '<td style="padding:5px 8px;text-align:right;font-family:monospace;font-weight:700;color:'+nc+';font-size:14px">' + rn.score + '</td>' +
+            '<td style="padding:5px 8px;text-align:right;font-family:monospace;color:var(--muted)">' + (rn.ml||'—') + '</td>' +
+            '<td style="padding:5px 8px;text-align:right;font-family:monospace;font-weight:700;color:'+liveColor+'">' + (rn.live||'—') + '</td>' +
+            '<td style="padding:5px 8px;text-align:right">' + steamPill + '</td>' +
+          '</tr>';
+        }).join('') +
+        // Scratched horses shown faded at the bottom
+        scratched.map(function(rn){
+          return '<tr style="border-top:1px solid var(--rule2);opacity:.4">' +
+            '<td style="padding:5px 8px;color:#664444">—</td>' +
+            '<td style="padding:5px 8px;text-decoration:line-through;color:#664444">' + rn.name + ' <span class="pill pill-muted" style="opacity:.7;font-size:9px">SCR</span></td>' +
+            '<td colspan="4" style="padding:5px 8px"></td>' +
+          '</tr>';
+        }).join('') +
+      '</table>' +
+      '<div style="font-size:10px;color:var(--dim);font-style:italic;margin-top:6px;line-height:1.4">Score = market consensus (live 60% / ML 40%) ± steam/drift. Full algorithm not applied — upload PP for accurate scoring.</div>' +
+    '</div>';
+  });
+  return html;
+}
+
 function onLiveRaceClick(code){
+  // Find the live track entry to get the name
+  var liveTrack = (window._liveRacesData && window._liveRacesData.tracks || []).find(function(t){return t.code === code;});
+  var trackObj = (typeof TRACK_LIST !== 'undefined') ? TRACK_LIST.find(function(t){return t.code===code;}) : null;
+  var trackName = (liveTrack && liveTrack.name) || (trackObj && trackObj.name) || code;
+  // If we already have a PP loaded for this track, switch the header track selector
+  // and bail — the rankings tab is already showing the analyzed card.
+  if((cardInfo && cardInfo.code === code) && R && R.length){
+    exitBasicMode();
+    return;
+  }
+  // Otherwise enter basic mode — rankings tab will show TVG-only info + upload CTA.
+  enterBasicMode(code, trackName);
+}
+
+function _legacyOnLiveRaceClick(code){
+  // Original modal flow — kept inert in case we want to bring it back as an option.
+  if (!code) return;
+  var trackObj = (typeof TRACK_LIST !== 'undefined') ? TRACK_LIST.find(function(t){return t.code===code;}) : null;
+  var trackName = trackObj ? trackObj.name : code;
+  showLoadCardModal(code, trackName);
+}
+
+function _OLD_onLiveRaceClick_legacy(code){
   // Tapping a Live Today pill doesn't load a card by itself — we don't have one
   // until the user pulls today's DRF PP CSV. Show a modal with the load path
   // (DRF → download → come back → Upload Card CSV) and a "best practice" nudge
@@ -7353,7 +7656,7 @@ async function loadSelectedCard(){
       const mlDec = mlToDecimal(h.B_MLOdds);
       const mlRaw = mlDec<=1?1:mlDec<=2?0.85:mlDec<=4?0.70:mlDec<=9?0.55:mlDec<=19?0.35:0.15;
 
-      // Past race history (up to 12)
+      // Past race history (up to 12) — richer fields for trip handicapping
       const pastRaces = [];
       for (let i = 1; i <= 12; i++) {
         const prDate = h['HR_Date_'+i]; if (!prDate) break;
@@ -7363,12 +7666,23 @@ async function loadSelectedCard(){
           cls: h['HR_LongClass_'+i] || '',
           claim: nv(h['HR_ClaimPrice_'+i]),
           fc: nv(h['HR_FirstCall_'+i]),
+          sc: nv(h['HR_SecondCall_'+i]),
+          str: nv(h['HR_StrCall_'+i]),
           fin: nv(h['HR_FinalCall_'+i]),
           trk: h['HR_Track_'+i] || '',
           dist: h['HR_Distance_'+i] || '',
           surf: h['HR_Surface_'+i] || '',
           pos: nv(h['HR_FinishPos_'+i]),
           starters: nv(h['HR_Starters_'+i]),
+          // Trip-handicapping additions:
+          comment: (h['HR_LongComment_'+i] || h['HR_Comment_'+i] || '').trim(),
+          beaten: nv(h['HR_FinalCallLenAdj_'+i]),    // lengths behind winner at finish
+          trkCond: h['HR_TrkCond_'+i] || '',          // FT, GD, SY, MY, etc.
+          postPos: nv(h['HR_PostPosition_'+i]),
+          odds: nv(h['HR_Odds_'+i]),
+          weight: nv(h['HR_Weight_'+i]),
+          time: h['HR_FinalTime_'+i] || '',
+          winner: h['HR_FirstHorse_'+i] || '',
         });
       }
 
